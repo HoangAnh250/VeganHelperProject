@@ -1,14 +1,17 @@
 # VeganHelperProject
 
-ASP.NET Core .NET 10 / EF Core SQL Server / 3-layer starter.
+ASP.NET Core .NET 10 / EF Core SQL Server / single-project 3-layer starter.
 
 Open `VeganHelper.sln` in Visual Studio, set `VeganHelper.API` as startup project and run the https profile. Swagger: https://localhost:7180/swagger.
 
-## Layers
+## Project structure
 
-- API: controllers and dependency injection.
-- Business: DTOs and services.
-- DataAccess: 27 entities, EF configuration and repositories.
+One Web API project, `src/VeganHelper.API/VeganHelper.API.csproj`. The layers are folders inside that project:
+
+- `Controllers/`: HTTP endpoints.
+- `Services/` and `DTOs/`: business logic and API contracts.
+- `Repositories/`, `Models/`, and `Data/`: EF Core entities, data access, and `AppDbContext`.
+- `Migrations/`: Code First schema history.
 
 `GET /health/live` tests API availability without SQL. Development-only `GET /api/status` exercises Controller -> Service -> Repository and returns 503 if SQL is unavailable.
 
@@ -19,7 +22,7 @@ The 27-table schema matches the approved revised design, with member/admin role 
 ```powershell
 dotnet restore
 dotnet build
-dotnet ef database update --project src/VeganHelper.DataAccess --startup-project src/VeganHelper.API
+dotnet ef database update --project src/VeganHelper.API/VeganHelper.API.csproj
 ```
 
 Only apply InitialCreate to a new database. If VeganHelperSystem already has tables/data, use a separate database or plan a baseline; do not apply blindly. Configure connection strings using user-secrets or environment variables, never commit credentials. The EF migrations history table is infrastructure, not an extra business table.

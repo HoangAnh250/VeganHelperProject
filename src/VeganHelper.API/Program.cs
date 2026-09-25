@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using VeganHelper.Business.Services;
-using VeganHelper.DataAccess.Data;
-using VeganHelper.DataAccess.Repositories;
+using VeganHelper.API.Data;
+using VeganHelper.API.Repositories;
+using VeganHelper.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
