@@ -13,3 +13,6 @@ TestResults/
 
 # Ignore prompt file
 prompt.md
+
+# Ignore local SOP
+docs/3Layer_Code_Generation_Skill.md
