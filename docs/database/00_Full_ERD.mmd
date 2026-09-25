@@ -3,6 +3,7 @@ erDiagram
         BIGINT id PK "NOT NULL"
         NVARCHAR(100) username UK "NOT NULL"
         NVARCHAR(255) email UK "NOT NULL"
+        NVARCHAR(20) phone_number "NULL"
         NVARCHAR(500) password_hash "NULL"
         DATETIME2 email_verified_at "NULL"
         BIT is_active "NOT NULL"
@@ -10,6 +11,8 @@ erDiagram
         DATETIME2 updated_at "NULL"
         DATETIME2 last_login_at "NULL"
         DATETIME2 deleted_at "NULL"
+        INT failed_login_attempts "NOT NULL"
+        DATETIME2 locked_until "NULL"
         INT role_id FK "NOT NULL"
     }
     user_profiles {
@@ -32,6 +35,30 @@ erDiagram
         BIGINT user_id FK "NOT NULL"
         NVARCHAR(20) provider "NOT NULL"
         NVARCHAR(255) provider_subject "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+    }
+    email_verification_tokens {
+        BIGINT id PK "NOT NULL"
+        BIGINT user_id FK "NOT NULL"
+        VARCHAR(128) token_hash UK "NOT NULL"
+        DATETIME2 expires_at "NOT NULL"
+        DATETIME2 consumed_at "NULL"
+        DATETIME2 created_at "NOT NULL"
+    }
+    password_reset_tokens {
+        BIGINT id PK "NOT NULL"
+        BIGINT user_id FK "NOT NULL"
+        VARCHAR(128) token_hash UK "NOT NULL"
+        DATETIME2 expires_at "NOT NULL"
+        DATETIME2 used_at "NULL"
+        DATETIME2 created_at "NOT NULL"
+    }
+    refresh_tokens {
+        BIGINT id PK "NOT NULL"
+        BIGINT user_id FK "NOT NULL"
+        VARCHAR(128) token_hash UK "NOT NULL"
+        DATETIME2 expires_at "NOT NULL"
+        DATETIME2 revoked_at "NULL"
         DATETIME2 created_at "NOT NULL"
     }
     posts {
@@ -252,6 +279,9 @@ erDiagram
     roles ||--|{ users : "has_role"
     users ||--|| user_profiles : "has_profile"
     users ||--|{ user_identities : "external_login"
+    users ||--|{ email_verification_tokens : "verification_tokens"
+    users ||--|{ password_reset_tokens : "password_resets"
+    users ||--|{ refresh_tokens : "refresh_sessions"
     users ||--|{ posts : "authors"
     posts ||--|{ post_media : "has_media"
     posts ||--|| post_summaries : "summary_of"

@@ -32,6 +32,15 @@
         "unique": true
       },
       {
+        "name": "phone_number",
+        "type": "NVARCHAR(20)",
+        "note": "Số điện thoại Việt Nam dùng trong hồ sơ.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
         "name": "password_hash",
         "type": "NVARCHAR(500)",
         "note": "Hash từ thư viện mật khẩu; NULL khi chỉ đăng nhập Google.",
@@ -91,6 +100,25 @@
         "name": "deleted_at",
         "type": "DATETIME2",
         "note": "Thời điểm xóa mềm tài khoản.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "failed_login_attempts",
+        "type": "INT",
+        "note": "Số lần đăng nhập sai liên tiếp; khóa sau 5 lần.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "0"
+      },
+      {
+        "name": "locked_until",
+        "type": "DATETIME2",
+        "note": "Thời điểm hết khóa tài khoản.",
         "nullable": true,
         "identity": false,
         "pk": false,
@@ -2853,5 +2881,59 @@
         "filter": null
       }
     ]
+  },
+  {
+    "name": "email_verification_tokens",
+    "group": 1,
+    "description": "One-time registration OTP hashes.",
+    "columns": [
+      { "name": "id", "type": "BIGINT", "note": "Token identifier.", "nullable": false, "identity": true, "pk": true, "unique": false },
+      { "name": "user_id", "type": "BIGINT", "note": "User awaiting verification.", "nullable": false, "identity": false, "pk": false, "unique": false },
+      { "name": "token_hash", "type": "VARCHAR(128)", "note": "SHA-256 hash of OTP.", "nullable": false, "identity": false, "pk": false, "unique": true },
+      { "name": "expires_at", "type": "DATETIME2", "note": "OTP expiry.", "nullable": false, "identity": false, "pk": false, "unique": false },
+      { "name": "consumed_at", "type": "DATETIME2", "note": "One-time consumption timestamp.", "nullable": true, "identity": false, "pk": false, "unique": false },
+      { "name": "created_at", "type": "DATETIME2", "note": "Creation timestamp.", "nullable": false, "identity": false, "pk": false, "unique": false, "default": "SYSUTCDATETIME()" }
+    ],
+    "pk": ["id"],
+    "refs": [{ "columns": ["user_id"], "parent": "users", "target": ["id"], "label": "verification_for" }],
+    "checks": [],
+    "unique": ["token_hash"],
+    "indexes": [{ "columns": ["user_id", "expires_at"], "unique": false, "filter": null }]
+  },
+  {
+    "name": "password_reset_tokens",
+    "group": 1,
+    "description": "One-time password reset token hashes.",
+    "columns": [
+      { "name": "id", "type": "BIGINT", "note": "Token identifier.", "nullable": false, "identity": true, "pk": true, "unique": false },
+      { "name": "user_id", "type": "BIGINT", "note": "Account allowed to reset.", "nullable": false, "identity": false, "pk": false, "unique": false },
+      { "name": "token_hash", "type": "VARCHAR(128)", "note": "SHA-256 hash of reset token.", "nullable": false, "identity": false, "pk": false, "unique": true },
+      { "name": "expires_at", "type": "DATETIME2", "note": "Reset expiry.", "nullable": false, "identity": false, "pk": false, "unique": false },
+      { "name": "used_at", "type": "DATETIME2", "note": "One-time consumption timestamp.", "nullable": true, "identity": false, "pk": false, "unique": false },
+      { "name": "created_at", "type": "DATETIME2", "note": "Creation timestamp.", "nullable": false, "identity": false, "pk": false, "unique": false, "default": "SYSUTCDATETIME()" }
+    ],
+    "pk": ["id"],
+    "refs": [{ "columns": ["user_id"], "parent": "users", "target": ["id"], "label": "reset_for" }],
+    "checks": [],
+    "unique": ["token_hash"],
+    "indexes": [{ "columns": ["user_id", "expires_at"], "unique": false, "filter": null }]
+  },
+  {
+    "name": "refresh_tokens",
+    "group": 1,
+    "description": "Rotatable and revocable refresh session token hashes.",
+    "columns": [
+      { "name": "id", "type": "BIGINT", "note": "Session token identifier.", "nullable": false, "identity": true, "pk": true, "unique": false },
+      { "name": "user_id", "type": "BIGINT", "note": "Token owner.", "nullable": false, "identity": false, "pk": false, "unique": false },
+      { "name": "token_hash", "type": "VARCHAR(128)", "note": "SHA-256 hash of opaque refresh token.", "nullable": false, "identity": false, "pk": false, "unique": true },
+      { "name": "expires_at", "type": "DATETIME2", "note": "Refresh expiry.", "nullable": false, "identity": false, "pk": false, "unique": false },
+      { "name": "revoked_at", "type": "DATETIME2", "note": "Revocation or rotation timestamp.", "nullable": true, "identity": false, "pk": false, "unique": false },
+      { "name": "created_at", "type": "DATETIME2", "note": "Creation timestamp.", "nullable": false, "identity": false, "pk": false, "unique": false, "default": "SYSUTCDATETIME()" }
+    ],
+    "pk": ["id"],
+    "refs": [{ "columns": ["user_id"], "parent": "users", "target": ["id"], "label": "refresh_for" }],
+    "checks": [],
+    "unique": ["token_hash"],
+    "indexes": [{ "columns": ["user_id", "expires_at", "revoked_at"], "unique": false, "filter": null }]
   }
 ]

@@ -6,6 +6,9 @@ namespace VeganHelper.DAL.Persistence;
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
+    public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserIdentity> UserIdentities => Set<UserIdentity>();
@@ -47,6 +50,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasAlternateKey(x => x.Username).HasName("UQ_users_username");
             entity.Property(x => x.Email).HasColumnName("email").HasColumnType("NVARCHAR(255)").IsRequired(true);
             entity.HasAlternateKey(x => x.Email).HasName("UQ_users_email");
+            entity.Property(x => x.PhoneNumber).HasColumnName("phone_number").HasColumnType("NVARCHAR(20)").IsRequired(false);
             entity.Property(x => x.PasswordHash).HasColumnName("password_hash").HasColumnType("NVARCHAR(500)").IsRequired(false);
             entity.Property(x => x.EmailVerifiedAt).HasColumnName("email_verified_at").HasColumnType("DATETIME2").IsRequired(false);
             entity.Property(x => x.IsActive).HasColumnName("is_active").HasColumnType("BIT").IsRequired(true).HasDefaultValueSql("1");
@@ -54,8 +58,52 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasColumnType("DATETIME2").IsRequired(false);
             entity.Property(x => x.LastLoginAt).HasColumnName("last_login_at").HasColumnType("DATETIME2").IsRequired(false);
             entity.Property(x => x.DeletedAt).HasColumnName("deleted_at").HasColumnType("DATETIME2").IsRequired(false);
+            entity.Property(x => x.FailedLoginAttempts).HasColumnName("failed_login_attempts").HasColumnType("INT").IsRequired(true).HasDefaultValueSql("0");
+            entity.Property(x => x.LockedUntil).HasColumnName("locked_until").HasColumnType("DATETIME2").IsRequired(false);
             entity.Property(x => x.RoleId).HasColumnName("role_id").HasColumnType("INT").IsRequired(true);
             entity.HasOne<Role>().WithMany().HasForeignKey(x => new { x.RoleId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_users_1");
+        });
+        modelBuilder.Entity<EmailVerificationToken>(entity =>
+        {
+            entity.ToTable("email_verification_tokens");
+            entity.HasKey(x => x.Id).HasName("PK_email_verification_tokens");
+            entity.Property(x => x.Id).HasColumnName("id").HasColumnType("BIGINT").UseIdentityColumn();
+            entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("BIGINT").IsRequired();
+            entity.Property(x => x.TokenHash).HasColumnName("token_hash").HasColumnType("VARCHAR(128)").IsRequired();
+            entity.Property(x => x.ExpiresAt).HasColumnName("expires_at").HasColumnType("DATETIME2").IsRequired();
+            entity.Property(x => x.ConsumedAt).HasColumnName("consumed_at").HasColumnType("DATETIME2").IsRequired(false);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("DATETIME2").IsRequired().HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_email_verification_tokens_users");
+            entity.HasIndex(x => new { x.UserId, x.ExpiresAt }).HasDatabaseName("IX_email_verification_tokens_user_expiry");
+            entity.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("UQ_email_verification_tokens_hash");
+        });
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.ToTable("password_reset_tokens");
+            entity.HasKey(x => x.Id).HasName("PK_password_reset_tokens");
+            entity.Property(x => x.Id).HasColumnName("id").HasColumnType("BIGINT").UseIdentityColumn();
+            entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("BIGINT").IsRequired();
+            entity.Property(x => x.TokenHash).HasColumnName("token_hash").HasColumnType("VARCHAR(128)").IsRequired();
+            entity.Property(x => x.ExpiresAt).HasColumnName("expires_at").HasColumnType("DATETIME2").IsRequired();
+            entity.Property(x => x.UsedAt).HasColumnName("used_at").HasColumnType("DATETIME2").IsRequired(false);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("DATETIME2").IsRequired().HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_password_reset_tokens_users");
+            entity.HasIndex(x => new { x.UserId, x.ExpiresAt }).HasDatabaseName("IX_password_reset_tokens_user_expiry");
+            entity.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("UQ_password_reset_tokens_hash");
+        });
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.ToTable("refresh_tokens");
+            entity.HasKey(x => x.Id).HasName("PK_refresh_tokens");
+            entity.Property(x => x.Id).HasColumnName("id").HasColumnType("BIGINT").UseIdentityColumn();
+            entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("BIGINT").IsRequired();
+            entity.Property(x => x.TokenHash).HasColumnName("token_hash").HasColumnType("VARCHAR(128)").IsRequired();
+            entity.Property(x => x.ExpiresAt).HasColumnName("expires_at").HasColumnType("DATETIME2").IsRequired();
+            entity.Property(x => x.RevokedAt).HasColumnName("revoked_at").HasColumnType("DATETIME2").IsRequired(false);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("DATETIME2").IsRequired().HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_refresh_tokens_users");
+            entity.HasIndex(x => new { x.UserId, x.ExpiresAt, x.RevokedAt }).HasDatabaseName("IX_refresh_tokens_user_status");
+            entity.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("UQ_refresh_tokens_hash");
         });
         modelBuilder.Entity<UserProfile>(entity =>
         {
