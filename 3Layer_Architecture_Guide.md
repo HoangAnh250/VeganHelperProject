@@ -7,6 +7,16 @@
 ## 📐 1. CẤU TRÚC KIẾN TRÚC 3-LAYER (3-TIER ARCHITECTURE)
 
 **⚠️ QUY TẮC BẮT BUỘC: Luồng dữ liệu đi theo chiều `Controller -> Service -> Repository`. Tuyệt đối không gọi tắt từ Controller xuống Repository.**
+### Cấu trúc project thực tế
+
+```text
+Solution: VeganHelper
+├── VeganHelper.API  (ASP.NET Core Web API)
+├── VeganHelper.BLL  (Class Library: DTOs, Services)
+└── VeganHelper.DAL  (Class Library: Models, Data, Repositories, Migrations)
+```
+
+Project reference: `API -> BLL -> DAL`; API cũng tham chiếu DAL để đăng ký dependency injection trong `Program.cs`. Controller chỉ gọi Service. Service xử lý nghiệp vụ và gọi Repository. Repository chỉ làm việc với `AppDbContext`.
 
 ```text
 Solution: VeganHelper
@@ -34,11 +44,11 @@ Solution: VeganHelper
 ---
 
 ### BƯỚC 3: Thiết Kế Layer 3 - Data Access (Models & DbContext)
-*Lưu ý: Vì Database của bạn có 26 bảng, trong file này mình lấy ví dụ luồng 3-Layer xuyên suốt cho bảng `posts` và `users`. Bạn có thể dùng Codex để sinh tự động 24 bảng còn lại nhé.*
+*Lưu ý: Vì Database của bạn có 27 bảng, trong file này mình lấy ví dụ luồng 3-Layer xuyên suốt cho bảng `posts` và `users`. Bạn có thể dùng Codex để sinh tự động 24 bảng còn lại nhé.*
 
 #### 1. Models (`Models/User.cs`, `Models/Post.cs`)
 ```csharp
-namespace VeganHelper.API.Models
+namespace VeganHelper.DAL.Models
 {
     public class User
     {
@@ -73,9 +83,9 @@ namespace VeganHelper.API.Models
 #### 2. Data Context (`Data/AppDbContext.cs`)
 ```csharp
 using Microsoft.EntityFrameworkCore;
-using VeganHelper.API.Models;
+using VeganHelper.DAL.Models;
 
-namespace VeganHelper.API.Data
+namespace VeganHelper.DAL.Data
 {
     public class AppDbContext : DbContext
     {
@@ -112,10 +122,10 @@ namespace VeganHelper.API.Data
 #### Repository Contract & Implementation (`Repositories/`)
 ```csharp
 using Microsoft.EntityFrameworkCore;
-using VeganHelper.API.Data;
-using VeganHelper.API.Models;
+using VeganHelper.DAL.Data;
+using VeganHelper.DAL.Models;
 
-namespace VeganHelper.API.Repositories
+namespace VeganHelper.DAL.Repositories
 {
     public interface IPostRepository
     {
@@ -174,7 +184,7 @@ namespace VeganHelper.API.Repositories
 ```csharp
 using System.ComponentModel.DataAnnotations;
 
-namespace VeganHelper.API.DTOs
+namespace VeganHelper.BLL.DTOs
 {
     // DTO Trả về cho Client
     public class PostDto
@@ -208,11 +218,11 @@ namespace VeganHelper.API.DTOs
 
 #### 2. Services (`Services/`)
 ```csharp
-using VeganHelper.API.DTOs;
-using VeganHelper.API.Models;
-using VeganHelper.API.Repositories;
+using VeganHelper.BLL.DTOs;
+using VeganHelper.DAL.Models;
+using VeganHelper.DAL.Repositories;
 
-namespace VeganHelper.API.Services
+namespace VeganHelper.BLL.Services
 {
     public interface IPostService
     {
@@ -286,8 +296,8 @@ namespace VeganHelper.API.Services
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
-using VeganHelper.API.DTOs;
-using VeganHelper.API.Services;
+using VeganHelper.BLL.DTOs;
+using VeganHelper.BLL.Services;
 
 namespace VeganHelper.API.Controllers
 {
@@ -334,8 +344,8 @@ namespace VeganHelper.API.Controllers
 ### BƯỚC 7: Đăng Ký Dependency Injection trong `Program.cs`
 
 ```csharp
-using VeganHelper.API.Repositories;
-using VeganHelper.API.Services;
+using VeganHelper.DAL.Repositories;
+using VeganHelper.BLL.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
