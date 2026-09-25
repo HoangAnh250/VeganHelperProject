@@ -2,7 +2,7 @@ using System.Text;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using VeganHelper.BLL.Contracts.Services;
+using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.Services;
 using VeganHelper.DAL.DependencyInjection;

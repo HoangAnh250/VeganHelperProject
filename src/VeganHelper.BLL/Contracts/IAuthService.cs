@@ -1,6 +1,6 @@
 using VeganHelper.BLL.DTOs;
 
-namespace VeganHelper.BLL.Contracts.Services;
+namespace VeganHelper.BLL.Contracts;
 
 public interface IAuthService
 {

@@ -3,7 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using VeganHelper.BLL.Contracts.Services;
+using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
 using VeganHelper.DAL.Entities;
 

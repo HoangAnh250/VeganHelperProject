@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using VeganHelper.BLL.Contracts.Services;
+using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
 
 namespace VeganHelper.API.Controllers;

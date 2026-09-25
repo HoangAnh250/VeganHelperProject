@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using VeganHelper.BLL.Contracts.Services;
+using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
 using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;

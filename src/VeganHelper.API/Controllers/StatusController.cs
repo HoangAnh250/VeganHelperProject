@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using VeganHelper.BLL.Contracts.Services;
+using VeganHelper.BLL.Contracts;
 namespace VeganHelper.API.Controllers;
 [ApiController]
 [Route("api/status")]

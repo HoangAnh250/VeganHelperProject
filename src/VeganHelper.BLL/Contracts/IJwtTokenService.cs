@@ -1,6 +1,6 @@
 using VeganHelper.DAL.Entities;
 
-namespace VeganHelper.BLL.Contracts.Services;
+namespace VeganHelper.BLL.Contracts;
 
 public interface IJwtTokenService
 {
