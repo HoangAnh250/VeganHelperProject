@@ -13,7 +13,7 @@
 Solution: VeganHelper
 ├── VeganHelper.API  (ASP.NET Core Web API)
 ├── VeganHelper.BLL  (Class Library: DTOs, Services)
-└── VeganHelper.DAL  (Class Library: Models, Data, Repositories, Migrations)
+└── VeganHelper.DAL  (Class Library: Entities, Persistence, Repositories, Migrations)
 ```
 
 Project reference: `API -> BLL -> DAL`; API cũng tham chiếu DAL để đăng ký dependency injection trong `Program.cs`. Controller chỉ gọi Service. Service xử lý nghiệp vụ và gọi Repository. Repository chỉ làm việc với `AppDbContext`.
@@ -28,9 +28,9 @@ Solution: VeganHelper
  │    ├── DTOs/               --> Input/Output Data Transfer Objects (Validation Attributes)
  │    └── Services/           --> Đầu bếp: Chứa toàn bộ logic nghiệp vụ (tính toán, phân quyền, xử lý)
  │
- └── 3. Data Access Layer (Models & Repositories)
-      ├── Data/               --> AppDbContext (EF Core)
-      ├── Models/             --> Database Entities (Code First mapping với SQL Server)
+ └── 3. Data Access Layer (Entities & Repositories)
+      ├── Persistence/        --> AppDbContext và EF Core persistence configuration
+      ├── Entities/            --> Database Entities (Code First mapping với SQL Server)
       └── Repositories/       --> Thủ kho: Chỉ thực hiện truy vấn Database (Thêm/Sửa/Xóa/Lấy)
 ```
 
@@ -43,12 +43,12 @@ Solution: VeganHelper
 
 ---
 
-### BƯỚC 3: Thiết Kế Layer 3 - Data Access (Models & DbContext)
+### BƯỚC 3: Thiết Kế Layer 3 - Data Access (Entities & DbContext)
 *Lưu ý: Vì Database của bạn có 27 bảng, trong file này mình lấy ví dụ luồng 3-Layer xuyên suốt cho bảng `posts` và `users`. Bạn có thể dùng Codex để sinh tự động 24 bảng còn lại nhé.*
 
-#### 1. Models (`Models/User.cs`, `Models/Post.cs`)
+#### 1. Entities (`Entities/User.cs`, `Entities/Post.cs`)
 ```csharp
-namespace VeganHelper.DAL.Models
+namespace VeganHelper.DAL.Entities
 {
     public class User
     {
@@ -80,12 +80,12 @@ namespace VeganHelper.DAL.Models
 }
 ```
 
-#### 2. Data Context (`Data/AppDbContext.cs`)
+#### 2. Persistence Context (`Persistence/AppDbContext.cs`)
 ```csharp
 using Microsoft.EntityFrameworkCore;
-using VeganHelper.DAL.Models;
+using VeganHelper.DAL.Entities;
 
-namespace VeganHelper.DAL.Data
+namespace VeganHelper.DAL.Persistence
 {
     public class AppDbContext : DbContext
     {
@@ -122,8 +122,8 @@ namespace VeganHelper.DAL.Data
 #### Repository Contract & Implementation (`Repositories/`)
 ```csharp
 using Microsoft.EntityFrameworkCore;
-using VeganHelper.DAL.Data;
-using VeganHelper.DAL.Models;
+using VeganHelper.DAL.Persistence;
+using VeganHelper.DAL.Entities;
 
 namespace VeganHelper.DAL.Repositories
 {
@@ -219,7 +219,7 @@ namespace VeganHelper.BLL.DTOs
 #### 2. Services (`Services/`)
 ```csharp
 using VeganHelper.BLL.DTOs;
-using VeganHelper.DAL.Models;
+using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
 
 namespace VeganHelper.BLL.Services

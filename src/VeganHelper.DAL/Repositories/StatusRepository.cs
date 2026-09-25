@@ -1,4 +1,4 @@
-using VeganHelper.DAL.Data;
+using VeganHelper.DAL.Persistence;
 namespace VeganHelper.DAL.Repositories;
 public sealed class StatusRepository(AppDbContext db) : IStatusRepository
 {

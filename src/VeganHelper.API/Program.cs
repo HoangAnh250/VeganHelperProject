@@ -1,15 +1,13 @@
-using Microsoft.EntityFrameworkCore;
+using VeganHelper.BLL.Contracts.Services;
 using VeganHelper.BLL.Services;
-using VeganHelper.DAL.Data;
-using VeganHelper.DAL.Repositories;
+using VeganHelper.DAL.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("DefaultConnection is missing.")));
-builder.Services.AddScoped<IStatusRepository, StatusRepository>();
+builder.Services.AddDal(builder.Configuration);
 builder.Services.AddScoped<IStatusService, StatusService>();
 var app = builder.Build();
 app.UseExceptionHandler();
