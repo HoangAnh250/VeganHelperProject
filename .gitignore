@@ -10,3 +10,6 @@ TestResults/
 **/appsettings.Local.json
 *.pfx
 *.key
+
+# Ignore prompt file
+prompt.md

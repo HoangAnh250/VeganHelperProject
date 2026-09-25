@@ -1,0 +1,298 @@
+{
+  "Sprint1_API_Contracts": {
+    "Authentication": {
+      "FN01_Register": {
+        "method": "POST",
+        "endpoint": "/api/auth/register",
+        "description": "Register a new account",
+        "input": {
+          "email": "string (valid email format)",
+          "username": "string",
+          "password": "string (min 8 chars, must contain number & special char)",
+          "displayName": "string"
+        },
+        "output": {
+          "statusCode": 200,
+          "message": "Registration successful, please check your email for OTP"
+        }
+      },
+      "FN01_VerifyOTP": {
+        "method": "POST",
+        "endpoint": "/api/auth/verify-email",
+        "description": "Verify email via OTP",
+        "input": {
+          "email": "string",
+          "otpCode": "string (6 digits)"
+        },
+        "output": {
+          "statusCode": 200,
+          "message": "Email verified successfully"
+        }
+      },
+      "FN02_Login": {
+        "method": "POST",
+        "endpoint": "/api/auth/login",
+        "description": "User login",
+        "input": {
+          "emailOrUsername": "string",
+          "password": "string"
+        },
+        "output": {
+          "statusCode": 200,
+          "accessToken": "string (JWT)",
+          "refreshToken": "string",
+          "expiresIn": "int (seconds)"
+        },
+        "errorOutput": {
+          "statusCode": 401,
+          "message": "Invalid password. You have X attempts remaining.",
+          "isLockedOut": "boolean",
+          "lockoutEnd": "datetime (if locked out for 15 mins)"
+        }
+      },
+      "FN02_RefreshToken": {
+        "method": "POST",
+        "endpoint": "/api/auth/refresh",
+        "description": "Issue a new Access Token using Refresh Token",
+        "input": {
+          "refreshToken": "string"
+        },
+        "output": {
+          "statusCode": 200,
+          "accessToken": "string",
+          "refreshToken": "string"
+        }
+      },
+      "FN03_Logout": {
+        "method": "POST",
+        "endpoint": "/api/auth/logout",
+        "description": "Logout and revoke Refresh Token",
+        "headers": {
+          "Authorization": "Bearer {accessToken}"
+        },
+        "input": {
+          "refreshToken": "string (optional, send from client to revoke)"
+        },
+        "output": {
+          "statusCode": 200,
+          "message": "Logged out successfully"
+        }
+      },
+      "FN04_ForgotPassword": {
+        "method": "POST",
+        "endpoint": "/api/auth/forgot-password",
+        "description": "Send password reset link/OTP",
+        "input": {
+          "email": "string"
+        },
+        "output": {
+          "statusCode": 200,
+          "message": "Reset code sent to email"
+        }
+      },
+      "FN04_ResetPassword": {
+        "method": "POST",
+        "endpoint": "/api/auth/reset-password",
+        "description": "Reset password using OTP",
+        "input": {
+          "email": "string",
+          "token": "string (OTP/Reset token)",
+          "newPassword": "string"
+        },
+        "output": {
+          "statusCode": 200,
+          "message": "Password reset successfully"
+        }
+      }
+    },
+    "UserProfile": {
+      "FN05_GetProfile": {
+        "method": "GET",
+        "endpoint": "/api/users/profile",
+        "description": "Get user profile information",
+        "headers": {
+          "Authorization": "Bearer {accessToken}"
+        },
+        "output": {
+          "statusCode": 200,
+          "userId": "long",
+          "username": "string",
+          "email": "string",
+          "displayName": "string",
+          "avatarUrl": "string (nullable)",
+          "heightCm": "decimal (nullable)",
+          "weightKg": "decimal (nullable)",
+          "dietType": "string (vegan | lacto_ovo_vegetarian)"
+        }
+      },
+      "FN06_UpdateProfile": {
+        "method": "PUT",
+        "endpoint": "/api/users/profile",
+        "description": "Update user profile (FormData if file upload is required)",
+        "headers": {
+          "Authorization": "Bearer {accessToken}"
+        },
+        "input_formData": {
+          "displayName": "string",
+          "heightCm": "decimal (optional)",
+          "weightKg": "decimal (optional)",
+          "dietType": "string (vegan | lacto_ovo_vegetarian)",
+          "avatarFile": "file (optional, <= 5MB)"
+        },
+        "output": {
+          "statusCode": 200,
+          "message": "Profile updated successfully",
+          "avatarUrl": "string (new url if updated)"
+        }
+      }
+    },
+    "Posts": {
+      "FN08_FN11_GetFeed": {
+        "method": "GET",
+        "endpoint": "/api/posts",
+        "description": "Get post feed / Filter posts",
+        "queryParams": {
+          "pageIndex": "int (default: 1)",
+          "pageSize": "int (default: 10)",
+          "categoryId": "int (optional)",
+          "dietType": "string (optional)",
+          "prepTimeMax": "int (optional)"
+        },
+        "output": {
+          "statusCode": 200,
+          "totalItems": "long",
+          "totalPages": "int",
+          "items": [
+            {
+              "id": "long",
+              "title": "string",
+              "postType": "string",
+              "thumbnailUrl": "string (nullable)",
+              "authorName": "string",
+              "avatarUrl": "string (nullable)",
+              "viewCount": "long",
+              "createdAt": "datetime"
+            }
+          ]
+        }
+      },
+      "FN12_GetPostDetail": {
+        "method": "GET",
+        "endpoint": "/api/posts/{id}",
+        "description": "View post details (automatically increments view count)",
+        "output": {
+          "statusCode": 200,
+          "id": "long",
+          "authorId": "long",
+          "authorName": "string",
+          "postType": "string",
+          "title": "string",
+          "content": "string",
+          "prepTimeMins": "int",
+          "cookingTimeMins": "int",
+          "dietType": "string",
+          "status": "string",
+          "createdAt": "datetime",
+          "media": [
+            {
+              "mediaUrl": "string",
+              "mediaType": "string",
+              "isPrimary": "boolean"
+            }
+          ],
+          "ingredients": [
+            {
+              "ingredientId": "long",
+              "name": "string",
+              "quantity": "decimal",
+              "unit": "string"
+            }
+          ]
+        }
+      },
+      "FN13_CreatePost": {
+        "method": "POST",
+        "endpoint": "/api/posts",
+        "description": "Create a new post (default status = pending_review)",
+        "headers": {
+          "Authorization": "Bearer {accessToken}"
+        },
+        "input_formData": {
+          "title": "string (required)",
+          "postType": "string (article|video|recipe|community)",
+          "content": "string (required)",
+          "prepTimeMins": "int (optional)",
+          "cookingTimeMins": "int (optional)",
+          "dietType": "string (vegan|lacto_ovo_vegetarian)",
+          "mediaFiles": "List<file> (required at least 1 for thumbnail)",
+          "ingredientsJson": "string (JSON array of ingredients)"
+        },
+        "output": {
+          "statusCode": 201,
+          "message": "Post created successfully and is pending review",
+          "postId": "long"
+        }
+      },
+      "FN14_UpdatePost": {
+        "method": "PUT",
+        "endpoint": "/api/posts/{id}",
+        "description": "Update post (status reverts to pending_review automatically)",
+        "headers": {
+          "Authorization": "Bearer {accessToken}"
+        },
+        "input_formData": {
+          "title": "string",
+          "content": "string",
+          "prepTimeMins": "int",
+          "cookingTimeMins": "int",
+          "dietType": "string",
+          "mediaFilesToAdd": "List<file> (optional)",
+          "mediaIdsToRemove": "List<long> (optional)",
+          "ingredientsJson": "string (JSON array)"
+        },
+        "output": {
+          "statusCode": 200,
+          "message": "Update successful, post is pending review again"
+        }
+      },
+      "FN15_DeletePost": {
+        "method": "DELETE",
+        "endpoint": "/api/posts/{id}",
+        "description": "Soft delete a post",
+        "headers": {
+          "Authorization": "Bearer {accessToken}"
+        },
+        "output": {
+          "statusCode": 200,
+          "message": "Post deleted successfully"
+        }
+      },
+      "FN16_GetMyPosts": {
+        "method": "GET",
+        "endpoint": "/api/posts/my-posts",
+        "description": "Get a list of my posts (supports status tab filtering)",
+        "headers": {
+          "Authorization": "Bearer {accessToken}"
+        },
+        "queryParams": {
+          "status": "string (published | pending_review | draft | rejected)",
+          "pageIndex": "int",
+          "pageSize": "int"
+        },
+        "output": {
+          "statusCode": 200,
+          "totalItems": "long",
+          "items": [
+            {
+              "id": "long",
+              "title": "string",
+              "status": "string",
+              "createdAt": "datetime",
+              "thumbnailUrl": "string"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
