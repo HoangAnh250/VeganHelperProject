@@ -1,0 +1,23 @@
+{
+  "source": "D:/Semester 5/SWP391/VỚI PROJECT CỦA NHÓM MÌNH LÀ VEGAN.txt",
+  "source_sha256": "651dc963a3f43cf1c3834b6a1ccafbddfc298169cfc55b9c430a973688a277a6",
+  "source_visible_tables": 24,
+  "proposed_tables": 27,
+  "foreign_keys": 40,
+  "fields": 196,
+  "source_tables_covered": "23 original tables retained; USER_ROLE replaced by users.role_id",
+  "all_fk_types_and_target_keys_valid": true,
+  "sql_ascii_only": true,
+  "render_checks": [
+    "00_full_erd: 27 tables; 40 FKs; Graphviz dot rendering PASS",
+    "01_accounts: 4 tables; 3 FKs; Graphviz dot rendering PASS",
+    "02_content: 12 tables; 16 FKs; Graphviz dot rendering PASS",
+    "03_meal_planning: 9 tables; 11 FKs; Graphviz dot rendering PASS",
+    "04_chatbot_rag: 7 tables; 6 FKs; Graphviz dot rendering PASS",
+    "05_shops_moderation: 8 tables; 13 FKs; Graphviz dot rendering PASS"
+  ],
+  "sql_execution": "NOT EXECUTED",
+  "sql_parser": "SQL Server TSql150Parser: PASS (0 errors)",
+  "scope_assertions": "PASS",
+  "drawio_xml_and_references": "PASS, 6 pages"
+}

@@ -1,0 +1,39 @@
+erDiagram
+    users {
+        BIGINT id PK "NOT NULL"
+        NVARCHAR(100) username UK "NOT NULL"
+        NVARCHAR(255) email UK "NOT NULL"
+        NVARCHAR(500) password_hash "NULL"
+        DATETIME2 email_verified_at "NULL"
+        BIT is_active "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+        DATETIME2 updated_at "NULL"
+        DATETIME2 last_login_at "NULL"
+        DATETIME2 deleted_at "NULL"
+        INT role_id FK "NOT NULL"
+    }
+    user_profiles {
+        BIGINT user_id PK,FK "NOT NULL"
+        NVARCHAR(100) display_name "NOT NULL"
+        NVARCHAR(1000) avatar_url "NULL"
+        DECIMAL(5_2) height_cm "NULL"
+        DECIMAL(6_2) weight_kg "NULL"
+        DATE birth_date "NULL"
+        NVARCHAR(20) biological_sex "NULL"
+        NVARCHAR(30) diet_type "NOT NULL"
+        DATETIME2 updated_at "NULL"
+    }
+    roles {
+        INT id PK "NOT NULL"
+        NVARCHAR(50) role_name UK "NOT NULL"
+    }
+    user_identities {
+        BIGINT id PK "NOT NULL"
+        BIGINT user_id FK "NOT NULL"
+        NVARCHAR(20) provider "NOT NULL"
+        NVARCHAR(255) provider_subject "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+    }
+    roles ||--|{ users : "has_role"
+    users ||--|| user_profiles : "has_profile"
+    users ||--|{ user_identities : "external_login"

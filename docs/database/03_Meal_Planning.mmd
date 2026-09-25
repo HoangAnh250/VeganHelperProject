@@ -1,0 +1,90 @@
+erDiagram
+    users {
+        BIGINT id PK "NOT NULL"
+        NVARCHAR(100) username UK "NOT NULL"
+        NVARCHAR(255) email UK "NOT NULL"
+        NVARCHAR(500) password_hash "NULL"
+        DATETIME2 email_verified_at "NULL"
+        BIT is_active "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+        DATETIME2 updated_at "NULL"
+        DATETIME2 last_login_at "NULL"
+        DATETIME2 deleted_at "NULL"
+        INT role_id FK "NOT NULL"
+    }
+    roles {
+        INT id PK "NOT NULL"
+        NVARCHAR(50) role_name UK "NOT NULL"
+    }
+    ingredients {
+        BIGINT id PK "NOT NULL"
+        NVARCHAR(100) name UK "NOT NULL"
+        NVARCHAR(20) default_unit "NOT NULL"
+        DECIMAL(10_2) calories_per_100g "NULL"
+    }
+    user_allergies {
+        BIGINT user_id PK,FK "NOT NULL"
+        BIGINT ingredient_id PK,FK "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+    }
+    user_available_ingredients {
+        BIGINT user_id PK,FK "NOT NULL"
+        BIGINT ingredient_id PK,FK "NOT NULL"
+        DECIMAL(12_3) quantity "NULL"
+        NVARCHAR(20) unit "NOT NULL"
+        DATETIME2 updated_at "NOT NULL"
+    }
+    meal_plans {
+        BIGINT id PK "NOT NULL"
+        BIGINT user_id FK "NOT NULL"
+        DATE start_date "NOT NULL"
+        DATE end_date "NOT NULL"
+        DECIMAL(5_2) height_cm "NOT NULL"
+        DECIMAL(6_2) weight_kg "NOT NULL"
+        DECIMAL(6_2) bmi_value "NOT NULL"
+        NVARCHAR(30) diet_type "NOT NULL"
+        NVARCHAR(MAX) allergies_snapshot "NOT NULL"
+        NVARCHAR(MAX) available_ingredients_snapshot "NOT NULL"
+        NVARCHAR(20) generation_source "NOT NULL"
+        NVARCHAR(100) model_name "NULL"
+        NVARCHAR(20) status "NOT NULL"
+        NVARCHAR(2000) error_message "NULL"
+        DATETIME2 created_at "NOT NULL"
+        DATETIME2 updated_at "NULL"
+        DATETIME2 saved_at "NULL"
+    }
+    meals {
+        BIGINT id PK "NOT NULL"
+        BIGINT owner_user_id FK "NULL"
+        NVARCHAR(255) combo_name "NOT NULL"
+        NVARCHAR(MAX) description "NULL"
+        DECIMAL(6_2) servings "NOT NULL"
+        DECIMAL(10_2) total_calories "NULL"
+        NVARCHAR(30) diet_type "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+    }
+    meal_plan_schedule {
+        BIGINT id PK "NOT NULL"
+        BIGINT meal_plan_id FK "NOT NULL"
+        BIGINT meal_id FK "NOT NULL"
+        TINYINT day_of_week "NOT NULL"
+        NVARCHAR(20) meal_time "NOT NULL"
+        DECIMAL(6_2) portion_multiplier "NOT NULL"
+    }
+    meal_ingredients {
+        BIGINT meal_id PK,FK "NOT NULL"
+        BIGINT ingredient_id PK,FK "NOT NULL"
+        DECIMAL(12_3) calculated_quantity "NULL"
+        NVARCHAR(20) unit "NOT NULL"
+    }
+    roles ||--|{ users : "has_role"
+    users ||--|{ user_allergies : "declares_allergy"
+    ingredients ||--|{ user_allergies : "allergen_ingredient"
+    users ||--|{ user_available_ingredients : "owns_pantry"
+    ingredients ||--|{ user_available_ingredients : "pantry_item"
+    users ||--|{ meal_plans : "owns_plan"
+    users ||--|{ meals : "owns_meal"
+    meal_plans ||--|{ meal_plan_schedule : "contains_slot"
+    meals ||--|{ meal_plan_schedule : "scheduled_meal"
+    meals ||--|{ meal_ingredients : "requires"
+    ingredients ||--|{ meal_ingredients : "meal_ingredient"

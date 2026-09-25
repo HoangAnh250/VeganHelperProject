@@ -1,0 +1,2857 @@
+[
+  {
+    "name": "users",
+    "group": 1,
+    "description": "Tài khoản ứng dụng; hỗ trợ username/password và đăng nhập Google, có xóa mềm.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh tài khoản.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "username",
+        "type": "NVARCHAR(100)",
+        "note": "Tên đăng nhập; backend chuẩn hóa và kiểm tra trùng không phân biệt hoa/thường.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": true
+      },
+      {
+        "name": "email",
+        "type": "NVARCHAR(255)",
+        "note": "Email; backend chuẩn hóa trước khi lưu.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": true
+      },
+      {
+        "name": "password_hash",
+        "type": "NVARCHAR(500)",
+        "note": "Hash từ thư viện mật khẩu; NULL khi chỉ đăng nhập Google.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "email_verified_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm email được xác minh; không thay thế cơ chế token xác minh.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "is_active",
+        "type": "BIT",
+        "note": "Cho phép tài khoản hoạt động.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "1"
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm tạo UTC.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm cập nhật; backend cập nhật.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "last_login_at",
+        "type": "DATETIME2",
+        "note": "Lần đăng nhập thành công gần nhất.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "deleted_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm xóa mềm tài khoản.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "role_id",
+        "type": "INT",
+        "note": "Vai trò duy nhất của tài khoản; FK tới roles.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "role_id"
+        ],
+        "parent": "roles",
+        "target": [
+          "id"
+        ],
+        "label": "has_role"
+      }
+    ],
+    "checks": [
+      "deleted_at IS NULL OR is_active = 0"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "user_profiles",
+    "group": 1,
+    "description": "Hồ sơ người dùng; ngày sinh và giới tính không bắt buộc, chỉ dùng hiển thị hồ sơ, không dùng sinh thực đơn.",
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "BIGINT",
+        "note": "Tài khoản sở hữu; đồng thời là PK/FK.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "display_name",
+        "type": "NVARCHAR(100)",
+        "note": "Tên hiển thị.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "avatar_url",
+        "type": "NVARCHAR(1000)",
+        "note": "URL ảnh đại diện.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "height_cm",
+        "type": "DECIMAL(5,2)",
+        "note": "Chiều cao, đơn vị cm; đổi tên height để rõ đơn vị.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "weight_kg",
+        "type": "DECIMAL(6,2)",
+        "note": "Cân nặng, đơn vị kg; đổi tên weight để rõ đơn vị.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "birth_date",
+        "type": "DATE",
+        "note": "Ngày sinh; dùng để tính tuổi theo thời điểm yêu cầu.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "biological_sex",
+        "type": "NVARCHAR(20)",
+        "note": "Giá trị người dùng cung cấp khi cần tính toán.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "diet_type",
+        "type": "NVARCHAR(30)",
+        "note": "vegan: thuần chay; lacto_ovo_vegetarian: có thể dùng trứng/sữa. Lọc dị ứng độc lập.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'vegan'"
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm cập nhật hồ sơ.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "user_id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "has_profile"
+      }
+    ],
+    "checks": [
+      "height_cm IS NULL OR height_cm > 0",
+      "weight_kg IS NULL OR weight_kg > 0",
+      "biological_sex IN ('male','female','other')",
+      "diet_type IN ('vegan','lacto_ovo_vegetarian')"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "roles",
+    "group": 1,
+    "description": "Danh mục quyền: chỉ Member và Administrator; không thêm Chef.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INT",
+        "note": "Định danh vai trò.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "role_name",
+        "type": "NVARCHAR(50)",
+        "note": "member hoặc admin.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": true
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [],
+    "checks": [
+      "role_name IN ('member','admin')"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "user_identities",
+    "group": 1,
+    "description": "Bổ sung để liên kết tài khoản Google bằng provider subject ổn định.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh liên kết.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "type": "BIGINT",
+        "note": "Tài khoản nội bộ.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "provider",
+        "type": "NVARCHAR(20)",
+        "note": "Nhà cung cấp đăng nhập ngoài.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'google'"
+      },
+      {
+        "name": "provider_subject",
+        "type": "NVARCHAR(255)",
+        "note": "Google sub đã được backend xác minh.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm liên kết.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "external_login"
+      }
+    ],
+    "checks": [
+      "provider IN ('google')"
+    ],
+    "unique": [
+      [
+        "provider",
+        "provider_subject"
+      ]
+    ],
+    "indexes": []
+  },
+  {
+    "name": "posts",
+    "group": 2,
+    "description": "Bài blog/video/công thức/cộng đồng. Không khôi phục bảng recipes của thiết kế cũ.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh bài đăng.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "author_id",
+        "type": "BIGINT",
+        "note": "Tác giả.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "post_type",
+        "type": "NVARCHAR(20)",
+        "note": "article, video, recipe hoặc community.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "title",
+        "type": "NVARCHAR(255)",
+        "note": "Tiêu đề.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "content",
+        "type": "NVARCHAR(MAX)",
+        "note": "Nội dung bài.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "meal_type",
+        "type": "NVARCHAR(20)",
+        "note": "Loại bữa phù hợp: breakfast, lunch, dinner, snack.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "prep_time_mins",
+        "type": "INT",
+        "note": "Phút chuẩn bị, không âm.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "cooking_time_mins",
+        "type": "INT",
+        "note": "Phút nấu, không âm.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "servings",
+        "type": "INT",
+        "note": "Số khẩu phần của công thức.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "calories_per_serving",
+        "type": "DECIMAL(10,2)",
+        "note": "Kcal trên một khẩu phần, không phải cả công thức.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "diet_type",
+        "type": "NVARCHAR(30)",
+        "note": "vegan: thuần chay; lacto_ovo_vegetarian: có thể dùng trứng/sữa. Lọc dị ứng độc lập.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "ingredients_verified",
+        "type": "BIT",
+        "note": "Danh sách nguyên liệu đã được kiểm tra theo quy trình nhóm; không phải bảo đảm y tế.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "0"
+      },
+      {
+        "name": "status",
+        "type": "NVARCHAR(20)",
+        "note": "Trạng thái xuất bản/kiểm duyệt.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'draft'"
+      },
+      {
+        "name": "view_count",
+        "type": "BIGINT",
+        "note": "Lượt xem do backend cập nhật.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm tạo.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME2",
+        "note": "Chuẩn hóa tên update_at trong hình thành updated_at.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "is_deleted",
+        "type": "BIT",
+        "note": "Cờ xóa mềm; cần đồng bộ với chỉ mục RAG.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "0"
+      },
+      {
+        "name": "deleted_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm xóa mềm.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "author_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "authors"
+      }
+    ],
+    "checks": [
+      "post_type IN ('article','video','recipe','community')",
+      "meal_type IN ('breakfast','lunch','dinner','snack')",
+      "diet_type IN ('vegan','lacto_ovo_vegetarian')",
+      "status IN ('draft','pending_review','published','rejected','hidden')",
+      "prep_time_mins >= 0",
+      "cooking_time_mins >= 0",
+      "servings > 0",
+      "calories_per_serving >= 0",
+      "view_count >= 0",
+      "(is_deleted = 0 AND deleted_at IS NULL) OR (is_deleted = 1 AND deleted_at IS NOT NULL)"
+    ],
+    "unique": [],
+    "indexes": [
+      {
+        "columns": [
+          "status",
+          "is_deleted",
+          "created_at"
+        ],
+        "unique": false,
+        "filter": null
+      },
+      {
+        "columns": [
+          "author_id",
+          "created_at"
+        ],
+        "unique": false,
+        "filter": null
+      }
+    ]
+  },
+  {
+    "name": "post_media",
+    "group": 2,
+    "description": "Một file ảnh/video đính kèm; URL và một cloud_public_id theo lựa chọn trước đó.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh media.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "post_id",
+        "type": "BIGINT",
+        "note": "Bài sở hữu file.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "media_url",
+        "type": "NVARCHAR(1000)",
+        "note": "URL phát/hiển thị file.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "media_type",
+        "type": "NVARCHAR(20)",
+        "note": "image hoặc video.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "cloud_public_id",
+        "type": "NVARCHAR(255)",
+        "note": "Public ID Cloudinary; file cũ hoặc ngoài hệ thống có thể NULL.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "thumbnail_url",
+        "type": "NVARCHAR(1000)",
+        "note": "URL ảnh xem trước.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "duration_seconds",
+        "type": "INT",
+        "note": "Thời lượng video tính bằng giây.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "is_primary",
+        "type": "BIT",
+        "note": "Media đại diện của bài.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "0"
+      },
+      {
+        "name": "display_order",
+        "type": "INT",
+        "note": "Thứ tự hiển thị.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "0"
+      },
+      {
+        "name": "processing_status",
+        "type": "NVARCHAR(20)",
+        "note": "uploading, processing, ready, failed.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'ready'"
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm tạo.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "post_id"
+        ],
+        "parent": "posts",
+        "target": [
+          "id"
+        ],
+        "label": "has_media"
+      }
+    ],
+    "checks": [
+      "media_type IN ('image','video')",
+      "processing_status IN ('uploading','processing','ready','failed')",
+      "duration_seconds >= 0",
+      "display_order >= 0"
+    ],
+    "unique": [
+      [
+        "post_id",
+        "id"
+      ]
+    ],
+    "indexes": [
+      {
+        "columns": [
+          "post_id"
+        ],
+        "unique": true,
+        "filter": "is_primary = 1"
+      }
+    ]
+  },
+  {
+    "name": "post_summaries",
+    "group": 2,
+    "description": "Một kết quả tóm tắt hiện hành trên mỗi bài; xác định rõ video nguồn và lưu transcript.",
+    "columns": [
+      {
+        "name": "post_id",
+        "type": "BIGINT",
+        "note": "Bài được tóm tắt; PK/FK.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "source_media_id",
+        "type": "BIGINT",
+        "note": "Video nguồn thuộc chính bài này.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "transcript",
+        "type": "NVARCHAR(MAX)",
+        "note": "Văn bản tiếng nói được nhận dạng; hỗ trợ xem/copy transcript.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "ai_generated_text",
+        "type": "NVARCHAR(MAX)",
+        "note": "Tóm tắt các bước thực hiện.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "status",
+        "type": "NVARCHAR(20)",
+        "note": "pending, processing, completed, failed, stale.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'pending'"
+      },
+      {
+        "name": "model_name",
+        "type": "NVARCHAR(100)",
+        "note": "Model/phiên bản tóm tắt.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "error_message",
+        "type": "NVARCHAR(2000)",
+        "note": "Lỗi xử lý để backend/admin theo dõi.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "requested_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm yêu cầu xử lý.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      },
+      {
+        "name": "generated_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm hoàn tất; chưa hoàn tất thì NULL.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "post_id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "post_id"
+        ],
+        "parent": "posts",
+        "target": [
+          "id"
+        ],
+        "label": "summary_of"
+      },
+      {
+        "columns": [
+          "post_id",
+          "source_media_id"
+        ],
+        "parent": "post_media",
+        "target": [
+          "post_id",
+          "id"
+        ],
+        "label": "summarizes_media"
+      }
+    ],
+    "checks": [
+      "status IN ('pending','processing','completed','failed','stale')",
+      "status <> 'completed' OR (transcript IS NOT NULL AND ai_generated_text IS NOT NULL AND generated_at IS NOT NULL)"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "categories",
+    "group": 2,
+    "description": "Danh mục cho bài hoặc quán; loại con cho món ăn/công thức/chủ đề.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INT",
+        "note": "Định danh danh mục.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "name",
+        "type": "NVARCHAR(100)",
+        "note": "Tên hiển thị.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "slug",
+        "type": "NVARCHAR(120)",
+        "note": "Tên URL duy nhất.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": true
+      },
+      {
+        "name": "category_type",
+        "type": "NVARCHAR(20)",
+        "note": "post hoặc shop theo nguồn.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "post_category_kind",
+        "type": "NVARCHAR(20)",
+        "note": "food, recipe, topic khi category_type=post.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "is_active",
+        "type": "BIT",
+        "note": "Danh mục đang sử dụng.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "1"
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [],
+    "checks": [
+      "category_type IN ('post','shop')",
+      "(category_type = 'shop' AND post_category_kind IS NULL) OR (category_type = 'post' AND post_category_kind IS NOT NULL AND post_category_kind IN ('food','recipe','topic'))"
+    ],
+    "unique": [
+      [
+        "category_type",
+        "name"
+      ]
+    ],
+    "indexes": []
+  },
+  {
+    "name": "post_categories",
+    "group": 2,
+    "description": "Bảng nối bài và danh mục; chuẩn hóa tên POST_CATEGORY trên hình.",
+    "columns": [
+      {
+        "name": "post_id",
+        "type": "BIGINT",
+        "note": "Bài đăng.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "category_id",
+        "type": "INT",
+        "note": "Danh mục bài.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "post_id",
+      "category_id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "post_id"
+        ],
+        "parent": "posts",
+        "target": [
+          "id"
+        ],
+        "label": "categorized"
+      },
+      {
+        "columns": [
+          "category_id"
+        ],
+        "parent": "categories",
+        "target": [
+          "id"
+        ],
+        "label": "post_category"
+      }
+    ],
+    "checks": [],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "ingredients",
+    "group": 2,
+    "description": "Danh mục nguyên liệu; dùng DECIMAL thay FLOAT cho số lượng/dinh dưỡng.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh nguyên liệu.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "name",
+        "type": "NVARCHAR(100)",
+        "note": "Tên nguyên liệu.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": true
+      },
+      {
+        "name": "default_unit",
+        "type": "NVARCHAR(20)",
+        "note": "Đơn vị mặc định.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "calories_per_100g",
+        "type": "DECIMAL(10,2)",
+        "note": "Kcal/100g; không dùng trực tiếp cho đơn vị củ/cốc nếu chưa quy đổi.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [],
+    "checks": [
+      "calories_per_100g >= 0"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "post_ingredients",
+    "group": 2,
+    "description": "Nguyên liệu và lượng dùng của toàn công thức trong bài.",
+    "columns": [
+      {
+        "name": "post_id",
+        "type": "BIGINT",
+        "note": "Bài đăng.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "ingredient_id",
+        "type": "BIGINT",
+        "note": "Nguyên liệu.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "quantity",
+        "type": "DECIMAL(12,3)",
+        "note": "Lượng dùng; NULL khi chưa định lượng.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "unit",
+        "type": "NVARCHAR(20)",
+        "note": "Đơn vị cụ thể, tránh phụ thuộc default_unit về sau.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "post_id",
+      "ingredient_id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "post_id"
+        ],
+        "parent": "posts",
+        "target": [
+          "id"
+        ],
+        "label": "uses_ingredient"
+      },
+      {
+        "columns": [
+          "ingredient_id"
+        ],
+        "parent": "ingredients",
+        "target": [
+          "id"
+        ],
+        "label": "ingredient_in_post"
+      }
+    ],
+    "checks": [
+      "quantity > 0"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "user_allergies",
+    "group": 3,
+    "description": "Giữ mô hình dị ứng theo ingredient_id của nguồn mới; không dùng lại allergies của DB cũ.",
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "BIGINT",
+        "note": "Người dùng.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "ingredient_id",
+        "type": "BIGINT",
+        "note": "Nguyên liệu người dùng khai báo dị ứng.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm khai báo.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "user_id",
+      "ingredient_id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "declares_allergy"
+      },
+      {
+        "columns": [
+          "ingredient_id"
+        ],
+        "parent": "ingredients",
+        "target": [
+          "id"
+        ],
+        "label": "allergen_ingredient"
+      }
+    ],
+    "checks": [],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "user_available_ingredients",
+    "group": 3,
+    "description": "Bổ sung cho tính năng sử dụng nguyên liệu sẵn có.",
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "BIGINT",
+        "note": "Chủ kho nguyên liệu.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "ingredient_id",
+        "type": "BIGINT",
+        "note": "Nguyên liệu hiện có.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "quantity",
+        "type": "DECIMAL(12,3)",
+        "note": "Số lượng hiện có.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "unit",
+        "type": "NVARCHAR(20)",
+        "note": "Đơn vị lượng hiện có.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm cập nhật kho.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "user_id",
+      "ingredient_id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "owns_pantry"
+      },
+      {
+        "columns": [
+          "ingredient_id"
+        ],
+        "parent": "ingredients",
+        "target": [
+          "id"
+        ],
+        "label": "pantry_item"
+      }
+    ],
+    "checks": [
+      "quantity >= 0"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "post_likes",
+    "group": 2,
+    "description": "Giữ like theo quyết định trước đó và bảng POST_LIKES trong file, không tự thêm downvote.",
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "BIGINT",
+        "note": "Người thích.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "post_id",
+        "type": "BIGINT",
+        "note": "Bài được thích.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm thích.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "user_id",
+      "post_id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "likes"
+      },
+      {
+        "columns": [
+          "post_id"
+        ],
+        "parent": "posts",
+        "target": [
+          "id"
+        ],
+        "label": "liked_post"
+      }
+    ],
+    "checks": [],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "saved_posts",
+    "group": 2,
+    "description": "Bài được đánh dấu xem lại.",
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "BIGINT",
+        "note": "Người lưu.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "post_id",
+        "type": "BIGINT",
+        "note": "Bài đã lưu.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "saved_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm lưu.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "user_id",
+      "post_id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "saves"
+      },
+      {
+        "columns": [
+          "post_id"
+        ],
+        "parent": "posts",
+        "target": [
+          "id"
+        ],
+        "label": "saved_post"
+      }
+    ],
+    "checks": [],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "comments",
+    "group": 2,
+    "description": "Bình luận lồng nhau; FK ghép ép bình luận cha thuộc cùng bài.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh bình luận.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "post_id",
+        "type": "BIGINT",
+        "note": "Bài được bình luận.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "type": "BIGINT",
+        "note": "Tác giả bình luận.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "parent_comment_id",
+        "type": "BIGINT",
+        "note": "Bình luận cha nếu là trả lời.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "content",
+        "type": "NVARCHAR(1000)",
+        "note": "Nội dung bình luận.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "status",
+        "type": "NVARCHAR(20)",
+        "note": "visible hoặc hidden, độc lập với xóa mềm.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'visible'"
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm tạo.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm sửa.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "is_deleted",
+        "type": "BIT",
+        "note": "Cờ xóa mềm.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "0"
+      },
+      {
+        "name": "deleted_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm xóa mềm.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "post_id"
+        ],
+        "parent": "posts",
+        "target": [
+          "id"
+        ],
+        "label": "comment_on"
+      },
+      {
+        "columns": [
+          "user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "writes"
+      },
+      {
+        "columns": [
+          "post_id",
+          "parent_comment_id"
+        ],
+        "parent": "comments",
+        "target": [
+          "post_id",
+          "id"
+        ],
+        "label": "reply_to"
+      }
+    ],
+    "checks": [
+      "parent_comment_id IS NULL OR parent_comment_id <> id",
+      "status IN ('visible','hidden')",
+      "(is_deleted = 0 AND deleted_at IS NULL) OR (is_deleted = 1 AND deleted_at IS NOT NULL)"
+    ],
+    "unique": [
+      [
+        "post_id",
+        "id"
+      ]
+    ],
+    "indexes": [
+      {
+        "columns": [
+          "post_id",
+          "created_at"
+        ],
+        "unique": false,
+        "filter": null
+      }
+    ]
+  },
+  {
+    "name": "meal_plans",
+    "group": 3,
+    "description": "Thực đơn ăn chay 7 ngày, cố định 3 bữa mỗi ngày; lưu đầu vào BMI, kiểu ăn chay, dị ứng và nguyên liệu. Không đặt mục tiêu giảm cân hoặc năng lượng.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh thực đơn/lần sinh.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "type": "BIGINT",
+        "note": "Chủ sở hữu.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "start_date",
+        "type": "DATE",
+        "note": "Ngày bắt đầu tuần.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "end_date",
+        "type": "DATE",
+        "note": "Ngày cuối tuần; cách start_date 6 ngày.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "height_cm",
+        "type": "DECIMAL(5,2)",
+        "note": "Chiều cao tại lần tạo.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "weight_kg",
+        "type": "DECIMAL(6,2)",
+        "note": "Cân nặng tại lần tạo.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "bmi_value",
+        "type": "DECIMAL(6,2)",
+        "note": "BMI được backend tính từ đầu vào.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "diet_type",
+        "type": "NVARCHAR(30)",
+        "note": "vegan: thuần chay; lacto_ovo_vegetarian: có thể dùng trứng/sữa. Lọc dị ứng độc lập.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'vegan'"
+      },
+      {
+        "name": "allergies_snapshot",
+        "type": "NVARCHAR(MAX)",
+        "note": "JSON array nguyên liệu dị ứng tại lần tạo, gồm ID/tên.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "N'[]'"
+      },
+      {
+        "name": "available_ingredients_snapshot",
+        "type": "NVARCHAR(MAX)",
+        "note": "JSON array nguyên liệu/số lượng/đơn vị đã gửi AI.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "N'[]'"
+      },
+      {
+        "name": "generation_source",
+        "type": "NVARCHAR(20)",
+        "note": "ai hoặc manual.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'ai'"
+      },
+      {
+        "name": "model_name",
+        "type": "NVARCHAR(100)",
+        "note": "Model sinh thực đơn nếu có.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "status",
+        "type": "NVARCHAR(20)",
+        "note": "pending, generating, completed, failed, saved, archived.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'pending'"
+      },
+      {
+        "name": "error_message",
+        "type": "NVARCHAR(2000)",
+        "note": "Lỗi sinh hoặc kiểm tra đầu ra.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm tạo yêu cầu.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm cập nhật.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "saved_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm người dùng lưu.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "owns_plan"
+      }
+    ],
+    "checks": [
+      "DATEDIFF(DAY, start_date, end_date) = 6",
+      "height_cm > 0 AND weight_kg > 0 AND bmi_value > 0",
+      "diet_type IN ('vegan','lacto_ovo_vegetarian')",
+      "ISJSON(allergies_snapshot) = 1",
+      "ISJSON(available_ingredients_snapshot) = 1",
+      "generation_source IN ('ai','manual')",
+      "status IN ('pending','generating','completed','failed','saved','archived')"
+    ],
+    "unique": [],
+    "indexes": [
+      {
+        "columns": [
+          "user_id",
+          "start_date"
+        ],
+        "unique": false,
+        "filter": null
+      }
+    ]
+  },
+  {
+    "name": "meals",
+    "group": 3,
+    "description": "Danh mục món/combo trong database để gợi ý thực đơn, độc lập với bài đăng. owner_user_id chỉ dùng nếu có món cá nhân.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh món/combo.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "owner_user_id",
+        "type": "BIGINT",
+        "note": "Người sở hữu món AI riêng; NULL cho món chung đã được quản lý.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "combo_name",
+        "type": "NVARCHAR(255)",
+        "note": "Tên món/combo.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "description",
+        "type": "NVARCHAR(MAX)",
+        "note": "Mô tả và cách thực hiện ngắn.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "servings",
+        "type": "DECIMAL(6,2)",
+        "note": "Số khẩu phần mà total_calories và lượng nguyên liệu đang mô tả.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "1"
+      },
+      {
+        "name": "total_calories",
+        "type": "DECIMAL(10,2)",
+        "note": "Kcal cho toàn bộ combo với servings này.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "diet_type",
+        "type": "NVARCHAR(30)",
+        "note": "vegan: thuần chay; lacto_ovo_vegetarian: có thể dùng trứng/sữa. Lọc dị ứng độc lập.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm tạo.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "owner_user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "owns_meal"
+      }
+    ],
+    "checks": [
+      "servings > 0",
+      "total_calories >= 0",
+      "diet_type IN ('vegan','lacto_ovo_vegetarian')"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "meal_plan_schedule",
+    "group": 3,
+    "description": "Sửa PK để cùng một món có thể lặp trong tuần; thay end_date ở từng ô bằng day_of_week và meal_time.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh ô lịch, không dùng cặp plan/meal làm PK.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "meal_plan_id",
+        "type": "BIGINT",
+        "note": "Thực đơn sở hữu ô lịch.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "meal_id",
+        "type": "BIGINT",
+        "note": "Món/combo được xếp lịch.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "day_of_week",
+        "type": "TINYINT",
+        "note": "Vị trí ngày 1–7 tính từ start_date của thực đơn.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "meal_time",
+        "type": "NVARCHAR(20)",
+        "note": "Bữa cố định: breakfast, lunch hoặc dinner; backend kiểm tra đủ 21 bữa khi hoàn tất tuần.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "portion_multiplier",
+        "type": "DECIMAL(6,2)",
+        "note": "Hệ số nhân cho toàn bộ khẩu phần/lượng nguyên liệu/kcal của meals.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "1"
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "meal_plan_id"
+        ],
+        "parent": "meal_plans",
+        "target": [
+          "id"
+        ],
+        "label": "contains_slot"
+      },
+      {
+        "columns": [
+          "meal_id"
+        ],
+        "parent": "meals",
+        "target": [
+          "id"
+        ],
+        "label": "scheduled_meal"
+      }
+    ],
+    "checks": [
+      "day_of_week BETWEEN 1 AND 7",
+      "meal_time IN ('breakfast','lunch','dinner')",
+      "portion_multiplier > 0"
+    ],
+    "unique": [
+      [
+        "meal_plan_id",
+        "day_of_week",
+        "meal_time"
+      ]
+    ],
+    "indexes": []
+  },
+  {
+    "name": "meal_ingredients",
+    "group": 3,
+    "description": "Nguyên liệu cụ thể của combo; không phụ thuộc công thức gốc có bị sửa hay không.",
+    "columns": [
+      {
+        "name": "meal_id",
+        "type": "BIGINT",
+        "note": "Combo/món.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "ingredient_id",
+        "type": "BIGINT",
+        "note": "Nguyên liệu.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "calculated_quantity",
+        "type": "DECIMAL(12,3)",
+        "note": "Lượng nguyên liệu cho combo gốc; NULL khi chưa định lượng.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "unit",
+        "type": "NVARCHAR(20)",
+        "note": "Đơn vị đi kèm lượng dùng.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "meal_id",
+      "ingredient_id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "meal_id"
+        ],
+        "parent": "meals",
+        "target": [
+          "id"
+        ],
+        "label": "requires"
+      },
+      {
+        "columns": [
+          "ingredient_id"
+        ],
+        "parent": "ingredients",
+        "target": [
+          "id"
+        ],
+        "label": "meal_ingredient"
+      }
+    ],
+    "checks": [
+      "calculated_quantity > 0"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "chat_sessions",
+    "group": 4,
+    "description": "Phiên chat cho thành viên hoặc khách, kèm context summary và mốc tóm tắt.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh hội thoại.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "type": "BIGINT",
+        "note": "Tài khoản; NULL khi khách chưa đăng nhập.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "guest_session_id",
+        "type": "UNIQUEIDENTIFIER",
+        "note": "Mã phiên khách do backend cấp; không phải secret dùng để bỏ qua xác thực.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "context_summary",
+        "type": "NVARCHAR(MAX)",
+        "note": "Nội dung tóm tắt phần hội thoại cũ.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "summary_through_message_id",
+        "type": "BIGINT",
+        "note": "Mốc tin đã tóm tắt, backend xác minh cùng phiên; không tạo FK vòng.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "started_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm bắt đầu.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      },
+      {
+        "name": "last_activity_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm hoạt động gần nhất.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "starts_chat"
+      }
+    ],
+    "checks": [
+      "user_id IS NOT NULL OR guest_session_id IS NOT NULL",
+      "(context_summary IS NULL AND summary_through_message_id IS NULL) OR (context_summary IS NOT NULL AND summary_through_message_id IS NOT NULL AND summary_through_message_id > 0)"
+    ],
+    "unique": [],
+    "indexes": [
+      {
+        "columns": [
+          "user_id",
+          "last_activity_at"
+        ],
+        "unique": false,
+        "filter": null
+      },
+      {
+        "columns": [
+          "guest_session_id",
+          "last_activity_at"
+        ],
+        "unique": false,
+        "filter": null
+      }
+    ]
+  },
+  {
+    "name": "chat_messages",
+    "group": 4,
+    "description": "Tin nhắn trong một cuộc chat; giữ nguyên lịch sử khi tạo summary.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh tin nhắn.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "session_id",
+        "type": "BIGINT",
+        "note": "Hội thoại sở hữu.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "sender_type",
+        "type": "NVARCHAR(20)",
+        "note": "user hoặc ai theo nguồn.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "message_text",
+        "type": "NVARCHAR(MAX)",
+        "note": "Nội dung tin.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm tạo.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "session_id"
+        ],
+        "parent": "chat_sessions",
+        "target": [
+          "id"
+        ],
+        "label": "contains_message"
+      }
+    ],
+    "checks": [
+      "sender_type IN ('user','ai')"
+    ],
+    "unique": [],
+    "indexes": [
+      {
+        "columns": [
+          "session_id",
+          "id"
+        ],
+        "unique": false,
+        "filter": null
+      }
+    ]
+  },
+  {
+    "name": "ai_usage",
+    "group": 4,
+    "description": "Bổ sung để theo dõi một lần gọi AI và áp dụng giới hạn dùng thử phía backend.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh bản ghi sử dụng.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "request_id",
+        "type": "UNIQUEIDENTIFIER",
+        "note": "Mã request hỗ trợ chống ghi nhận trùng.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": true,
+        "default": "NEWID()"
+      },
+      {
+        "name": "user_id",
+        "type": "BIGINT",
+        "note": "Người dùng đã đăng nhập.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "guest_session_id",
+        "type": "UNIQUEIDENTIFIER",
+        "note": "Phiên khách nếu có.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "feature_type",
+        "type": "NVARCHAR(30)",
+        "note": "chatbot, meal_planner, video_summary, embedding, chat_summary, content_moderation.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "provider",
+        "type": "NVARCHAR(50)",
+        "note": "Ví dụ gemini hoặc ollama.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "model_name",
+        "type": "NVARCHAR(100)",
+        "note": "Model được gọi.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "status",
+        "type": "NVARCHAR(20)",
+        "note": "pending, completed hoặc failed.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'pending'"
+      },
+      {
+        "name": "input_tokens",
+        "type": "INT",
+        "note": "Token đầu vào khi nhà cung cấp trả về.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "output_tokens",
+        "type": "INT",
+        "note": "Token đầu ra.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm ghi nhận request.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "uses_ai"
+      }
+    ],
+    "checks": [
+      "user_id IS NOT NULL OR guest_session_id IS NOT NULL",
+      "feature_type IN ('chatbot','meal_planner','video_summary','embedding','chat_summary','content_moderation')",
+      "status IN ('pending','completed','failed')",
+      "input_tokens >= 0",
+      "output_tokens >= 0"
+    ],
+    "unique": [],
+    "indexes": [
+      {
+        "columns": [
+          "user_id",
+          "feature_type",
+          "created_at"
+        ],
+        "unique": false,
+        "filter": null
+      },
+      {
+        "columns": [
+          "guest_session_id",
+          "feature_type",
+          "created_at"
+        ],
+        "unique": false,
+        "filter": null
+      }
+    ]
+  },
+  {
+    "name": "post_embeddings",
+    "group": 4,
+    "description": "Dự phòng phát triển RAG/tìm kiếm vector; có thể để trống trong MVP, không bắt buộc gọi embedding API.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh đoạn.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "post_id",
+        "type": "BIGINT",
+        "note": "Bài nguồn.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "chunk_index",
+        "type": "INT",
+        "note": "Thứ tự đoạn, bắt đầu từ 0.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "vector_id",
+        "type": "NVARCHAR(255)",
+        "note": "ID ngoài SQL, chưa có khi chờ tạo.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "content_hash",
+        "type": "VARCHAR(64)",
+        "note": "Hash nội dung tạo embedding.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "embedding_model",
+        "type": "NVARCHAR(100)",
+        "note": "Model/phiên bản embedding.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "status",
+        "type": "NVARCHAR(20)",
+        "note": "pending, processing, completed, failed, stale.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'pending'"
+      },
+      {
+        "name": "embedded_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm tạo thành công.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "post_id"
+        ],
+        "parent": "posts",
+        "target": [
+          "id"
+        ],
+        "label": "indexed_chunk"
+      }
+    ],
+    "checks": [
+      "chunk_index >= 0",
+      "status IN ('pending','processing','completed','failed','stale')",
+      "status <> 'completed' OR (vector_id IS NOT NULL AND embedded_at IS NOT NULL)"
+    ],
+    "unique": [
+      [
+        "post_id",
+        "chunk_index"
+      ]
+    ],
+    "indexes": [
+      {
+        "columns": [
+          "status",
+          "post_id"
+        ],
+        "unique": false,
+        "filter": null
+      }
+    ]
+  },
+  {
+    "name": "shops",
+    "group": 5,
+    "description": "Quán chay được gợi ý/kiểm duyệt; có Google Place ID cho tích hợp bản đồ.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh quán.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "suggested_by_user_id",
+        "type": "BIGINT",
+        "note": "Người đề xuất; NULL nếu nhập từ dịch vụ/hệ thống.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "google_place_id",
+        "type": "NVARCHAR(255)",
+        "note": "Google Place ID; unique khi có giá trị.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "name",
+        "type": "NVARCHAR(255)",
+        "note": "Tên quán.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "address",
+        "type": "NVARCHAR(1000)",
+        "note": "Địa chỉ.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "latitude",
+        "type": "DECIMAL(10,7)",
+        "note": "Vĩ độ.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "longitude",
+        "type": "DECIMAL(10,7)",
+        "note": "Kinh độ.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "is_approved",
+        "type": "BIT",
+        "note": "Đã được duyệt để hiển thị theo luồng sản phẩm.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "0"
+      },
+      {
+        "name": "is_deleted",
+        "type": "BIT",
+        "note": "Cờ xóa mềm.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm thêm địa điểm.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "suggested_by_user_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "suggests_shop"
+      }
+    ],
+    "checks": [
+      "latitude BETWEEN -90 AND 90",
+      "longitude BETWEEN -180 AND 180",
+      "(latitude IS NULL AND longitude IS NULL) OR (latitude IS NOT NULL AND longitude IS NOT NULL)"
+    ],
+    "unique": [],
+    "indexes": [
+      {
+        "columns": [
+          "google_place_id"
+        ],
+        "unique": true,
+        "filter": "google_place_id IS NOT NULL"
+      }
+    ]
+  },
+  {
+    "name": "shop_categories",
+    "group": 5,
+    "description": "Danh mục quán phục vụ tìm kiếm theo loại món.",
+    "columns": [
+      {
+        "name": "shop_id",
+        "type": "BIGINT",
+        "note": "Quán.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "category_id",
+        "type": "INT",
+        "note": "Danh mục dành cho quán.",
+        "nullable": false,
+        "identity": false,
+        "pk": true,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "shop_id",
+      "category_id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "shop_id"
+        ],
+        "parent": "shops",
+        "target": [
+          "id"
+        ],
+        "label": "shop_classification"
+      },
+      {
+        "columns": [
+          "category_id"
+        ],
+        "parent": "categories",
+        "target": [
+          "id"
+        ],
+        "label": "shop_category"
+      }
+    ],
+    "checks": [],
+    "unique": [],
+    "indexes": []
+  },
+  {
+    "name": "flags",
+    "group": 5,
+    "description": "Báo cáo từ người dùng hoặc AI. AI đánh dấu bài ngoài chủ đề; bài giữ pending_review, admin quyết định công khai hay từ chối.",
+    "columns": [
+      {
+        "name": "id",
+        "type": "BIGINT",
+        "note": "Định danh báo cáo.",
+        "nullable": false,
+        "identity": true,
+        "pk": true,
+        "unique": false
+      },
+      {
+        "name": "reporter_id",
+        "type": "BIGINT",
+        "note": "Người báo cáo; bắt buộc với source_type=user, NULL với source_type=ai.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "post_id",
+        "type": "BIGINT",
+        "note": "Bài bị báo cáo, nếu có.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "comment_id",
+        "type": "BIGINT",
+        "note": "Bình luận bị báo cáo, nếu có.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "shop_id",
+        "type": "BIGINT",
+        "note": "Quán bị báo cáo, nếu có.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "reason",
+        "type": "NVARCHAR(500)",
+        "note": "Lý do.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "status",
+        "type": "NVARCHAR(20)",
+        "note": "pending, resolved hoặc dismissed.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'pending'"
+      },
+      {
+        "name": "resolved_by_admin_id",
+        "type": "BIGINT",
+        "note": "Người xử lý; backend phải kiểm tra quyền admin.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "resolution_note",
+        "type": "NVARCHAR(2000)",
+        "note": "Ghi chú xử lý.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm báo cáo.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "SYSUTCDATETIME()"
+      },
+      {
+        "name": "resolved_at",
+        "type": "DATETIME2",
+        "note": "Thời điểm xử lý.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      },
+      {
+        "name": "source_type",
+        "type": "NVARCHAR(10)",
+        "note": "Nguồn báo cáo: user hoặc ai.",
+        "nullable": false,
+        "identity": false,
+        "pk": false,
+        "unique": false,
+        "default": "'user'"
+      },
+      {
+        "name": "ai_model_name",
+        "type": "NVARCHAR(100)",
+        "note": "Model tạo flag AI; NULL với báo cáo từ người dùng.",
+        "nullable": true,
+        "identity": false,
+        "pk": false,
+        "unique": false
+      }
+    ],
+    "pk": [
+      "id"
+    ],
+    "refs": [
+      {
+        "columns": [
+          "reporter_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "reports"
+      },
+      {
+        "columns": [
+          "post_id"
+        ],
+        "parent": "posts",
+        "target": [
+          "id"
+        ],
+        "label": "reported_post"
+      },
+      {
+        "columns": [
+          "comment_id"
+        ],
+        "parent": "comments",
+        "target": [
+          "id"
+        ],
+        "label": "reported_comment"
+      },
+      {
+        "columns": [
+          "shop_id"
+        ],
+        "parent": "shops",
+        "target": [
+          "id"
+        ],
+        "label": "reported_shop"
+      },
+      {
+        "columns": [
+          "resolved_by_admin_id"
+        ],
+        "parent": "users",
+        "target": [
+          "id"
+        ],
+        "label": "resolves"
+      }
+    ],
+    "checks": [
+      "status IN ('pending','resolved','dismissed')",
+      "(CASE WHEN post_id IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN comment_id IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN shop_id IS NOT NULL THEN 1 ELSE 0 END) = 1",
+      "(status = 'pending' AND resolved_by_admin_id IS NULL AND resolved_at IS NULL) OR (status IN ('resolved','dismissed') AND resolved_by_admin_id IS NOT NULL AND resolved_at IS NOT NULL)",
+      "(source_type = 'user' AND reporter_id IS NOT NULL AND ai_model_name IS NULL) OR (source_type = 'ai' AND reporter_id IS NULL AND ai_model_name IS NOT NULL AND post_id IS NOT NULL)"
+    ],
+    "unique": [],
+    "indexes": [
+      {
+        "columns": [
+          "status",
+          "created_at"
+        ],
+        "unique": false,
+        "filter": null
+      }
+    ]
+  }
+]

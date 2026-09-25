@@ -1,0 +1,124 @@
+erDiagram
+    users {
+        BIGINT id PK "NOT NULL"
+        NVARCHAR(100) username UK "NOT NULL"
+        NVARCHAR(255) email UK "NOT NULL"
+        NVARCHAR(500) password_hash "NULL"
+        DATETIME2 email_verified_at "NULL"
+        BIT is_active "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+        DATETIME2 updated_at "NULL"
+        DATETIME2 last_login_at "NULL"
+        DATETIME2 deleted_at "NULL"
+        INT role_id FK "NOT NULL"
+    }
+    roles {
+        INT id PK "NOT NULL"
+        NVARCHAR(50) role_name UK "NOT NULL"
+    }
+    posts {
+        BIGINT id PK "NOT NULL"
+        BIGINT author_id FK "NOT NULL"
+        NVARCHAR(20) post_type "NOT NULL"
+        NVARCHAR(255) title "NOT NULL"
+        NVARCHAR(MAX) content "NULL"
+        NVARCHAR(20) meal_type "NULL"
+        INT prep_time_mins "NULL"
+        INT cooking_time_mins "NULL"
+        INT servings "NULL"
+        DECIMAL(10_2) calories_per_serving "NULL"
+        NVARCHAR(30) diet_type "NULL"
+        BIT ingredients_verified "NOT NULL"
+        NVARCHAR(20) status "NOT NULL"
+        BIGINT view_count "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+        DATETIME2 updated_at "NULL"
+        BIT is_deleted "NOT NULL"
+        DATETIME2 deleted_at "NULL"
+    }
+    post_media {
+        BIGINT id PK "NOT NULL"
+        BIGINT post_id FK "NOT NULL"
+        NVARCHAR(1000) media_url "NOT NULL"
+        NVARCHAR(20) media_type "NOT NULL"
+        NVARCHAR(255) cloud_public_id "NULL"
+        NVARCHAR(1000) thumbnail_url "NULL"
+        INT duration_seconds "NULL"
+        BIT is_primary "NOT NULL"
+        INT display_order "NOT NULL"
+        NVARCHAR(20) processing_status "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+    }
+    post_summaries {
+        BIGINT post_id PK,FK "NOT NULL"
+        BIGINT source_media_id FK "NOT NULL"
+        NVARCHAR(MAX) transcript "NULL"
+        NVARCHAR(MAX) ai_generated_text "NULL"
+        NVARCHAR(20) status "NOT NULL"
+        NVARCHAR(100) model_name "NULL"
+        NVARCHAR(2000) error_message "NULL"
+        DATETIME2 requested_at "NOT NULL"
+        DATETIME2 generated_at "NULL"
+    }
+    categories {
+        INT id PK "NOT NULL"
+        NVARCHAR(100) name "NOT NULL"
+        NVARCHAR(120) slug UK "NOT NULL"
+        NVARCHAR(20) category_type "NOT NULL"
+        NVARCHAR(20) post_category_kind "NULL"
+        BIT is_active "NOT NULL"
+    }
+    post_categories {
+        BIGINT post_id PK,FK "NOT NULL"
+        INT category_id PK,FK "NOT NULL"
+    }
+    ingredients {
+        BIGINT id PK "NOT NULL"
+        NVARCHAR(100) name UK "NOT NULL"
+        NVARCHAR(20) default_unit "NOT NULL"
+        DECIMAL(10_2) calories_per_100g "NULL"
+    }
+    post_ingredients {
+        BIGINT post_id PK,FK "NOT NULL"
+        BIGINT ingredient_id PK,FK "NOT NULL"
+        DECIMAL(12_3) quantity "NULL"
+        NVARCHAR(20) unit "NOT NULL"
+    }
+    post_likes {
+        BIGINT user_id PK,FK "NOT NULL"
+        BIGINT post_id PK,FK "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+    }
+    saved_posts {
+        BIGINT user_id PK,FK "NOT NULL"
+        BIGINT post_id PK,FK "NOT NULL"
+        DATETIME2 saved_at "NOT NULL"
+    }
+    comments {
+        BIGINT id PK "NOT NULL"
+        BIGINT post_id FK "NOT NULL"
+        BIGINT user_id FK "NOT NULL"
+        BIGINT parent_comment_id FK "NULL"
+        NVARCHAR(1000) content "NOT NULL"
+        NVARCHAR(20) status "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+        DATETIME2 updated_at "NULL"
+        BIT is_deleted "NOT NULL"
+        DATETIME2 deleted_at "NULL"
+    }
+    roles ||--|{ users : "has_role"
+    users ||--|{ posts : "authors"
+    posts ||--|{ post_media : "has_media"
+    posts ||--|| post_summaries : "summary_of"
+    post_media ||--|| post_summaries : "summarizes_media"
+    posts ||--|{ post_categories : "categorized"
+    categories ||--|{ post_categories : "post_category"
+    posts ||--|{ post_ingredients : "uses_ingredient"
+    ingredients ||--|{ post_ingredients : "ingredient_in_post"
+    users ||--|{ post_likes : "likes"
+    posts ||--|{ post_likes : "liked_post"
+    users ||--|{ saved_posts : "saves"
+    posts ||--|{ saved_posts : "saved_post"
+    posts ||--|{ comments : "comment_on"
+    users ||--|{ comments : "writes"
+    comments ||--|{ comments : "reply_to"

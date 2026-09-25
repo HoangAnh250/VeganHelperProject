@@ -1,0 +1,83 @@
+erDiagram
+    users {
+        BIGINT id PK "NOT NULL"
+        NVARCHAR(100) username UK "NOT NULL"
+        NVARCHAR(255) email UK "NOT NULL"
+        NVARCHAR(500) password_hash "NULL"
+        DATETIME2 email_verified_at "NULL"
+        BIT is_active "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+        DATETIME2 updated_at "NULL"
+        DATETIME2 last_login_at "NULL"
+        DATETIME2 deleted_at "NULL"
+        INT role_id FK "NOT NULL"
+    }
+    roles {
+        INT id PK "NOT NULL"
+        NVARCHAR(50) role_name UK "NOT NULL"
+    }
+    posts {
+        BIGINT id PK "NOT NULL"
+        BIGINT author_id FK "NOT NULL"
+        NVARCHAR(20) post_type "NOT NULL"
+        NVARCHAR(255) title "NOT NULL"
+        NVARCHAR(MAX) content "NULL"
+        NVARCHAR(20) meal_type "NULL"
+        INT prep_time_mins "NULL"
+        INT cooking_time_mins "NULL"
+        INT servings "NULL"
+        DECIMAL(10_2) calories_per_serving "NULL"
+        NVARCHAR(30) diet_type "NULL"
+        BIT ingredients_verified "NOT NULL"
+        NVARCHAR(20) status "NOT NULL"
+        BIGINT view_count "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+        DATETIME2 updated_at "NULL"
+        BIT is_deleted "NOT NULL"
+        DATETIME2 deleted_at "NULL"
+    }
+    chat_sessions {
+        BIGINT id PK "NOT NULL"
+        BIGINT user_id FK "NULL"
+        UNIQUEIDENTIFIER guest_session_id "NULL"
+        NVARCHAR(MAX) context_summary "NULL"
+        BIGINT summary_through_message_id "NULL"
+        DATETIME2 started_at "NOT NULL"
+        DATETIME2 last_activity_at "NOT NULL"
+    }
+    chat_messages {
+        BIGINT id PK "NOT NULL"
+        BIGINT session_id FK "NOT NULL"
+        NVARCHAR(20) sender_type "NOT NULL"
+        NVARCHAR(MAX) message_text "NOT NULL"
+        DATETIME2 created_at "NOT NULL"
+    }
+    ai_usage {
+        BIGINT id PK "NOT NULL"
+        UNIQUEIDENTIFIER request_id UK "NOT NULL"
+        BIGINT user_id FK "NULL"
+        UNIQUEIDENTIFIER guest_session_id "NULL"
+        NVARCHAR(30) feature_type "NOT NULL"
+        NVARCHAR(50) provider "NOT NULL"
+        NVARCHAR(100) model_name "NOT NULL"
+        NVARCHAR(20) status "NOT NULL"
+        INT input_tokens "NULL"
+        INT output_tokens "NULL"
+        DATETIME2 created_at "NOT NULL"
+    }
+    post_embeddings {
+        BIGINT id PK "NOT NULL"
+        BIGINT post_id FK "NOT NULL"
+        INT chunk_index "NOT NULL"
+        NVARCHAR(255) vector_id "NULL"
+        VARCHAR(64) content_hash "NOT NULL"
+        NVARCHAR(100) embedding_model "NOT NULL"
+        NVARCHAR(20) status "NOT NULL"
+        DATETIME2 embedded_at "NULL"
+    }
+    roles ||--|{ users : "has_role"
+    users ||--|{ posts : "authors"
+    users ||--|{ chat_sessions : "starts_chat"
+    chat_sessions ||--|{ chat_messages : "contains_message"
+    users ||--|{ ai_usage : "uses_ai"
+    posts ||--|{ post_embeddings : "indexed_chunk"
