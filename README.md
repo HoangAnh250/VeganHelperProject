@@ -1,4 +1,4 @@
-# VeganHelper
+# VeganHelperProject
 
 ASP.NET Core .NET 10 / EF Core SQL Server / 3-layer starter.
 
