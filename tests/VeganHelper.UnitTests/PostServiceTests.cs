@@ -193,4 +193,52 @@ public class PostServiceTests
         Assert.Equal("thumb.jpg", result.Items.First().ThumbnailUrl);
         Assert.Equal(1, result.TotalPages);
     }
+
+    [Fact]
+    public async Task DeletePostAsync_WhenUserIsNotAuthor_ThrowsUnauthorizedAccessException()
+    {
+        // Arrange
+        var post = new Post { Id = 1, AuthorId = 10 };
+        long wrongAuthorId = 99;
+
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((post, "Author"));
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _postService.DeletePostAsync(1, wrongAuthorId));
+        Assert.Contains("authorized", ex.Message);
+        
+        _mockPostRepository.Verify(r => r.DeletePostAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeletePostAsync_WhenPostDoesNotExist_ThrowsNotFoundException()
+    {
+        // Arrange
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(((Post?)null, ""));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<VeganHelper.BLL.Exceptions.NotFoundException>(() => _postService.DeletePostAsync(1, 10));
+    }
+
+    [Fact]
+    public async Task DeletePostAsync_WhenCalled_DeletesPost()
+    {
+        // Arrange
+        var post = new Post { Id = 1, AuthorId = 10 };
+        long authorId = 10;
+
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((post, "Author"));
+            
+        _mockPostRepository.Setup(r => r.DeletePostAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        await _postService.DeletePostAsync(1, authorId);
+
+        // Assert
+        _mockPostRepository.Verify(r => r.DeletePostAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

@@ -215,4 +215,24 @@ public sealed class PostService : IPostService
             TotalPages = totalPages
         };
     }
+
+    public async Task DeletePostAsync(long postId, long authorId, CancellationToken cancellationToken = default)
+    {
+        var (post, _) = await _postRepository.GetPostDetailAsync(postId, cancellationToken);
+        if (post == null)
+        {
+            throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} not found.");
+        }
+
+        if (post.AuthorId != authorId)
+        {
+            throw new UnauthorizedAccessException("You are not authorized to delete this post.");
+        }
+
+        bool deleted = await _postRepository.DeletePostAsync(postId, cancellationToken);
+        if (!deleted)
+        {
+            throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} could not be deleted.");
+        }
+    }
 }

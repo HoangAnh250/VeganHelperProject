@@ -72,4 +72,24 @@ public class PostsController : ControllerBase
         var result = await _postService.GetPostDetailAsync(id, cancellationToken);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Soft deletes a post by its ID.
+    /// </summary>
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeletePost(long id, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Unauthorized(new { message = "User identity is missing or invalid." });
+        }
+
+        await _postService.DeletePostAsync(id, userId, cancellationToken);
+        return Ok(new { message = "Post deleted successfully" });
+    }
 }

@@ -82,6 +82,18 @@ public sealed class PostRepository : IPostRepository
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.ViewCount, p => p.ViewCount + 1), cancellationToken);
     }
 
+    public async Task<bool> DeletePostAsync(long postId, CancellationToken cancellationToken = default)
+    {
+        int rowsAffected = await _context.Posts
+            .Where(p => p.Id == postId && !p.IsDeleted)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.IsDeleted, true)
+                .SetProperty(p => p.DeletedAt, DateTime.UtcNow),
+            cancellationToken);
+
+        return rowsAffected > 0;
+    }
+
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         await _context.SaveChangesAsync(cancellationToken);
