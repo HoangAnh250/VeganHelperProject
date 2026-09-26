@@ -53,4 +53,26 @@ public class PostsController : ControllerBase
         var result = await _postService.GetPostDetailAsync(id, cancellationToken);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Updates an existing post.
+    /// </summary>
+    [HttpPut("{id}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdatePost(long id, [FromForm] UpdatePostRequest request, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Unauthorized(new { message = "User identity is missing or invalid." });
+        }
+
+        await _postService.UpdatePostAsync(id, request, userId, cancellationToken);
+
+        return Ok(new { message = "Update successful, post is pending review again" });
+    }
 }

@@ -15,11 +15,13 @@ public sealed class PostService : IPostService
 {
     private readonly IPostRepository _postRepository;
     private readonly IValidator<CreatePostRequest> _validator;
+    private readonly IValidator<UpdatePostRequest> _updateValidator;
 
-    public PostService(IPostRepository postRepository, IValidator<CreatePostRequest> validator)
+    public PostService(IPostRepository postRepository, IValidator<CreatePostRequest> validator, IValidator<UpdatePostRequest> updateValidator)
     {
         _postRepository = postRepository;
         _validator = validator;
+        _updateValidator = updateValidator;
     }
 
     public async Task<long> CreatePostAsync(CreatePostRequest request, long authorId, CancellationToken cancellationToken = default)
@@ -180,5 +182,139 @@ public sealed class PostService : IPostService
                 Instruction = ps.Description
             }).OrderBy(s => s.StepNumber).ToList()
         };
+    }
+
+    public async Task UpdatePostAsync(long postId, UpdatePostRequest request, long authorId, CancellationToken cancellationToken = default)
+    {
+        await _updateValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var post = await _postRepository.GetPostForUpdateAsync(postId, cancellationToken);
+        if (post == null)
+        {
+            throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} not found.");
+        }
+
+        if (post.AuthorId != authorId)
+        {
+            throw new UnauthorizedAccessException("You are not authorized to update this post.");
+        }
+
+        // Update basic fields
+        post.Title = request.Title;
+        post.Content = request.Content;
+        post.DifficultyLevel = string.IsNullOrEmpty(request.DifficultyLevel) ? null : request.DifficultyLevel;
+        post.PrepTimeMins = request.PrepTimeMins;
+        post.CookingTimeMins = request.CookingTimeMins;
+        post.DietType = string.IsNullOrWhiteSpace(request.DietType) ? null : request.DietType;
+        post.Status = "pending_review";
+        post.UpdatedAt = DateTime.UtcNow;
+
+        // Update Categories
+        post.PostCategories.Clear();
+        post.PostCategories.Add(new PostCategory { CategoryId = request.CategoryId });
+
+        // Update Ingredients
+        if (!string.IsNullOrWhiteSpace(request.IngredientsJson))
+        {
+            try
+            {
+                var ingredients = JsonSerializer.Deserialize<List<IngredientDto>>(request.IngredientsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                post.PostIngredients.Clear();
+                if (ingredients != null)
+                {
+                    foreach (var ing in ingredients)
+                    {
+                        post.PostIngredients.Add(new PostIngredient
+                        {
+                            IngredientId = ing.IngredientId,
+                            Quantity = ing.Quantity,
+                            Unit = ing.Unit ?? string.Empty
+                        });
+                    }
+                }
+            }
+            catch (JsonException ex)
+            {
+                throw new ArgumentException("Invalid JSON format for Ingredients.", ex);
+            }
+        }
+
+        // Update Steps
+        if (!string.IsNullOrWhiteSpace(request.StepsJson))
+        {
+            try
+            {
+                var steps = JsonSerializer.Deserialize<List<StepDto>>(request.StepsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                post.PostSteps.Clear();
+                if (steps != null)
+                {
+                    foreach (var step in steps)
+                    {
+                        post.PostSteps.Add(new PostStep
+                        {
+                            StepNumber = step.StepNumber,
+                            Description = step.Description ?? string.Empty
+                        });
+                    }
+                }
+            }
+            catch (JsonException ex)
+            {
+                throw new ArgumentException("Invalid JSON format for Steps.", ex);
+            }
+        }
+
+        // Update Media (simulate)
+        if (request.MediaIdsToRemove != null && request.MediaIdsToRemove.Count > 0)
+        {
+            var mediaToRemove = post.Media.Where(m => request.MediaIdsToRemove.Contains(m.Id)).ToList();
+            foreach (var m in mediaToRemove)
+            {
+                post.Media.Remove(m);
+            }
+        }
+
+        if (request.MediaFilesToAdd != null && request.MediaFilesToAdd.Count > 0)
+        {
+            // Note: In real app, we upload and get URLs.
+            int newOrder = post.Media.Count > 0 ? post.Media.Max(m => m.DisplayOrder) + 1 : 0;
+            foreach (var file in request.MediaFilesToAdd)
+            {
+                string simulatedUrl = $"/uploads/simulated_{Guid.NewGuid()}_{file.FileName}";
+                post.Media.Add(new PostMedia
+                {
+                    MediaUrl = simulatedUrl,
+                    MediaType = file.ContentType.StartsWith("video") ? "video" : "image",
+                    IsPrimary = post.Media.Count == 0 && newOrder == 0,
+                    DisplayOrder = newOrder++,
+                    ProcessingStatus = "ready",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        // Check if there is still at least 1 media for thumbnail (if required)
+        if (post.Media.Count == 0)
+        {
+            throw new ArgumentException("At least 1 media file is required for thumbnail.");
+        }
+
+        // Ensure exactly one primary media exists
+        if (post.Media.Count > 0 && !post.Media.Any(m => m.IsPrimary))
+        {
+            post.Media.OrderBy(m => m.DisplayOrder).First().IsPrimary = true;
+        }
+
+        await _postRepository.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _postRepository.SaveChangesAsync(cancellationToken);
+            await _postRepository.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _postRepository.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
 }

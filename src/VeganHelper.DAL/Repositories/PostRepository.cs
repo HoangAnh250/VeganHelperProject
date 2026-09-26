@@ -53,6 +53,16 @@ public sealed class PostRepository : IPostRepository
         return (post, authorName);
     }
 
+    public async Task<Post?> GetPostForUpdateAsync(long postId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Posts
+            .Include(p => p.Media)
+            .Include(p => p.PostCategories)
+            .Include(p => p.PostIngredients)
+            .Include(p => p.PostSteps)
+            .FirstOrDefaultAsync(p => p.Id == postId && !p.IsDeleted, cancellationToken);
+    }
+
     public async Task IncrementViewCountAsync(long postId, CancellationToken cancellationToken = default)
     {
         await _context.Posts

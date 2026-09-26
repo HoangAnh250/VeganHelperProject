@@ -9,4 +9,5 @@ public interface IPostService
 {
     Task<long> CreatePostAsync(CreatePostRequest request, long authorId, CancellationToken cancellationToken = default);
     Task<PostDetailDto> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default);
+    Task UpdatePostAsync(long postId, UpdatePostRequest request, long authorId, CancellationToken cancellationToken = default);
 }

@@ -72,6 +72,15 @@ public class ExceptionHandlingMiddleware
             var result = JsonSerializer.Serialize(new { message = ex.Message });
             await context.Response.WriteAsync(result);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access error occurred.");
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+
+            var result = JsonSerializer.Serialize(new { message = ex.Message });
+            await context.Response.WriteAsync(result);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An unhandled exception occurred.");
