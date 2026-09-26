@@ -6,7 +6,7 @@ public sealed record UserProfileDto(
     long Id,
     string Username,
     string Email,
-    DateTime? EmailVerifiedAt,
+    bool IsEmailVerified,
     string? PhoneNumber,
     string DisplayName,
     string? AvatarUrl,

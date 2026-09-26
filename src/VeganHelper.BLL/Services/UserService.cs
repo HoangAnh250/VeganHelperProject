@@ -102,7 +102,7 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         user.Id,
         user.Username,
         user.Email,
-        user.EmailVerifiedAt,
+        user.EmailVerifiedAt is not null,
         user.PhoneNumber,
         profile.DisplayName,
         profile.AvatarUrl,
