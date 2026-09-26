@@ -40,4 +40,16 @@ public class PostsController : ControllerBase
 
         return CreatedAtAction(nameof(CreatePost), new { id = postId }, new { id = postId, message = "Post created successfully and is pending review." });
     }
+
+    /// <summary>
+    /// Gets a paginated and filtered list of posts.
+    /// </summary>
+    [HttpGet]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFeed([FromQuery] GetFeedRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _postService.GetFeedAsync(request, cancellationToken);
+        return Ok(result);
+    }
 }

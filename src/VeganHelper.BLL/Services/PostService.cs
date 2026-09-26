@@ -131,4 +131,40 @@ public sealed class PostService : IPostService
             throw;
         }
     }
+    public async Task<PagedResult<PostFeedItemDto>> GetFeedAsync(GetFeedRequest request, CancellationToken cancellationToken = default)
+    {
+        if (request.PageIndex < 1) request.PageIndex = 1;
+        if (request.PageSize < 1) request.PageSize = 10;
+        if (request.PageSize > 50) request.PageSize = 50;
+
+        var (totalCount, items) = await _postRepository.GetFeedAsync(
+            request.PageIndex,
+            request.PageSize,
+            request.CategoryId,
+            request.DifficultyLevel,
+            request.DietType,
+            request.PrepTimeMax,
+            cancellationToken);
+
+        var dtoItems = items.Select(p => new PostFeedItemDto
+        {
+            Id = p.Id,
+            Title = p.Title,
+            PostType = p.PostType,
+            ThumbnailUrl = p.ThumbnailUrl,
+            AuthorName = p.AuthorName,
+            AvatarUrl = p.AvatarUrl,
+            ViewCount = p.ViewCount,
+            CreatedAt = p.CreatedAt
+        }).ToList();
+
+        var totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);
+
+        return new PagedResult<PostFeedItemDto>
+        {
+            TotalItems = totalCount,
+            TotalPages = totalPages,
+            Items = dtoItems
+        };
+    }
 }

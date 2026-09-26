@@ -106,4 +106,47 @@ public class PostServiceTests
         
         _mockPostRepository.Verify(r => r.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task GetFeedAsync_WhenCalledWithValidRequest_ReturnsPagedResultAndCalculatesTotalPages()
+    {
+        // Arrange
+        var request = new GetFeedRequest { PageIndex = 2, PageSize = 3 };
+        var mockItems = new List<PostFeedProjection>
+        {
+            new PostFeedProjection { Id = 1, Title = "Test 1" },
+            new PostFeedProjection { Id = 2, Title = "Test 2" },
+            new PostFeedProjection { Id = 3, Title = "Test 3" }
+        };
+
+        _mockPostRepository.Setup(r => r.GetFeedAsync(2, 3, null, null, null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((10, mockItems)); // Total count is 10, page size 3 -> Total Pages should be 4
+
+        // Act
+        var result = await _postService.GetFeedAsync(request);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(10, result.TotalItems);
+        Assert.Equal(4, result.TotalPages);
+        Assert.Equal(3, System.Linq.Enumerable.Count(result.Items));
+        _mockPostRepository.Verify(r => r.GetFeedAsync(2, 3, null, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetFeedAsync_WhenPaginationParamsAreInvalid_ClampsToValidValues()
+    {
+        // Arrange
+        var request = new GetFeedRequest { PageIndex = -5, PageSize = 999 };
+        
+        _mockPostRepository.Setup(r => r.GetFeedAsync(It.IsAny<int>(), It.IsAny<int>(), null, null, null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((0, new List<PostFeedProjection>()));
+
+        // Act
+        await _postService.GetFeedAsync(request);
+
+        // Assert
+        // PageIndex should clamp to 1, PageSize should clamp to 50
+        _mockPostRepository.Verify(r => r.GetFeedAsync(1, 50, null, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
+    }
 }
