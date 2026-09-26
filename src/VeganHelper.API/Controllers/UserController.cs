@@ -23,7 +23,7 @@ public sealed class UserController(IUserService service) : ControllerBase
     [RequestSizeLimit(5 * 1024 * 1024 + 64 * 1024)]
     public async Task<IActionResult> UpdateMe(
         [FromForm] UpdateProfileRequestDto request,
-        [FromForm(Name = "avatar")] IFormFile? avatar,
+        IFormFile? avatar,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
