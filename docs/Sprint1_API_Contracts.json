@@ -155,6 +155,7 @@
           "pageIndex": "int (default: 1)",
           "pageSize": "int (default: 10)",
           "categoryId": "int (optional)",
+          "difficultyLevel": "string (optional: easy|medium|hard)",
           "dietType": "string (optional)",
           "prepTimeMax": "int (optional)"
         },
@@ -188,6 +189,8 @@
           "postType": "string",
           "title": "string",
           "content": "string",
+          "categoryId": "int",
+          "difficultyLevel": "string",
           "prepTimeMins": "int",
           "cookingTimeMins": "int",
           "dietType": "string",
@@ -220,12 +223,15 @@
         "input_formData": {
           "title": "string (required)",
           "postType": "string (article|video|recipe|community)",
+          "categoryId": "int (required)",
           "content": "string (required)",
+          "difficultyLevel": "string (easy|medium|hard)",
           "prepTimeMins": "int (optional)",
           "cookingTimeMins": "int (optional)",
           "dietType": "string (vegan|lacto_ovo_vegetarian)",
           "mediaFiles": "List<file> (required at least 1 for thumbnail)",
-          "ingredientsJson": "string (JSON array of ingredients)"
+          "ingredientsJson": "string (JSON array of ingredients)",
+          "stepsJson": "string (JSON array of cooking steps if recipe)"
         },
         "output": {
           "statusCode": 201,
@@ -242,13 +248,16 @@
         },
         "input_formData": {
           "title": "string",
+          "categoryId": "int",
           "content": "string",
+          "difficultyLevel": "string",
           "prepTimeMins": "int",
           "cookingTimeMins": "int",
           "dietType": "string",
           "mediaFilesToAdd": "List<file> (optional)",
           "mediaIdsToRemove": "List<long> (optional)",
-          "ingredientsJson": "string (JSON array)"
+          "ingredientsJson": "string (JSON array)",
+          "stepsJson": "string (JSON array)"
         },
         "output": {
           "statusCode": 200,

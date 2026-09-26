@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VeganHelper.DAL.Data;
 
@@ -11,9 +12,11 @@ using VeganHelper.DAL.Data;
 namespace VeganHelper.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260926104718_AddPostFeedAndFixShadow")]
+    partial class AddPostFeedAndFixShadow
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -846,10 +849,15 @@ namespace VeganHelper.DAL.Migrations
                         .HasColumnType("INT")
                         .HasColumnName("category_id");
 
+                    b.Property<long?>("PostId1")
+                        .HasColumnType("BIGINT");
+
                     b.HasKey("PostId", "CategoryId")
                         .HasName("PK_post_categories");
 
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("PostId1");
 
                     b.ToTable("post_categories", (string)null);
                 });
@@ -925,6 +933,9 @@ namespace VeganHelper.DAL.Migrations
                         .HasColumnType("BIGINT")
                         .HasColumnName("ingredient_id");
 
+                    b.Property<long?>("PostId1")
+                        .HasColumnType("BIGINT");
+
                     b.Property<decimal?>("Quantity")
                         .HasColumnType("DECIMAL(12,3)")
                         .HasColumnName("quantity");
@@ -938,6 +949,8 @@ namespace VeganHelper.DAL.Migrations
                         .HasName("PK_post_ingredients");
 
                     b.HasIndex("IngredientId");
+
+                    b.HasIndex("PostId1");
 
                     b.ToTable("post_ingredients", null, t =>
                         {
@@ -1018,6 +1031,9 @@ namespace VeganHelper.DAL.Migrations
                         .HasColumnType("BIGINT")
                         .HasColumnName("post_id");
 
+                    b.Property<long?>("PostId1")
+                        .HasColumnType("BIGINT");
+
                     b.Property<string>("ProcessingStatus")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1039,6 +1055,8 @@ namespace VeganHelper.DAL.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_post_media_1")
                         .HasFilter("is_primary = 1");
+
+                    b.HasIndex("PostId1");
 
                     b.ToTable("post_media", null, t =>
                         {
@@ -1690,11 +1708,15 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_post_categories_2");
 
                     b.HasOne("VeganHelper.DAL.Models.Post", null)
-                        .WithMany("PostCategories")
+                        .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_categories_1");
+
+                    b.HasOne("VeganHelper.DAL.Models.Post", null)
+                        .WithMany("PostCategories")
+                        .HasForeignKey("PostId1");
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Models.PostEmbedding", b =>
@@ -1717,11 +1739,15 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_post_ingredients_2");
 
                     b.HasOne("VeganHelper.DAL.Models.Post", null)
-                        .WithMany("PostIngredients")
+                        .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_ingredients_1");
+
+                    b.HasOne("VeganHelper.DAL.Models.Post", null)
+                        .WithMany("PostIngredients")
+                        .HasForeignKey("PostId1");
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Models.PostLike", b =>
@@ -1744,11 +1770,15 @@ namespace VeganHelper.DAL.Migrations
             modelBuilder.Entity("VeganHelper.DAL.Models.PostMedia", b =>
                 {
                     b.HasOne("VeganHelper.DAL.Models.Post", null)
-                        .WithMany("Media")
+                        .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_media_1");
+
+                    b.HasOne("VeganHelper.DAL.Models.Post", null)
+                        .WithMany("Media")
+                        .HasForeignKey("PostId1");
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Models.PostStep", b =>
