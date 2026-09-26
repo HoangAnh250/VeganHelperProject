@@ -15,11 +15,13 @@ public sealed class PostService : IPostService
 {
     private readonly IPostRepository _postRepository;
     private readonly IValidator<CreatePostRequest> _validator;
+    private readonly IValidator<GetMyPostsRequest> _getMyPostsValidator;
 
-    public PostService(IPostRepository postRepository, IValidator<CreatePostRequest> validator)
+    public PostService(IPostRepository postRepository, IValidator<CreatePostRequest> validator, IValidator<GetMyPostsRequest> getMyPostsValidator)
     {
         _postRepository = postRepository;
         _validator = validator;
+        _getMyPostsValidator = getMyPostsValidator;
     }
 
     public async Task<long> CreatePostAsync(CreatePostRequest request, long authorId, CancellationToken cancellationToken = default)
@@ -179,6 +181,38 @@ public sealed class PostService : IPostService
                 StepNumber = ps.StepNumber,
                 Instruction = ps.Description
             }).OrderBy(s => s.StepNumber).ToList()
+        };
+    }
+
+    public async Task<PagedResult<MyPostItemDto>> GetMyPostsAsync(long authorId, GetMyPostsRequest request, CancellationToken cancellationToken = default)
+    {
+        await _getMyPostsValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var (posts, totalCount) = await _postRepository.GetMyPostsAsync(
+            authorId, 
+            request.Status, 
+            request.PageIndex, 
+            request.PageSize, 
+            cancellationToken);
+
+        var items = posts.Select(p => new MyPostItemDto
+        {
+            Id = p.Id,
+            Title = p.Title,
+            Status = p.Status,
+            CreatedAt = p.CreatedAt,
+            ThumbnailUrl = p.Media.FirstOrDefault(m => m.IsPrimary)?.MediaUrl
+        }).ToList();
+
+        int totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);
+
+        return new PagedResult<MyPostItemDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageIndex = request.PageIndex,
+            PageSize = request.PageSize,
+            TotalPages = totalPages
         };
     }
 }

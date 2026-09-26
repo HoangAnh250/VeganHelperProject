@@ -42,6 +42,25 @@ public class PostsController : ControllerBase
     }
 
     /// <summary>
+    /// Gets a paginated list of posts created by the current user.
+    /// </summary>
+    [HttpGet("my-posts")]
+    [ProducesResponseType(typeof(PagedResult<MyPostItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyPosts([FromQuery] GetMyPostsRequest request, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Unauthorized(new { message = "User identity is missing or invalid." });
+        }
+
+        var result = await _postService.GetMyPostsAsync(userId, request, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Gets the details of a specific post by its ID.
     /// </summary>
     [HttpGet("{id}")]

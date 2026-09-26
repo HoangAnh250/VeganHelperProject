@@ -53,6 +53,28 @@ public sealed class PostRepository : IPostRepository
         return (post, authorName);
     }
 
+    public async Task<(List<Post> Posts, int TotalCount)> GetMyPostsAsync(long authorId, string? status, int pageIndex, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var query = _context.Posts
+            .Where(p => p.AuthorId == authorId && !p.IsDeleted);
+
+        if (!string.IsNullOrEmpty(status))
+        {
+            query = query.Where(p => p.Status == status);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var posts = await query
+            .Include(p => p.Media)
+            .OrderByDescending(p => p.CreatedAt)
+            .Skip((pageIndex - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (posts, totalCount);
+    }
+
     public async Task IncrementViewCountAsync(long postId, CancellationToken cancellationToken = default)
     {
         await _context.Posts

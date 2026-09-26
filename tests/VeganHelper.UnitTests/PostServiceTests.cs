@@ -18,13 +18,15 @@ public class PostServiceTests
 {
     private readonly Mock<IPostRepository> _mockPostRepository;
     private readonly Mock<IValidator<CreatePostRequest>> _mockValidator;
+    private readonly Mock<IValidator<GetMyPostsRequest>> _mockGetMyPostsValidator;
     private readonly PostService _postService;
 
     public PostServiceTests()
     {
         _mockPostRepository = new Mock<IPostRepository>();
         _mockValidator = new Mock<IValidator<CreatePostRequest>>();
-        _postService = new PostService(_mockPostRepository.Object, _mockValidator.Object);
+        _mockGetMyPostsValidator = new Mock<IValidator<GetMyPostsRequest>>();
+        _postService = new PostService(_mockPostRepository.Object, _mockValidator.Object, _mockGetMyPostsValidator.Object);
     }
 
     [Fact]
@@ -153,5 +155,42 @@ public class PostServiceTests
         Assert.Contains(postId.ToString(), ex.Message);
 
         _mockPostRepository.Verify(r => r.IncrementViewCountAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetMyPostsAsync_WhenCalled_ReturnsPagedResultAndMapsThumbnail()
+    {
+        // Arrange
+        var request = new GetMyPostsRequest { PageIndex = 1, PageSize = 10 };
+        long authorId = 1;
+        
+        var posts = new List<Post>
+        {
+            new Post
+            {
+                Id = 1,
+                Title = "Test Post",
+                Status = "published",
+                CreatedAt = DateTime.UtcNow,
+                Media = new List<PostMedia> { new PostMedia { MediaUrl = "thumb.jpg", IsPrimary = true } }
+            }
+        };
+
+        _mockGetMyPostsValidator.Setup(v => v.ValidateAsync(It.IsAny<IValidationContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ValidationResult());
+
+        _mockPostRepository.Setup(r => r.GetMyPostsAsync(authorId, null, 1, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((posts, 1));
+
+        // Act
+        var result = await _postService.GetMyPostsAsync(authorId, request);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Single(result.Items);
+        Assert.Equal("Test Post", result.Items.First().Title);
+        Assert.Equal("thumb.jpg", result.Items.First().ThumbnailUrl);
+        Assert.Equal(1, result.TotalPages);
     }
 }
