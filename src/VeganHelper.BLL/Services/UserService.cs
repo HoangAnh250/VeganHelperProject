@@ -14,10 +14,24 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
 
     public async Task<ServiceResult<UserProfileDto>> GetProfileAsync(long userId, CancellationToken cancellationToken)
     {
-        var result = await repository.FindProfileAsync(userId, cancellationToken);
-        return result is null
-            ? ServiceResult<UserProfileDto>.Fail("User profile was not found.", 404)
-            : ServiceResult<UserProfileDto>.Ok(Map(result.Value.User, result.Value.Profile));
+        var user = await repository.FindUserAsync(userId, cancellationToken);
+        if (user is null || user.DeletedAt is not null)
+            return ServiceResult<UserProfileDto>.Fail("User profile was not found.", 404);
+
+        var profile = await repository.FindUserProfileAsync(userId, cancellationToken);
+        if (profile is null)
+        {
+            profile = new UserProfile
+            {
+                UserId = userId,
+                DisplayName = user.Username,
+                DietType = "vegan"
+            };
+            await repository.AddUserProfileAsync(profile, cancellationToken);
+            await repository.SaveChangesAsync(cancellationToken);
+        }
+
+        return ServiceResult<UserProfileDto>.Ok(Map(user, profile));
     }
 
     public async Task<ServiceResult<UserProfileDto>> UpdateProfileAsync(long userId, UpdateProfileCommand command, CancellationToken cancellationToken)

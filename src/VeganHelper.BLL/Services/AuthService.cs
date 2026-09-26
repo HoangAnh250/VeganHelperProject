@@ -9,6 +9,7 @@ namespace VeganHelper.BLL.Services;
 
 public sealed class AuthService(
     IAuthRepository repository,
+    IUserRepository userRepository,
     IJwtTokenService jwtTokenService,
     IOptions<JwtOptions> jwtOptions,
     ILogger<AuthService> logger) : IAuthService
@@ -40,6 +41,14 @@ public sealed class AuthService(
         };
         await repository.AddUserAsync(user, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
+
+        await userRepository.AddUserProfileAsync(new UserProfile
+        {
+            UserId = user.Id,
+            DisplayName = username,
+            DietType = "vegan"
+        }, cancellationToken);
+        await userRepository.SaveChangesAsync(cancellationToken);
 
         var verificationCode = TokenSecurity.GenerateOtp();
         await repository.AddEmailVerificationTokenAsync(new EmailVerificationToken
