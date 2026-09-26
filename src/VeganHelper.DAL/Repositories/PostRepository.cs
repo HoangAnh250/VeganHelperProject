@@ -25,7 +25,40 @@ public sealed class PostRepository : IPostRepository
         return entry.Entity;
     }
 
+    public async Task<(Post? Post, string AuthorName)> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default)
+    {
+        var post = await _context.Posts
+            .Include(p => p.Media)
+            .Include(p => p.PostCategories)
+            .Include(p => p.PostIngredients)
+                .ThenInclude(pi => pi.Ingredient)
+            .Include(p => p.PostSteps)
+            .FirstOrDefaultAsync(p => p.Id == postId && !p.IsDeleted, cancellationToken);
 
+        if (post == null)
+        {
+            return (null, string.Empty);
+        }
+
+        var authorName = await _context.UserProfiles
+            .Where(up => up.UserId == post.AuthorId)
+            .Select(up => up.DisplayName)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? await _context.Users
+            .Where(u => u.Id == post.AuthorId)
+            .Select(u => u.Username)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? "Unknown";
+
+        return (post, authorName);
+    }
+
+    public async Task IncrementViewCountAsync(long postId, CancellationToken cancellationToken = default)
+    {
+        await _context.Posts
+            .Where(p => p.Id == postId)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.ViewCount, p => p.ViewCount + 1), cancellationToken);
+    }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {

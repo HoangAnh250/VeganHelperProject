@@ -106,4 +106,52 @@ public class PostServiceTests
         
         _mockPostRepository.Verify(r => r.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task GetPostDetailAsync_WhenPostExists_ReturnsDtoAndIncrementsViewCount()
+    {
+        // Arrange
+        long postId = 1;
+        var mockPost = new Post
+        {
+            Id = postId,
+            AuthorId = 10,
+            Title = "Test Recipe",
+            ViewCount = 5,
+            PostCategories = new List<PostCategory> { new PostCategory { CategoryId = 2 } }
+        };
+        var authorName = "Chef John";
+
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(postId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((mockPost, authorName));
+
+        // Act
+        var result = await _postService.GetPostDetailAsync(postId);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(postId, result.Id);
+        Assert.Equal("Test Recipe", result.Title);
+        Assert.Equal("Chef John", result.AuthorName);
+        Assert.Equal(6, result.ViewCount); // Ensure view count was incremented locally
+        Assert.Equal(2, result.CategoryId);
+
+        _mockPostRepository.Verify(r => r.GetPostDetailAsync(postId, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPostRepository.Verify(r => r.IncrementViewCountAsync(postId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetPostDetailAsync_WhenPostDoesNotExist_ThrowsNotFoundException()
+    {
+        // Arrange
+        long postId = 999;
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(postId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((null, string.Empty));
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<VeganHelper.BLL.Exceptions.NotFoundException>(() => _postService.GetPostDetailAsync(postId));
+        Assert.Contains(postId.ToString(), ex.Message);
+
+        _mockPostRepository.Verify(r => r.IncrementViewCountAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

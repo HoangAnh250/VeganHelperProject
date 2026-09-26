@@ -256,7 +256,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.Quantity).HasColumnName("quantity").HasColumnType("DECIMAL(12,3)").IsRequired(false);
             entity.Property(x => x.Unit).HasColumnName("unit").HasColumnType("NVARCHAR(20)").IsRequired(true);
             entity.HasOne<Post>().WithMany(p => p.PostIngredients).HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_ingredients_1");
-            entity.HasOne<Ingredient>().WithMany().HasForeignKey(x => new { x.IngredientId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_ingredients_2");
+            entity.HasOne(x => x.Ingredient).WithMany().HasForeignKey(x => new { x.IngredientId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_ingredients_2");
         });
         modelBuilder.Entity<UserAllergy>(entity =>
         {

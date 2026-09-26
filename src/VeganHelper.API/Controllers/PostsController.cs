@@ -40,4 +40,17 @@ public class PostsController : ControllerBase
 
         return CreatedAtAction(nameof(CreatePost), new { id = postId }, new { id = postId, message = "Post created successfully and is pending review." });
     }
+
+    /// <summary>
+    /// Gets the details of a specific post by its ID.
+    /// </summary>
+    [HttpGet("{id}")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(PostDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPostDetail(long id, CancellationToken cancellationToken)
+    {
+        var result = await _postService.GetPostDetailAsync(id, cancellationToken);
+        return Ok(result);
+    }
 }

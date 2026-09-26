@@ -7,6 +7,8 @@ using VeganHelper.DAL.Models;
 public interface IPostRepository
 {
     Task<Post> CreatePostAsync(Post post, CancellationToken cancellationToken = default);
+    Task<(Post? Post, string AuthorName)> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default);
+    Task IncrementViewCountAsync(long postId, CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);

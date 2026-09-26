@@ -131,4 +131,54 @@ public sealed class PostService : IPostService
             throw;
         }
     }
+
+    public async Task<PostDetailDto> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default)
+    {
+        var (post, authorName) = await _postRepository.GetPostDetailAsync(postId, cancellationToken);
+        
+        if (post == null)
+        {
+            throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} not found.");
+        }
+
+        // Increment view count in DB and locally for the return object
+        await _postRepository.IncrementViewCountAsync(postId, cancellationToken);
+        post.ViewCount++;
+
+        return new PostDetailDto
+        {
+            Id = post.Id,
+            AuthorId = post.AuthorId,
+            AuthorName = authorName,
+            PostType = post.PostType,
+            Title = post.Title,
+            Content = post.Content,
+            CategoryId = post.PostCategories.FirstOrDefault()?.CategoryId ?? 0,
+            DifficultyLevel = post.DifficultyLevel,
+            PrepTimeMins = post.PrepTimeMins,
+            CookingTimeMins = post.CookingTimeMins,
+            DietType = post.DietType,
+            Status = post.Status,
+            ViewCount = post.ViewCount,
+            CreatedAt = post.CreatedAt,
+            Media = post.Media.Select(m => new PostMediaDto
+            {
+                MediaUrl = m.MediaUrl,
+                MediaType = m.MediaType,
+                IsPrimary = m.IsPrimary
+            }).ToList(),
+            Ingredients = post.PostIngredients.Select(pi => new PostIngredientDto
+            {
+                IngredientId = pi.IngredientId,
+                Name = pi.Ingredient?.Name ?? "Unknown", // Assuming Ingredient table is eagerly loaded and has Name
+                Quantity = pi.Quantity ?? 0m,
+                Unit = pi.Unit
+            }).ToList(),
+            Steps = post.PostSteps.Select(ps => new PostStepDto
+            {
+                StepNumber = ps.StepNumber,
+                Instruction = ps.Description
+            }).OrderBy(s => s.StepNumber).ToList()
+        };
+    }
 }
