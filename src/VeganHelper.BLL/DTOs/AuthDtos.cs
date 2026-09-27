@@ -23,6 +23,12 @@ public sealed class VerifyEmailRequestDto
     public string Otp { get; init; } = string.Empty;
 }
 
+public sealed class ResendVerificationRequestDto
+{
+    [Required, EmailAddress]
+    public string Email { get; init; } = string.Empty;
+}
+
 public sealed class LoginRequestDto
 {
     [Required, EmailAddress]
@@ -30,6 +36,18 @@ public sealed class LoginRequestDto
 
     [Required]
     public string Password { get; init; } = string.Empty;
+}
+
+public sealed class GoogleLoginRequestDto
+{
+    [Required]
+    public string IdToken { get; init; } = string.Empty;
+}
+
+public sealed class SetPasswordRequestDto
+{
+    [Required, MinLength(8), StringLength(128)]
+    public string NewPassword { get; init; } = string.Empty;
 }
 
 public sealed class RefreshTokenRequestDto

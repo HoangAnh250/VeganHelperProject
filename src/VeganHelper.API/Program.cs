@@ -8,6 +8,8 @@ using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.Services;
 using VeganHelper.DAL.DependencyInjection;
 using VeganHelper.DAL.Storage;
+using VeganHelper.API.Infrastructure.Email;
+using VeganHelper.API.Infrastructure.Google;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
@@ -34,7 +36,11 @@ builder.Services.AddScoped<IStatusService, StatusService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IEmailSender, SendGridEmailSender>();
+builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<SendGridOptions>(builder.Configuration.GetSection("SendGrid"));
+builder.Services.Configure<GoogleOptions>(builder.Configuration.GetSection("Google"));
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Jwt configuration is missing.");

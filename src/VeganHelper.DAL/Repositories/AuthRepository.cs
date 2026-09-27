@@ -15,11 +15,26 @@ public sealed class AuthRepository(AppDbContext db) : IAuthRepository
     public Task<User?> FindUserByIdAsync(long id, CancellationToken cancellationToken) =>
         db.Users.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
+    public Task<UserIdentity?> FindIdentityAsync(string provider, string providerSubject, CancellationToken cancellationToken) =>
+        db.UserIdentities.SingleOrDefaultAsync(
+            x => x.Provider == provider && x.ProviderSubject == providerSubject,
+            cancellationToken);
+
+    public Task<UserIdentity?> FindIdentityByUserAsync(long userId, string provider, CancellationToken cancellationToken) =>
+        db.UserIdentities.SingleOrDefaultAsync(
+            x => x.UserId == userId && x.Provider == provider,
+            cancellationToken);
+
     public Task<string?> FindRoleNameAsync(int roleId, CancellationToken cancellationToken) =>
         db.Roles.Where(x => x.Id == roleId).Select(x => x.RoleName).SingleOrDefaultAsync(cancellationToken);
 
     public Task AddUserAsync(User user, CancellationToken cancellationToken) =>
         db.Users.AddAsync(user, cancellationToken).AsTask();
+
+    public Task AddUserIdentityAsync(UserIdentity identity, CancellationToken cancellationToken) =>
+        db.UserIdentities.AddAsync(identity, cancellationToken).AsTask();
+
+    public void RemoveUserIdentity(UserIdentity identity) => db.UserIdentities.Remove(identity);
 
     public Task AddEmailVerificationTokenAsync(EmailVerificationToken token, CancellationToken cancellationToken) =>
         db.EmailVerificationTokens.AddAsync(token, cancellationToken).AsTask();

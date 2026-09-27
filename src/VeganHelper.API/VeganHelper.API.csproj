@@ -4,6 +4,8 @@
     <UserSecretsId>VeganHelper-API-Development</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Google.Apis.Auth" Version="1.76.0" />
+    <PackageReference Include="SendGrid" Version="9.29.3" />
     <ProjectReference Include="../VeganHelper.BLL/VeganHelper.BLL.csproj" />
     <ProjectReference Include="../VeganHelper.DAL/VeganHelper.DAL.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />

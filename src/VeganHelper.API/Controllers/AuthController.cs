@@ -21,9 +21,49 @@ public sealed class AuthController(IAuthService service) : ControllerBase
         ToActionResult(await service.VerifyEmailAsync(request, cancellationToken));
 
     [AllowAnonymous]
+    [HttpPost("resend-verification")]
+    public async Task<IActionResult> ResendVerification(ResendVerificationRequestDto request, CancellationToken cancellationToken) =>
+        ToActionResult(await service.ResendVerificationAsync(request, cancellationToken));
+
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequestDto request, CancellationToken cancellationToken) =>
         ToActionResult(await service.LoginAsync(request, cancellationToken));
+
+    [AllowAnonymous]
+    [HttpPost("google")]
+    public async Task<IActionResult> LoginWithGoogle(GoogleLoginRequestDto request, CancellationToken cancellationToken) =>
+        ToActionResult(await service.LoginWithGoogleAsync(request, cancellationToken));
+
+    [Authorize]
+    [HttpPost("google/link")]
+    public async Task<IActionResult> LinkGoogle(GoogleLoginRequestDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        return userId is null
+            ? Unauthorized()
+            : ToActionResult(await service.LinkGoogleAsync(userId.Value, request, cancellationToken));
+    }
+
+    [Authorize]
+    [HttpDelete("google/link")]
+    public async Task<IActionResult> UnlinkGoogle(CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        return userId is null
+            ? Unauthorized()
+            : ToActionResult(await service.UnlinkGoogleAsync(userId.Value, cancellationToken));
+    }
+
+    [Authorize]
+    [HttpPost("set-password")]
+    public async Task<IActionResult> SetPassword(SetPasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        return userId is null
+            ? Unauthorized()
+            : ToActionResult(await service.SetPasswordAsync(userId.Value, request, cancellationToken));
+    }
 
     [AllowAnonymous]
     [HttpPost("refresh")]
