@@ -110,6 +110,7 @@ public sealed class PostRepository : IPostRepository
         return (post, authorName);
     }
 
+
     public async Task<(List<Post> Posts, int TotalCount)> GetMyPostsAsync(long authorId, string? status, int pageIndex, int pageSize, CancellationToken cancellationToken = default)
     {
         var query = _context.Posts
@@ -130,6 +131,17 @@ public sealed class PostRepository : IPostRepository
             .ToListAsync(cancellationToken);
 
         return (posts, totalCount);
+    }
+
+    public async Task<Post?> GetPostForUpdateAsync(long postId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Posts
+            .Include(p => p.Media)
+            .Include(p => p.PostCategories)
+            .Include(p => p.PostIngredients)
+            .Include(p => p.PostSteps)
+            .FirstOrDefaultAsync(p => p.Id == postId && !p.IsDeleted, cancellationToken);
+
     }
 
     public async Task IncrementViewCountAsync(long postId, CancellationToken cancellationToken = default)

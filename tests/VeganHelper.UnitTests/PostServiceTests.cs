@@ -18,15 +18,25 @@ public class PostServiceTests
 {
     private readonly Mock<IPostRepository> _mockPostRepository;
     private readonly Mock<IValidator<CreatePostRequest>> _mockValidator;
+
     private readonly Mock<IValidator<GetMyPostsRequest>> _mockGetMyPostsValidator;
+
+    private readonly Mock<IValidator<UpdatePostRequest>> _mockUpdateValidator;
+
     private readonly PostService _postService;
 
     public PostServiceTests()
     {
         _mockPostRepository = new Mock<IPostRepository>();
         _mockValidator = new Mock<IValidator<CreatePostRequest>>();
+
         _mockGetMyPostsValidator = new Mock<IValidator<GetMyPostsRequest>>();
-        _postService = new PostService(_mockPostRepository.Object, _mockValidator.Object, _mockGetMyPostsValidator.Object);
+        _mockUpdateValidator = new Mock<IValidator<UpdatePostRequest>>();
+        _postService = new PostService(
+            _mockPostRepository.Object, 
+            _mockValidator.Object, 
+            _mockGetMyPostsValidator.Object, 
+            _mockUpdateValidator.Object);
     }
 
     [Fact]
@@ -202,6 +212,7 @@ public class PostServiceTests
     }
 
     [Fact]
+
     public async Task GetMyPostsAsync_WhenCalled_ReturnsPagedResultAndMapsThumbnail()
     {
         // Arrange
@@ -284,6 +295,75 @@ public class PostServiceTests
 
         // Assert
         _mockPostRepository.Verify(r => r.DeletePostAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePostAsync_WhenUserIsNotAuthor_ThrowsUnauthorizedAccessException()
+    {
+        // Arrange
+        var request = new UpdatePostRequest { Title = "Valid" };
+        var post = new Post { Id = 1, AuthorId = 10 };
+        long wrongAuthorId = 99;
+
+        _mockUpdateValidator.Setup(v => v.ValidateAsync(It.IsAny<IValidationContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ValidationResult());
+
+        _mockPostRepository.Setup(r => r.GetPostForUpdateAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(post);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _postService.UpdatePostAsync(1, request, wrongAuthorId));
+        Assert.Contains("authorized", ex.Message);
+        
+        _mockPostRepository.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdatePostAsync_WhenRequestIsValid_UpdatesFieldsAndReturnsPendingReview()
+    {
+        // Arrange
+        var request = new UpdatePostRequest 
+        { 
+            Title = "Updated Title",
+            CategoryId = 2,
+            Content = "Updated Content"
+        };
+        
+        var post = new Post 
+        { 
+            Id = 1, 
+            AuthorId = 10,
+            Title = "Old Title",
+            Status = "published",
+            PostCategories = new List<PostCategory>(),
+            Media = new List<PostMedia> { new PostMedia { Id = 1, MediaUrl = "old.jpg", IsPrimary = true } }
+        };
+        long authorId = 10;
+
+        _mockUpdateValidator.Setup(v => v.ValidateAsync(It.IsAny<IValidationContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ValidationResult());
+
+        _mockPostRepository.Setup(r => r.GetPostForUpdateAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(post);
+        _mockPostRepository.Setup(r => r.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockPostRepository.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockPostRepository.Setup(r => r.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await _postService.UpdatePostAsync(1, request, authorId);
+
+        // Assert
+        Assert.Equal("Updated Title", post.Title);
+        Assert.Equal("Updated Content", post.Content);
+        Assert.Equal("pending_review", post.Status);
+        Assert.Single(post.PostCategories);
+        Assert.Equal(2, post.PostCategories.First().CategoryId);
+
+        _mockPostRepository.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockPostRepository.Verify(r => r.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
 
     }
 }
