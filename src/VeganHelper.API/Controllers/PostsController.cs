@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.Posts;
 using VeganHelper.BLL.Services;
 
@@ -51,5 +52,57 @@ public class PostsController : ControllerBase
     {
         var result = await _postService.GetFeedAsync(request, cancellationToken);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Gets a paginated list of posts created by the current user.
+    /// </summary>
+    [HttpGet("my-posts")]
+    [ProducesResponseType(typeof(PagedResult<MyPostItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyPosts([FromQuery] GetMyPostsRequest request, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Unauthorized(new { message = "User identity is missing or invalid." });
+        }
+
+        var result = await _postService.GetMyPostsAsync(userId, request, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Gets the details of a specific post by its ID.
+    /// </summary>
+    [HttpGet("{id}")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(PostDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPostDetail(long id, CancellationToken cancellationToken)
+    {
+        var result = await _postService.GetPostDetailAsync(id, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Soft deletes a post by its ID.
+    /// </summary>
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeletePost(long id, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Unauthorized(new { message = "User identity is missing or invalid." });
+        }
+
+        await _postService.DeletePostAsync(id, userId, cancellationToken);
+        return Ok(new { message = "Post deleted successfully" });
     }
 }

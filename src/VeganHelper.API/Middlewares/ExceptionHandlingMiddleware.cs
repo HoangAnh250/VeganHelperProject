@@ -63,6 +63,15 @@ public class ExceptionHandlingMiddleware
             var result = JsonSerializer.Serialize(new { message = "Invalid form data format." });
             await context.Response.WriteAsync(result);
         }
+        catch (VeganHelper.BLL.Exceptions.NotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Resource not found error occurred.");
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            context.Response.ContentType = "application/json";
+
+            var result = JsonSerializer.Serialize(new { message = ex.Message });
+            await context.Response.WriteAsync(result);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An unhandled exception occurred.");

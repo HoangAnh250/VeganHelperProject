@@ -18,13 +18,15 @@ public class PostServiceTests
 {
     private readonly Mock<IPostRepository> _mockPostRepository;
     private readonly Mock<IValidator<CreatePostRequest>> _mockValidator;
+    private readonly Mock<IValidator<GetMyPostsRequest>> _mockGetMyPostsValidator;
     private readonly PostService _postService;
 
     public PostServiceTests()
     {
         _mockPostRepository = new Mock<IPostRepository>();
         _mockValidator = new Mock<IValidator<CreatePostRequest>>();
-        _postService = new PostService(_mockPostRepository.Object, _mockValidator.Object);
+        _mockGetMyPostsValidator = new Mock<IValidator<GetMyPostsRequest>>();
+        _postService = new PostService(_mockPostRepository.Object, _mockValidator.Object, _mockGetMyPostsValidator.Object);
     }
 
     [Fact]
@@ -108,6 +110,7 @@ public class PostServiceTests
     }
 
     [Fact]
+
     public async Task GetFeedAsync_WhenCalledWithValidRequest_ReturnsPagedResultAndCalculatesTotalPages()
     {
         // Arrange
@@ -148,5 +151,139 @@ public class PostServiceTests
         // Assert
         // PageIndex should clamp to 1, PageSize should clamp to 50
         _mockPostRepository.Verify(r => r.GetFeedAsync(1, 50, null, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetPostDetailAsync_WhenPostExists_ReturnsDtoAndIncrementsViewCount()
+    {
+        // Arrange
+        long postId = 1;
+        var mockPost = new Post
+        {
+            Id = postId,
+            AuthorId = 10,
+            Title = "Test Recipe",
+            ViewCount = 5,
+            PostCategories = new List<PostCategory> { new PostCategory { CategoryId = 2 } }
+        };
+        var authorName = "Chef John";
+
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(postId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((mockPost, authorName));
+
+        // Act
+        var result = await _postService.GetPostDetailAsync(postId);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(postId, result.Id);
+        Assert.Equal("Test Recipe", result.Title);
+        Assert.Equal("Chef John", result.AuthorName);
+        Assert.Equal(6, result.ViewCount); // Ensure view count was incremented locally
+        Assert.Equal(2, result.CategoryId);
+
+        _mockPostRepository.Verify(r => r.GetPostDetailAsync(postId, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPostRepository.Verify(r => r.IncrementViewCountAsync(postId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetPostDetailAsync_WhenPostDoesNotExist_ThrowsNotFoundException()
+    {
+        // Arrange
+        long postId = 999;
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(postId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((null, string.Empty));
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<VeganHelper.BLL.Exceptions.NotFoundException>(() => _postService.GetPostDetailAsync(postId));
+        Assert.Contains(postId.ToString(), ex.Message);
+
+        _mockPostRepository.Verify(r => r.IncrementViewCountAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetMyPostsAsync_WhenCalled_ReturnsPagedResultAndMapsThumbnail()
+    {
+        // Arrange
+        var request = new GetMyPostsRequest { PageIndex = 1, PageSize = 10 };
+        long authorId = 1;
+        
+        var posts = new List<Post>
+        {
+            new Post
+            {
+                Id = 1,
+                Title = "Test Post",
+                Status = "published",
+                CreatedAt = DateTime.UtcNow,
+                Media = new List<PostMedia> { new PostMedia { MediaUrl = "thumb.jpg", IsPrimary = true } }
+            }
+        };
+
+        _mockGetMyPostsValidator.Setup(v => v.ValidateAsync(It.IsAny<IValidationContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ValidationResult());
+
+        _mockPostRepository.Setup(r => r.GetMyPostsAsync(authorId, null, 1, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((posts, 1));
+
+        // Act
+        var result = await _postService.GetMyPostsAsync(authorId, request);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Single(result.Items);
+        Assert.Equal("Test Post", result.Items.First().Title);
+        Assert.Equal("thumb.jpg", result.Items.First().ThumbnailUrl);
+        Assert.Equal(1, result.TotalPages);
+    }
+
+    [Fact]
+    public async Task DeletePostAsync_WhenUserIsNotAuthor_ThrowsUnauthorizedAccessException()
+    {
+        // Arrange
+        var post = new Post { Id = 1, AuthorId = 10 };
+        long wrongAuthorId = 99;
+
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((post, "Author"));
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _postService.DeletePostAsync(1, wrongAuthorId));
+        Assert.Contains("authorized", ex.Message);
+        
+        _mockPostRepository.Verify(r => r.DeletePostAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeletePostAsync_WhenPostDoesNotExist_ThrowsNotFoundException()
+    {
+        // Arrange
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(((Post?)null, ""));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<VeganHelper.BLL.Exceptions.NotFoundException>(() => _postService.DeletePostAsync(1, 10));
+    }
+
+    [Fact]
+    public async Task DeletePostAsync_WhenCalled_DeletesPost()
+    {
+        // Arrange
+        var post = new Post { Id = 1, AuthorId = 10 };
+        long authorId = 10;
+
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((post, "Author"));
+            
+        _mockPostRepository.Setup(r => r.DeletePostAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        await _postService.DeletePostAsync(1, authorId);
+
+        // Assert
+        _mockPostRepository.Verify(r => r.DeletePostAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+
     }
 }
