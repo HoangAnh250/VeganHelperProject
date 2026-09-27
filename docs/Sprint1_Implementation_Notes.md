@@ -26,7 +26,7 @@ Registration OTP and password reset tokens are sent by the SendGrid adapter when
 - A local account becomes verified only after the registration OTP is accepted.
 - A first-time Google login creates a verified Google-backed account and a `user_identities` row.
 - Google login never silently merges with an existing local email. It returns `409 Conflict`; the user must log in locally and call `POST /api/auth/google/link` with the validated Google ID token.
-- `DELETE /api/auth/google/link` requires a local password, so unlinking cannot remove the user's last login method.
+- `DELETE /api/auth/google/link` requires the current local password, so unlinking cannot remove the user's last login method or be performed with a stolen access token alone.
 - A Google-first user can establish a local password through `POST /api/auth/set-password` before unlinking.
 
 ## External provider configuration

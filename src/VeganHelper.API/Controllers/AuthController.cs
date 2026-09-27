@@ -47,12 +47,12 @@ public sealed class AuthController(IAuthService service) : ControllerBase
 
     [Authorize]
     [HttpDelete("google/link")]
-    public async Task<IActionResult> UnlinkGoogle(CancellationToken cancellationToken)
+    public async Task<IActionResult> UnlinkGoogle(UnlinkGoogleRequestDto request, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         return userId is null
             ? Unauthorized()
-            : ToActionResult(await service.UnlinkGoogleAsync(userId.Value, cancellationToken));
+            : ToActionResult(await service.UnlinkGoogleAsync(userId.Value, request, cancellationToken));
     }
 
     [Authorize]

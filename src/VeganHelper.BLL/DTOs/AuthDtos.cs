@@ -50,6 +50,12 @@ public sealed class SetPasswordRequestDto
     public string NewPassword { get; init; } = string.Empty;
 }
 
+public sealed class UnlinkGoogleRequestDto
+{
+    [Required]
+    public string CurrentPassword { get; init; } = string.Empty;
+}
+
 public sealed class RefreshTokenRequestDto
 {
     [Required]

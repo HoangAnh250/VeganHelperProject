@@ -260,7 +260,7 @@ public sealed class AuthService(
         return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("Google account linked successfully."));
     }
 
-    public async Task<ServiceResult<MessageResponseDto>> UnlinkGoogleAsync(long userId, CancellationToken cancellationToken)
+    public async Task<ServiceResult<MessageResponseDto>> UnlinkGoogleAsync(long userId, UnlinkGoogleRequestDto request, CancellationToken cancellationToken)
     {
         var user = await repository.FindUserByIdAsync(userId, cancellationToken);
         if (user is null || user.DeletedAt is not null)
@@ -271,6 +271,8 @@ public sealed class AuthService(
         var identity = await repository.FindIdentityByUserAsync(userId, GoogleProvider, cancellationToken);
         if (identity is null)
             return ServiceResult<MessageResponseDto>.Fail("Google is not linked to this account.", 404);
+        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+            return ServiceResult<MessageResponseDto>.Fail("The current password is incorrect.", 403);
 
         repository.RemoveUserIdentity(identity);
         await repository.SaveChangesAsync(cancellationToken);

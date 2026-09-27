@@ -50,6 +50,6 @@ dotnet user-secrets set "SendGrid:FromName" "VeganHelper" --project src/VeganHel
 
 When the API runs in Development without SendGrid settings, the email adapter logs the message as a safe local fallback. Never commit API keys, app passwords or OAuth secrets.
 
-Google-first users are verified from Google's validated `email_verified` claim. If the email already belongs to a local account, Google login returns a conflict; the user must authenticate locally and call the link endpoint. Google unlink is rejected until a local password exists.
+Google-first users are verified from Google's validated `email_verified` claim. If the email already belongs to a local account, Google login returns a conflict; the user must authenticate locally and call the link endpoint. Google unlink requires the current local password and is rejected if no local password exists.
 
 The original architecture guide is preserved as reference. Its sample Recipe model, string Role, embedded JWT key and Controller-to-Repository shortcut are not the authoritative implementation. Use the approved schema, store secrets outside Git, and route business calls through services.
