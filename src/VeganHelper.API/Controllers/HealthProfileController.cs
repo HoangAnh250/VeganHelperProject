@@ -48,4 +48,19 @@ public class HealthProfileController : ControllerBase
         var response = await _healthProfileService.UpdateHealthProfileAsync(userId, request);
         return Ok(response);
     }
+
+    [HttpGet("bmi")]
+    public async Task<IActionResult> GetBmiResult()
+    {
+        var userId = GetUserId();
+        if (userId == 0) return Unauthorized();
+
+        var result = await _healthProfileService.GetBmiResultAsync(userId);
+        if (result == null)
+        {
+            return BadRequest("Thiếu thông tin để tính BMI. Hãy cập nhật hồ sơ trước.");
+        }
+
+        return Ok(result);
+    }
 }

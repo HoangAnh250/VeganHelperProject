@@ -93,6 +93,34 @@ public class HealthProfileService : IHealthProfileService
         };
     }
 
+    public async Task<BmiCalculationResult?> GetBmiResultAsync(long userId)
+    {
+        var profile = await _dbContext.UserProfiles.FirstOrDefaultAsync(x => x.UserId == userId);
+        if (profile == null || profile.HeightCm <= 0 || profile.WeightKg <= 0 || string.IsNullOrEmpty(profile.BiologicalSex) || string.IsNullOrEmpty(profile.ActivityLevel))
+        {
+            return null;
+        }
+
+        var bmi = CalculateBmi(profile.WeightKg.Value, profile.HeightCm.Value);
+        var tdee = CalculateTdee(profile.WeightKg.Value, profile.HeightCm.Value, profile.BirthDate.Value, profile.BiologicalSex, profile.ActivityLevel);
+        
+        var heightM = profile.HeightCm.Value / 100m;
+        var minKg = 18.5m * heightM * heightM;
+        var maxKg = 24.9m * heightM * heightM;
+
+        return new BmiCalculationResult
+        {
+            Bmi = bmi,
+            Category = GetBmiCategory(bmi),
+            IdealWeightRange = new IdealWeightRange
+            {
+                MinKg = Math.Round(minKg, 2),
+                MaxKg = Math.Round(maxKg, 2)
+            },
+            DailyCalorieRecommendation = tdee
+        };
+    }
+
     private decimal CalculateBmi(decimal weightKg, decimal heightCm)
     {
         if (heightCm <= 0) return 0;
