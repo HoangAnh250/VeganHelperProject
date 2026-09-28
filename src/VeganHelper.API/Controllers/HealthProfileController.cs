@@ -63,4 +63,14 @@ public class HealthProfileController : ControllerBase
 
         return Ok(result);
     }
+
+    [HttpGet("bmi-history")]
+    public async Task<IActionResult> GetBmiHistory()
+    {
+        var userId = GetUserId();
+        if (userId == 0) return Unauthorized();
+
+        var response = await _healthProfileService.GetBmiHistoryAsync(userId);
+        return Ok(response);
+    }
 }

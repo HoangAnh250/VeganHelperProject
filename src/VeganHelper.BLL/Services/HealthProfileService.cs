@@ -121,6 +121,24 @@ public class HealthProfileService : IHealthProfileService
         };
     }
 
+    public async Task<GetBmiHistoryResponse> GetBmiHistoryAsync(long userId)
+    {
+        var sixMonthsAgo = DateTime.UtcNow.AddMonths(-6);
+        
+        var history = await _dbContext.BmiHistories
+            .Where(x => x.UserId == userId && x.RecordedAt >= sixMonthsAgo)
+            .OrderBy(x => x.RecordedAt)
+            .Select(x => new BmiHistoryDto
+            {
+                Timestamp = x.RecordedAt,
+                WeightKg = x.WeightKg,
+                Bmi = x.BmiValue
+            })
+            .ToListAsync();
+
+        return new GetBmiHistoryResponse { History = history };
+    }
+
     private decimal CalculateBmi(decimal weightKg, decimal heightCm)
     {
         if (heightCm <= 0) return 0;
