@@ -93,6 +93,71 @@ public class HealthProfileService : IHealthProfileService
         };
     }
 
+    public async Task DeclareAllergiesAsync(long userId, DeclareAllergiesRequest request)
+    {
+        // 1. Delete old allergies
+        var existingAllergies = await _dbContext.UserAllergies.Where(x => x.UserId == userId).ToListAsync();
+        _dbContext.UserAllergies.RemoveRange(existingAllergies);
+
+        var ingredientIdsToAdd = new HashSet<long>();
+
+        // 2. Process existing ingredient IDs
+        if (request.AllergyIngredientIds != null && request.AllergyIngredientIds.Any())
+        {
+            var validIds = await _dbContext.Ingredients
+                .Where(i => request.AllergyIngredientIds.Contains(i.Id))
+                .Select(i => i.Id)
+                .ToListAsync();
+            
+            foreach (var id in validIds)
+            {
+                ingredientIdsToAdd.Add(id);
+            }
+        }
+
+        // 3. Process Custom Allergies
+        if (request.CustomAllergies != null && request.CustomAllergies.Any())
+        {
+            foreach (var custom in request.CustomAllergies)
+            {
+                var trimmed = custom.Trim();
+                if (string.IsNullOrEmpty(trimmed)) continue;
+
+                var existingIngredient = await _dbContext.Ingredients
+                    .FirstOrDefaultAsync(i => i.Name.ToLower() == trimmed.ToLower());
+
+                if (existingIngredient != null)
+                {
+                    ingredientIdsToAdd.Add(existingIngredient.Id);
+                }
+                else
+                {
+                    var newIngredient = new Ingredient
+                    {
+                        Name = trimmed,
+                        DefaultUnit = "custom"
+                    };
+                    _dbContext.Ingredients.Add(newIngredient);
+                    await _dbContext.SaveChangesAsync();
+                    ingredientIdsToAdd.Add(newIngredient.Id);
+                }
+            }
+        }
+
+        // 4. Add new user allergies
+        foreach (var id in ingredientIdsToAdd)
+        {
+            _dbContext.UserAllergies.Add(new UserAllergy
+            {
+                UserId = userId,
+                IngredientId = id,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        await _dbContext.SaveChangesAsync();
+    }
+
     private decimal CalculateBmi(decimal weightKg, decimal heightCm)
     {
         if (heightCm <= 0) return 0;
