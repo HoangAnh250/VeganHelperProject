@@ -1,79 +1,104 @@
+using System.Security.Cryptography;
+using System.Text;
 using FluentValidation;
-using Microsoft.OpenApi.Models;
-using Microsoft.EntityFrameworkCore;
-using VeganHelper.BLL.Contracts.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using VeganHelper.API.Infrastructure.Email;
+using VeganHelper.API.Infrastructure.Google;
+using VeganHelper.API.Middlewares;
+using VeganHelper.BLL.Contracts;
+using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.Posts;
 using VeganHelper.BLL.Services;
 using VeganHelper.DAL.DependencyInjection;
-
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using VeganHelper.DAL.Repositories;
+using VeganHelper.DAL.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter a valid JWT access token."
+    });
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
+    });
+});
+
+builder.Services.AddDal(builder.Configuration);
+builder.Services.AddScoped<IStatusService, StatusService>();
+builder.Services.AddScoped<IPostRepository, PostRepository>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
+
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IEmailSender, SendGridEmailSender>();
+builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<SendGridOptions>(builder.Configuration.GetSection("SendGrid"));
+builder.Services.Configure<GoogleOptions>(builder.Configuration.GetSection("Google"));
+
+var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
+    ?? throw new InvalidOperationException("Jwt configuration is missing.");
+var signingKey = jwtOptions.SigningKey;
+if (string.IsNullOrWhiteSpace(signingKey) && builder.Environment.IsDevelopment())
+    signingKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+if (string.IsNullOrWhiteSpace(signingKey) || signingKey.Length < 32)
+    throw new InvalidOperationException("Jwt:SigningKey must be configured with at least 32 characters using user-secrets or an environment variable.");
+builder.Services.PostConfigure<JwtOptions>(options => options.SigningKey = signingKey);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false,
-            ValidateAudience = false,
-            ValidateLifetime = false,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("this_is_a_very_long_secret_key_for_testing_purposes_only_123456789"))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
+            ValidateIssuer = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtOptions.Audience,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
         };
     });
-
 builder.Services.AddAuthorization();
-builder.Services.AddControllers();
-builder.Services.AddProblemDetails();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT"
-    });
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
-builder.Services.AddDal(builder.Configuration);
-builder.Services.AddScoped<IStatusService, StatusService>();
-builder.Services.AddScoped<IPostRepository, PostRepository>();
-
-builder.Services.AddScoped<IPostService, PostService>();
-
-builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
+var configuredAvatarRoot = builder.Configuration["Storage:AvatarRoot"];
+var avatarRoot = string.IsNullOrWhiteSpace(configuredAvatarRoot)
+    ? Path.Combine(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"), "uploads", "avatars")
+    : Path.GetFullPath(Path.IsPathRooted(configuredAvatarRoot)
+        ? configuredAvatarRoot
+        : Path.Combine(builder.Environment.ContentRootPath, configuredAvatarRoot));
+builder.Services.AddSingleton<IAvatarStorage>(_ => new LocalAvatarStorage(avatarRoot));
 
 var app = builder.Build();
-
-app.UseMiddleware<VeganHelper.API.Middlewares.ExceptionHandlingMiddleware>();
-
-if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
+Directory.CreateDirectory(avatarRoot);
+app.UseExceptionHandler();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 app.UseHttpsRedirection();
-
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapControllers();
 app.Run();

@@ -3,8 +3,8 @@ namespace VeganHelper.IntegrationTests;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 using Testcontainers.MsSql;
-using VeganHelper.DAL.Data;
-using VeganHelper.DAL.Models;
+using VeganHelper.DAL.Persistence;
+using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
 using Xunit;
 

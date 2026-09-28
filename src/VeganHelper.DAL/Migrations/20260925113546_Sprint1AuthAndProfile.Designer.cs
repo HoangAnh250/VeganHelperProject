@@ -12,8 +12,8 @@ using VeganHelper.DAL.Persistence;
 namespace VeganHelper.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260926164624_RemoveShadowProperties")]
-    partial class RemoveShadowProperties
+    [Migration("20260925113546_Sprint1AuthAndProfile")]
+    partial class Sprint1AuthAndProfile
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -25,7 +25,7 @@ namespace VeganHelper.DAL.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.AiUsage", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.AiUsage", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -110,7 +110,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Category", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Category", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -161,7 +161,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.ChatMessage", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.ChatMessage", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -202,7 +202,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.ChatSession", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.ChatSession", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -256,7 +256,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Comment", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Comment", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -332,7 +332,52 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Flag", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.EmailVerificationToken", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(128)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("PK_email_verification_tokens");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_email_verification_tokens_hash");
+
+                    b.HasIndex("UserId", "ExpiresAt")
+                        .HasDatabaseName("IX_email_verification_tokens_user_expiry");
+
+                    b.ToTable("email_verification_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Flag", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -426,7 +471,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Ingredient", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Ingredient", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -461,7 +506,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Meal", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Meal", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -519,7 +564,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.MealIngredient", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealIngredient", b =>
                 {
                     b.Property<long>("MealId")
                         .HasColumnType("BIGINT")
@@ -549,7 +594,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.MealPlan", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlan", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -663,7 +708,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.MealPlanSchedule", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanSchedule", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -713,7 +758,52 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Post", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PasswordResetToken", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(128)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("used_at");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("PK_password_reset_tokens");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_password_reset_tokens_hash");
+
+                    b.HasIndex("UserId", "ExpiresAt")
+                        .HasDatabaseName("IX_password_reset_tokens_user_expiry");
+
+                    b.ToTable("password_reset_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Post", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -751,9 +841,6 @@ namespace VeganHelper.DAL.Migrations
                     b.Property<string>("DietType")
                         .HasColumnType("NVARCHAR(30)")
                         .HasColumnName("diet_type");
-
-                    b.Property<string>("DifficultyLevel")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IngredientsVerified")
                         .ValueGeneratedOnAdd()
@@ -839,7 +926,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostCategory", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostCategory", b =>
                 {
                     b.Property<long>("PostId")
                         .HasColumnType("BIGINT")
@@ -857,7 +944,7 @@ namespace VeganHelper.DAL.Migrations
                     b.ToTable("post_categories", (string)null);
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostEmbedding", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostEmbedding", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -918,7 +1005,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostIngredient", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostIngredient", b =>
                 {
                     b.Property<long>("PostId")
                         .HasColumnType("BIGINT")
@@ -948,7 +1035,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostLike", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostLike", b =>
                 {
                     b.Property<long>("UserId")
                         .HasColumnType("BIGINT")
@@ -972,7 +1059,7 @@ namespace VeganHelper.DAL.Migrations
                     b.ToTable("post_likes", (string)null);
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostMedia", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostMedia", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -1055,45 +1142,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostStep", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("BIGINT")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("NVARCHAR(MAX)")
-                        .HasColumnName("description");
-
-                    b.Property<string>("MediaUrl")
-                        .HasColumnType("NVARCHAR(1000)")
-                        .HasColumnName("media_url");
-
-                    b.Property<long>("PostId")
-                        .HasColumnType("BIGINT")
-                        .HasColumnName("post_id");
-
-                    b.Property<int>("StepNumber")
-                        .HasColumnType("INT")
-                        .HasColumnName("step_number");
-
-                    b.HasKey("Id")
-                        .HasName("PK_post_steps");
-
-                    b.HasAlternateKey("PostId", "StepNumber")
-                        .HasName("UQ_post_steps_1");
-
-                    b.ToTable("post_steps", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_post_steps_1", "step_number > 0");
-                        });
-                });
-
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostSummary", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostSummary", b =>
                 {
                     b.Property<long>("PostId")
                         .HasColumnType("BIGINT")
@@ -1149,7 +1198,52 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Role", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.RefreshToken", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(128)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("PK_refresh_tokens");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_refresh_tokens_hash");
+
+                    b.HasIndex("UserId", "ExpiresAt", "RevokedAt")
+                        .HasDatabaseName("IX_refresh_tokens_user_status");
+
+                    b.ToTable("refresh_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Role", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1187,7 +1281,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.SavedPost", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.SavedPost", b =>
                 {
                     b.Property<long>("UserId")
                         .HasColumnType("BIGINT")
@@ -1211,7 +1305,7 @@ namespace VeganHelper.DAL.Migrations
                     b.ToTable("saved_posts", (string)null);
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Shop", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Shop", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -1283,7 +1377,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.ShopCategory", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.ShopCategory", b =>
                 {
                     b.Property<long>("ShopId")
                         .HasColumnType("BIGINT")
@@ -1301,7 +1395,7 @@ namespace VeganHelper.DAL.Migrations
                     b.ToTable("shop_categories", (string)null);
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.User", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.User", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -1329,6 +1423,12 @@ namespace VeganHelper.DAL.Migrations
                         .HasColumnType("DATETIME2")
                         .HasColumnName("email_verified_at");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INT")
+                        .HasColumnName("failed_login_attempts")
+                        .HasDefaultValueSql("0");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("BIT")
@@ -1339,9 +1439,17 @@ namespace VeganHelper.DAL.Migrations
                         .HasColumnType("DATETIME2")
                         .HasColumnName("last_login_at");
 
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("locked_until");
+
                     b.Property<string>("PasswordHash")
                         .HasColumnType("NVARCHAR(500)")
                         .HasColumnName("password_hash");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("NVARCHAR(20)")
+                        .HasColumnName("phone_number");
 
                     b.Property<int>("RoleId")
                         .HasColumnType("INT")
@@ -1373,7 +1481,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.UserAllergy", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserAllergy", b =>
                 {
                     b.Property<long>("UserId")
                         .HasColumnType("BIGINT")
@@ -1397,7 +1505,7 @@ namespace VeganHelper.DAL.Migrations
                     b.ToTable("user_allergies", (string)null);
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.UserAvailableIngredient", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserAvailableIngredient", b =>
                 {
                     b.Property<long>("UserId")
                         .HasColumnType("BIGINT")
@@ -1433,7 +1541,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.UserIdentity", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserIdentity", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -1478,7 +1586,7 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.UserProfile", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserProfile", b =>
                 {
                     b.Property<long>("UserId")
                         .HasColumnType("BIGINT")
@@ -1535,18 +1643,18 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.AiUsage", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.AiUsage", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_ai_usage_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.ChatMessage", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.ChatMessage", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.ChatSession", null)
+                    b.HasOne("VeganHelper.DAL.Entities.ChatSession", null)
                         .WithMany()
                         .HasForeignKey("SessionId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1554,32 +1662,32 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_chat_messages_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.ChatSession", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.ChatSession", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_chat_sessions_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Comment", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Comment", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Post", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Post", null)
                         .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_comments_1");
 
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_comments_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.Comment", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Comment", null)
                         .WithMany()
                         .HasForeignKey("PostId", "ParentCommentId")
                         .HasPrincipalKey("PostId", "Id")
@@ -1587,58 +1695,68 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_comments_3");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Flag", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.EmailVerificationToken", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Comment", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_email_verification_tokens_users");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Flag", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.Comment", null)
                         .WithMany()
                         .HasForeignKey("CommentId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_flags_3");
 
-                    b.HasOne("VeganHelper.DAL.Models.Post", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Post", null)
                         .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_flags_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("ReporterId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_flags_1");
 
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("ResolvedByAdminId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_flags_5");
 
-                    b.HasOne("VeganHelper.DAL.Models.Shop", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Shop", null)
                         .WithMany()
                         .HasForeignKey("ShopId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_flags_4");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Meal", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Meal", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("OwnerUserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_meals_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.MealIngredient", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealIngredient", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Ingredient", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Ingredient", null)
                         .WithMany()
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_meal_ingredients_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.Meal", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Meal", null)
                         .WithMany()
                         .HasForeignKey("MealId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1646,9 +1764,9 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_meal_ingredients_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.MealPlan", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlan", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1656,16 +1774,16 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_meal_plans_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.MealPlanSchedule", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanSchedule", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Meal", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Meal", null)
                         .WithMany()
                         .HasForeignKey("MealId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_meal_plan_schedule_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.MealPlan", null)
+                    b.HasOne("VeganHelper.DAL.Entities.MealPlan", null)
                         .WithMany()
                         .HasForeignKey("MealPlanId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1673,9 +1791,19 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_meal_plan_schedule_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Post", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PasswordResetToken", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_password_reset_tokens_users");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Post", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("AuthorId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1683,26 +1811,26 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_posts_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostCategory", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostCategory", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Category", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Category", null)
                         .WithMany()
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_categories_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.Post", null)
-                        .WithMany("PostCategories")
+                    b.HasOne("VeganHelper.DAL.Entities.Post", null)
+                        .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_categories_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostEmbedding", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostEmbedding", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Post", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Post", null)
                         .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1710,33 +1838,33 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_post_embeddings_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostIngredient", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostIngredient", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Ingredient", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Ingredient", null)
                         .WithMany()
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_ingredients_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.Post", null)
-                        .WithMany("PostIngredients")
+                    b.HasOne("VeganHelper.DAL.Entities.Post", null)
+                        .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_ingredients_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostLike", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostLike", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Post", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Post", null)
                         .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_likes_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1744,36 +1872,26 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_post_likes_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostMedia", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostMedia", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Post", null)
-                        .WithMany("Media")
+                    b.HasOne("VeganHelper.DAL.Entities.Post", null)
+                        .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_media_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostStep", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostSummary", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Post", null)
-                        .WithMany("PostSteps")
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("FK_post_steps_1");
-                });
-
-            modelBuilder.Entity("VeganHelper.DAL.Models.PostSummary", b =>
-                {
-                    b.HasOne("VeganHelper.DAL.Models.Post", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Post", null)
                         .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_summaries_1");
 
-                    b.HasOne("VeganHelper.DAL.Models.PostMedia", null)
+                    b.HasOne("VeganHelper.DAL.Entities.PostMedia", null)
                         .WithMany()
                         .HasForeignKey("PostId", "SourceMediaId")
                         .HasPrincipalKey("PostId", "Id")
@@ -1782,16 +1900,26 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_post_summaries_2");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.SavedPost", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.RefreshToken", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Post", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_refresh_tokens_users");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.SavedPost", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.Post", null)
                         .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_saved_posts_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1799,25 +1927,25 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_saved_posts_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.Shop", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.Shop", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("SuggestedByUserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_shops_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.ShopCategory", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.ShopCategory", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Category", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Category", null)
                         .WithMany()
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_shop_categories_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.Shop", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Shop", null)
                         .WithMany()
                         .HasForeignKey("ShopId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1825,9 +1953,9 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_shop_categories_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.User", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.User", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Role", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Role", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1835,16 +1963,16 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_users_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.UserAllergy", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserAllergy", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Ingredient", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Ingredient", null)
                         .WithMany()
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_user_allergies_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1852,16 +1980,16 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_user_allergies_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.UserAvailableIngredient", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserAvailableIngredient", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.Ingredient", null)
+                    b.HasOne("VeganHelper.DAL.Entities.Ingredient", null)
                         .WithMany()
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_user_available_ingredients_2");
 
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1869,9 +1997,9 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_user_available_ingredients_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.UserIdentity", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserIdentity", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1879,25 +2007,14 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_user_identities_1");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.UserProfile", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserProfile", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.User", null)
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_user_profiles_1");
-                });
-
-            modelBuilder.Entity("VeganHelper.DAL.Models.Post", b =>
-                {
-                    b.Navigation("Media");
-
-                    b.Navigation("PostCategories");
-
-                    b.Navigation("PostIngredients");
-
-                    b.Navigation("PostSteps");
                 });
 #pragma warning restore 612, 618
         }

@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.Posts;
-using VeganHelper.DAL.Models;
+using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
 
 public sealed class PostService : IPostService

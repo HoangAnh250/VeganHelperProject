@@ -2,7 +2,7 @@ namespace VeganHelper.DAL.Repositories;
 
 using System.Threading;
 using System.Threading.Tasks;
-using VeganHelper.DAL.Models;
+using VeganHelper.DAL.Entities;
 
 public interface IPostRepository
 {

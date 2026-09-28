@@ -43,7 +43,7 @@ public class TestController : ControllerBase
 
     [HttpGet("seed-database")]
     [AllowAnonymous]
-    public async System.Threading.Tasks.Task<IActionResult> SeedDatabase([FromServices] VeganHelper.DAL.Data.AppDbContext dbContext)
+    public async System.Threading.Tasks.Task<IActionResult> SeedDatabase([FromServices] VeganHelper.DAL.Persistence.AppDbContext dbContext)
     {
         if (!dbContext.Roles.Any(r => r.Id == 1))
         {
@@ -53,7 +53,7 @@ public class TestController : ControllerBase
         if (!dbContext.Users.Any(u => u.Id == 1))
         {
             dbContext.Database.ExecuteSqlRaw("SET IDENTITY_INSERT users ON; INSERT INTO users (id, username, email, role_id) VALUES (1, 'testuser', 'test@example.com', 1); SET IDENTITY_INSERT users OFF;");
-            dbContext.UserProfiles.Add(new VeganHelper.DAL.Models.UserProfile { UserId = 1, DisplayName = "Gordon Ramsay (Vegan)" });
+        dbContext.UserProfiles.Add(new VeganHelper.DAL.Entities.UserProfile { UserId = 1, DisplayName = "Gordon Ramsay (Vegan)" });
         }
 
         if (!dbContext.Categories.Any(c => c.Id == 1))

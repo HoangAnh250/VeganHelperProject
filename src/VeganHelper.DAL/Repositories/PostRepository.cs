@@ -3,8 +3,8 @@ namespace VeganHelper.DAL.Repositories;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Threading;
 using System.Threading.Tasks;
-using VeganHelper.DAL.Data;
-using VeganHelper.DAL.Models;
+using VeganHelper.DAL.Persistence;
+using VeganHelper.DAL.Entities;
 
 using Microsoft.EntityFrameworkCore;
 using System.Linq;

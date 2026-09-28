@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using VeganHelper.BLL.DTOs.Posts;
 using VeganHelper.BLL.Services;
-using VeganHelper.DAL.Models;
+using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
 using Xunit;
 

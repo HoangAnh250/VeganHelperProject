@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using VeganHelper.DAL.Data;
+using VeganHelper.DAL.Persistence;
 
 #nullable disable
 
@@ -327,6 +327,51 @@ namespace VeganHelper.DAL.Migrations
 
                             t.HasCheckConstraint("CK_comments_3", "(is_deleted = 0 AND deleted_at IS NULL) OR (is_deleted = 1 AND deleted_at IS NOT NULL)");
                         });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.EmailVerificationToken", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(128)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("PK_email_verification_tokens");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_email_verification_tokens_hash");
+
+                    b.HasIndex("UserId", "ExpiresAt")
+                        .HasDatabaseName("IX_email_verification_tokens_user_expiry");
+
+                    b.ToTable("email_verification_tokens", (string)null);
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.Flag", b =>
@@ -708,6 +753,51 @@ namespace VeganHelper.DAL.Migrations
 
                             t.HasCheckConstraint("CK_meal_plan_schedule_3", "portion_multiplier > 0");
                         });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PasswordResetToken", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(128)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("used_at");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("PK_password_reset_tokens");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_password_reset_tokens_hash");
+
+                    b.HasIndex("UserId", "ExpiresAt")
+                        .HasDatabaseName("IX_password_reset_tokens_user_expiry");
+
+                    b.ToTable("password_reset_tokens", (string)null);
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.Post", b =>
@@ -1146,6 +1236,51 @@ namespace VeganHelper.DAL.Migrations
                         });
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.RefreshToken", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(128)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("BIGINT")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("PK_refresh_tokens");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_refresh_tokens_hash");
+
+                    b.HasIndex("UserId", "ExpiresAt", "RevokedAt")
+                        .HasDatabaseName("IX_refresh_tokens_user_status");
+
+                    b.ToTable("refresh_tokens", (string)null);
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.Role", b =>
                 {
                     b.Property<int>("Id")
@@ -1326,6 +1461,12 @@ namespace VeganHelper.DAL.Migrations
                         .HasColumnType("DATETIME2")
                         .HasColumnName("email_verified_at");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INT")
+                        .HasColumnName("failed_login_attempts")
+                        .HasDefaultValueSql("0");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("BIT")
@@ -1336,9 +1477,17 @@ namespace VeganHelper.DAL.Migrations
                         .HasColumnType("DATETIME2")
                         .HasColumnName("last_login_at");
 
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("DATETIME2")
+                        .HasColumnName("locked_until");
+
                     b.Property<string>("PasswordHash")
                         .HasColumnType("NVARCHAR(500)")
                         .HasColumnName("password_hash");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("NVARCHAR(20)")
+                        .HasColumnName("phone_number");
 
                     b.Property<int>("RoleId")
                         .HasColumnType("INT")
@@ -1584,6 +1733,16 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_comments_3");
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.EmailVerificationToken", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_email_verification_tokens_users");
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.Flag", b =>
                 {
                     b.HasOne("VeganHelper.DAL.Entities.Comment", null)
@@ -1668,6 +1827,16 @@ namespace VeganHelper.DAL.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_meal_plan_schedule_1");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PasswordResetToken", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_password_reset_tokens_users");
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.Post", b =>
@@ -1777,6 +1946,16 @@ namespace VeganHelper.DAL.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_summaries_2");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_refresh_tokens_users");
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.SavedPost", b =>
