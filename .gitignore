@@ -10,3 +10,19 @@ TestResults/
 **/appsettings.Local.json
 *.pfx
 *.key
+
+# Ignore prompt file
+prompt.md
+
+# Ignore local SOP
+docs/3Layer_Code_Generation_Skill.md
+
+docs/GitHub_Workflow_Skill.md
+
+docs/AI_Hybrid_RAG_Skill.md
+
+docs/Secrets_Configuration_Management_Skill.md
+
+docs/Unit_Integration_Testing_Skill.md
+
+docs/Background_Job_Processing_Skill.md

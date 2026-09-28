@@ -11,6 +11,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<UserIdentity> UserIdentities => Set<UserIdentity>();
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<PostMedia> PostMedia => Set<PostMedia>();
+    public DbSet<PostStep> PostSteps => Set<PostStep>();
     public DbSet<PostSummary> PostSummaries => Set<PostSummary>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<PostCategory> PostCategories => Set<PostCategory>();
@@ -164,8 +165,23 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.ProcessingStatus).HasColumnName("processing_status").HasColumnType("NVARCHAR(20)").IsRequired(true).HasDefaultValueSql("'ready'");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("DATETIME2").IsRequired(true).HasDefaultValueSql("SYSUTCDATETIME()");
             entity.HasAlternateKey(x => new { x.PostId, x.Id }).HasName("UQ_post_media_1");
-            entity.HasOne<Post>().WithMany().HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_media_1");
+            entity.HasOne<Post>().WithMany(p => p.Media).HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_media_1");
             entity.HasIndex(x => new { x.PostId }).HasDatabaseName("IX_post_media_1").IsUnique().HasFilter("is_primary = 1");
+        });
+        modelBuilder.Entity<PostStep>(entity =>
+        {
+            entity.ToTable("post_steps", table =>
+            {
+                table.HasCheckConstraint("CK_post_steps_1", "step_number > 0");
+            });
+            entity.HasKey(x => new { x.Id }).HasName("PK_post_steps");
+            entity.Property(x => x.Id).HasColumnName("id").HasColumnType("BIGINT").IsRequired(true).UseIdentityColumn();
+            entity.Property(x => x.PostId).HasColumnName("post_id").HasColumnType("BIGINT").IsRequired(true);
+            entity.Property(x => x.StepNumber).HasColumnName("step_number").HasColumnType("INT").IsRequired(true);
+            entity.Property(x => x.Description).HasColumnName("description").HasColumnType("NVARCHAR(MAX)").IsRequired(true);
+            entity.Property(x => x.MediaUrl).HasColumnName("media_url").HasColumnType("NVARCHAR(1000)").IsRequired(false);
+            entity.HasOne<Post>().WithMany(p => p.PostSteps).HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_post_steps_1");
+            entity.HasAlternateKey(x => new { x.PostId, x.StepNumber }).HasName("UQ_post_steps_1");
         });
         modelBuilder.Entity<PostSummary>(entity =>
         {
@@ -212,7 +228,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasKey(x => new { x.PostId, x.CategoryId }).HasName("PK_post_categories");
             entity.Property(x => x.PostId).HasColumnName("post_id").HasColumnType("BIGINT").IsRequired(true).ValueGeneratedNever();
             entity.Property(x => x.CategoryId).HasColumnName("category_id").HasColumnType("INT").IsRequired(true).ValueGeneratedNever();
-            entity.HasOne<Post>().WithMany().HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_categories_1");
+            entity.HasOne<Post>().WithMany(p => p.PostCategories).HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_categories_1");
             entity.HasOne<Category>().WithMany().HasForeignKey(x => new { x.CategoryId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_categories_2");
         });
         modelBuilder.Entity<Ingredient>(entity =>
@@ -239,8 +255,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.IngredientId).HasColumnName("ingredient_id").HasColumnType("BIGINT").IsRequired(true).ValueGeneratedNever();
             entity.Property(x => x.Quantity).HasColumnName("quantity").HasColumnType("DECIMAL(12,3)").IsRequired(false);
             entity.Property(x => x.Unit).HasColumnName("unit").HasColumnType("NVARCHAR(20)").IsRequired(true);
-            entity.HasOne<Post>().WithMany().HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_ingredients_1");
-            entity.HasOne<Ingredient>().WithMany().HasForeignKey(x => new { x.IngredientId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_ingredients_2");
+            entity.HasOne<Post>().WithMany(p => p.PostIngredients).HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_ingredients_1");
+            entity.HasOne(x => x.Ingredient).WithMany().HasForeignKey(x => new { x.IngredientId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_ingredients_2");
         });
         modelBuilder.Entity<UserAllergy>(entity =>
         {
