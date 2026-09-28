@@ -18,6 +18,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Ingredient> Ingredients => Set<Ingredient>();
     public DbSet<PostIngredient> PostIngredients => Set<PostIngredient>();
     public DbSet<UserAllergy> UserAllergies => Set<UserAllergy>();
+    public DbSet<BmiHistory> BmiHistories => Set<BmiHistory>();
     public DbSet<UserAvailableIngredient> UserAvailableIngredients => Set<UserAvailableIngredient>();
     public DbSet<PostLike> PostLikes => Set<PostLike>();
     public DbSet<SavedPost> SavedPosts => Set<SavedPost>();
@@ -66,6 +67,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 table.HasCheckConstraint("CK_user_profiles_2", "weight_kg IS NULL OR weight_kg > 0");
                 table.HasCheckConstraint("CK_user_profiles_3", "biological_sex IN ('male','female','other')");
                 table.HasCheckConstraint("CK_user_profiles_4", "diet_type IN ('vegan','lacto_ovo_vegetarian')");
+                table.HasCheckConstraint("CK_user_profiles_5", "activity_level IN ('sedentary','light','moderate','active','very_active')");
+                table.HasCheckConstraint("CK_user_profiles_6", "current_bmi IS NULL OR current_bmi > 0");
             });
             entity.HasKey(x => new { x.UserId }).HasName("PK_user_profiles");
             entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("BIGINT").IsRequired(true).ValueGeneratedNever();
@@ -73,9 +76,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.AvatarUrl).HasColumnName("avatar_url").HasColumnType("NVARCHAR(1000)").IsRequired(false);
             entity.Property(x => x.HeightCm).HasColumnName("height_cm").HasColumnType("DECIMAL(5,2)").IsRequired(false);
             entity.Property(x => x.WeightKg).HasColumnName("weight_kg").HasColumnType("DECIMAL(6,2)").IsRequired(false);
+            entity.Property(x => x.CurrentBmi).HasColumnName("current_bmi").HasColumnType("DECIMAL(5,2)").IsRequired(false);
             entity.Property(x => x.BirthDate).HasColumnName("birth_date").HasColumnType("DATE").IsRequired(false);
             entity.Property(x => x.BiologicalSex).HasColumnName("biological_sex").HasColumnType("NVARCHAR(20)").IsRequired(false);
             entity.Property(x => x.DietType).HasColumnName("diet_type").HasColumnType("NVARCHAR(30)").IsRequired(true).HasDefaultValueSql("'vegan'");
+            entity.Property(x => x.ActivityLevel).HasColumnName("activity_level").HasColumnType("NVARCHAR(30)").IsRequired(false);
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasColumnType("DATETIME2").IsRequired(false);
             entity.HasOne<User>().WithMany().HasForeignKey(x => new { x.UserId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_profiles_1");
         });
@@ -269,6 +274,24 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("DATETIME2").IsRequired(true).HasDefaultValueSql("SYSUTCDATETIME()");
             entity.HasOne<User>().WithMany().HasForeignKey(x => new { x.UserId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_allergies_1");
             entity.HasOne<Ingredient>().WithMany().HasForeignKey(x => new { x.IngredientId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_allergies_2");
+        });
+        modelBuilder.Entity<BmiHistory>(entity =>
+        {
+            entity.ToTable("bmi_history", table =>
+            {
+                table.HasCheckConstraint("CK_bmi_history_1", "height_cm > 0");
+                table.HasCheckConstraint("CK_bmi_history_2", "weight_kg > 0");
+                table.HasCheckConstraint("CK_bmi_history_3", "bmi_value > 0");
+            });
+            entity.HasKey(x => new { x.Id }).HasName("PK_bmi_history");
+            entity.Property(x => x.Id).HasColumnName("id").HasColumnType("BIGINT").IsRequired(true).UseIdentityColumn();
+            entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("BIGINT").IsRequired(true);
+            entity.Property(x => x.HeightCm).HasColumnName("height_cm").HasColumnType("DECIMAL(5,2)").IsRequired(true);
+            entity.Property(x => x.WeightKg).HasColumnName("weight_kg").HasColumnType("DECIMAL(6,2)").IsRequired(true);
+            entity.Property(x => x.BmiValue).HasColumnName("bmi_value").HasColumnType("DECIMAL(5,2)").IsRequired(true);
+            entity.Property(x => x.RecordedAt).HasColumnName("recorded_at").HasColumnType("DATETIME2").IsRequired(true).HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => new { x.UserId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_bmi_history_1");
+            entity.HasIndex(x => new { x.UserId, x.RecordedAt }).HasDatabaseName("IX_bmi_history_1");
         });
         modelBuilder.Entity<UserAvailableIngredient>(entity =>
         {
