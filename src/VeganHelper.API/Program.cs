@@ -121,6 +121,21 @@ builder.Services.AddScoped<IMediaStorageService, CloudflareR2StorageService>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        await DataSeeder.SeedDataAsync(dbContext);
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while seeding the database.");
+    }
+}
+
 Directory.CreateDirectory(avatarRoot);
 app.UseExceptionHandler();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
