@@ -1,0 +1,154 @@
+S/N,Foods,Vegan?,Containing Nuts?,Class of Diet,"Expert 1 Rating (4 for Yes; 3 for Yes with conditions, 2 No with conditions; and 1 for No)","Expert 2 Rating (4, Yes with conditions; 3 for Yes, 2 No with conditions; and 1 for No)","Expert 3 Rating (4, Yes with conditions; 3 for Yes, 2 No with conditions; and 1 for No)",% Agreement,Conditions Given
+1,"tomato (sliced, cherry, and others)",Yes,No,Vegetables,Yes,Yes,Yes,100,
+2,"carrots (stir-fry, sticks, and others)",Yes,No,Vegetables,Yes,Yes,Yes,100,
+3,"vegetables (crunchy, skewered, etc.)",Yes,No,Vegetables,Yes,Yes,Yes,100,
+4,"bell pepper (stuffed, sautéed, etc.)",Yes,No,Vegetables,Yes,Yes,Yes,100,
+5,"banana (sliced, whole and others)",Yes,No,Fruits,Yes,Yes,Yes,100,
+6,"syrup (agave, maple and others)",Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+7,"avocado (plain, wrap, toast and others)",Yes,No,Fruits,Yes,Yes,Yes,100,
+8,onion (red and others),Yes,No,Vegetable,Yes,Yes,Yes,100,
+9,cucumber (diced and others),Yes,No,Vegetable,Yes,Yes,Yes,100,
+10,olive oil,Yes,No,Plant-based extracts,Yes,Yes,Yes,100,
+11,spinach,Yes,No,Vegetable,Yes,Yes,Yes,100,
+12,vegetable broth,Yes,No,Vegetable,Yes,Yes,Yes,100,
+13,"mushrooms (stroganoff, vegan, etc.)",Yes,No,Vegetable,Yes,Yes,Yes,100,
+14,"lentil (plain, soup and others)",Yes,No,Plant-based protein,Yes,Yes,Yes,100,
+15,vegan cheese,Yes,Yes,There are possible nut ingredients in vegan cheese.,No,Yes,No (May contain nuts depending on the recipe),58,May contain nuts depending on the recipe
+16,hummus,Yes,No,"Plant-based sauce, spreads and dips. Only applies to people with seed allergies",Yes,Yes,Yes,100,
+17,tomato sauce,Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+18,orange (slices and others),Yes,No,Fruits,Yes,Yes,Yes,100,
+19,peas (snap and others),Yes,No,Vegetables,Yes,Yes,Yes,100,
+20,"juice (carrot, lemon, orange, etc.)",Yes,No,Fruits,Yes,Yes,Yes,100,
+21,lettuce (romaine and others),Yes,No,Vegetables,Yes,Yes,Yes,100,
+22,"black beans (plain, salad and others)",Yes,No,Plant-based protein,Yes,Yes,Yes,100,
+23,celery,Yes,No,Vegetable,Yes,Yes,Yes,100,
+24,"rice (sushi, jasmine, brown, etc.)",Yes,No,Plant-rich carbs,Yes,Yes,Yes,100,
+25,bread (whole-wheat and others),Yes,No,Plant-rich carbs,Yes,Yes,Yes,100,
+26,"pineapple (fresh, slices and others)",Yes,No,Fruits,Yes,Yes,Yes,100,
+27,"spices (curry, and others)",Yes,No,Plant-based herbs and spices,Yes,Yes,Yes,100,
+28,"apples (sliced, baked, and others)",Yes,No,Fruits,Yes,Yes,Yes,100,
+29,almond milk,Yes,Yes,Almond is a potential nut risk,No,Yes,No (May put the individual at risk of nut consumption),58,May put the individual at risk of nut consumption
+30,nut-free milk,No specific one stated,,,No,,,0,
+31,"chia-seed (plain, pudding and others)",Yes,No,Plant-based seeds. But they are in the seed category,Yes,Yes,Yes,100,
+32,"mango (plain, slices, and salad)",Yes,No,Fruits,No( if no nuts added),Yes,Yes,83,If nuts added not suitable
+33,toast (avocado and others),Yes,No,Plant-rich carbs,Yes,Yes,Yes,100,
+34,flour,Yes,No,Plant-rich carbs,Yes,Yes,Yes,100,
+35,"whole-grain bread (toast, artisanal, etc.)",Yes,No,Plant-rich carbs,Yes,Yes,Yes,100,
+36,"wrap (vegan, whole grain, falafel, etc.)",Yes,No,Plant-rich protein and fiber,No( if no nuts added),Yes,Yes,83,If nuts added not suitable
+37,vegan pancakes,Yes,No,Plant-rich carbs,No( almond milk added),Yes,Yes,83,If almond milk is added not suitable
+38,granola (nut-free and others),Yes,No,Plant-based cereals,Yes,Yes,Yes,100,
+39,basil (fresh and others),Yes,No,Plant based herbs and spices,Yes,Yes,Yes,100,
+40,"tahini dressing (lemon, sauce, and others)",Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+41,salsa,Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+42,mixed greens,Yes,No,Vegetable,Yes,Yes,Yes,100,
+43,grapes,Yes,No,Fruits,Yes,Yes,Yes,100,
+44,flaxseed,Yes,No,Plant-based seeds,Yes,Yes,Yes,100,
+45,sugar,Yes,No,Plant-rich sweetener,Yes,Yes,Yes,100,
+46,"tofu (vegan, stir-fry and others)",Yes,No,Plant-based protein,Yes,Yes,Yes,100,
+47,soy milk,Yes,No,Plant-based protein,Yes,Yes,Yes,100,
+48,pasta (whole-wheat and others),Yes,No,Plant-based carbs,Yes,Yes,Yes,100,
+49,vegan gelato,Yes,No,Plant-rich snacks and dessert,Yes ( if no nuts added),Yes,Yes,92,If nuts added not suitable
+50,vegan pizza (base and others),Yes,No,Plant-rich carbs,Yes,Yes,Yes,100,
+51,vegan protein shake,Yes,No,Plant-based protein,No( if no nuts added),Yes,Yes,92,If nuts added not suitable
+52,vegan paella,Yes,No,Plant-rich carb diet,Yes,Yes,Yes,100,
+53,artichokes,Yes,No,Vegetable,Yes,Yes,Yes,100,
+54,rice cakes,Yes,No,Plant-rich carbs,No ( almond butter added),Yes,Yes,92,Not suitable if almond butter is added
+55,"latte (small, medium and large)",Yes,No,Plant-based drinks and beverages,Yes,Yes,Yes,100,
+56,mushroom risotto,Yes,No,Plant-rich carbs,Yes ( if no added almond milk),Yes,Yes,92,Not suitable if almond milk is added
+57,saffron,Yes,No,Plant-based herbs and spices,No,Yes,Yes,75,Not stated
+58,vegan chili,Yes,No,Plant-based herbs and spices,No,Yes,Yes,75,Not stated
+59,kidney beans,Yes,No,Plant-based protein,No,Yes,Yes,75,Not stated
+60,blueberries,Yes,No,Fruits,No,Yes,Yes,75,Not stated
+61,Dark chocolate,Yes,No,Plant-rich snacks and dessert,No ( almond milk added),Yes,Yes,83,Not suitable if almond milk is added
+62,"potatoes (mashed, sweet, and others)",Yes,No,Plant-rich carb,Yes,Yes,Yes,100,
+63,vegan falafel salad,Yes,No,Plant-rich protein and fiber,Yes,Yes,Yes,100,
+64,oatmeal (all flavours e.g. banana),Yes,No,Plant-based fiber,Yes,Yes,Yes,100,
+65,vegan protein bar,Yes,No,Plant-based protein,No ( almond milk added,Yes,Yes,83,Not suitable if almond milk is added
+66,"quinoa (plain, salad and others)",Yes,No,Plant-based grains,Yes,Yes,Yes,100,
+67,smoothie (spinach and others),Yes,No,Plant-rich drinks and beverages,Yes,Yes,Yes,100,
+68,"strawberries (fresh, sliced, and others)",Yes,No,Fruits,Yes,Yes,Yes,100,
+69,chocolate pudding,Yes,No,Plant-rich snacks and dessert,No ( nuts added),Yes,Yes,83,If nuts added not suitable
+70,vegan parmesan,Yes,No,Plant-based protein,No ( cachew nuts added),Yes,Yes,83,If cashew nuts are added not suitable
+71,marinara sauce,Maybe,Maybe,,Yes,Yes,Yes,100,
+72,vegan lasagna,Yes,No,Plant-rich carb,Yes ( if no nuts or its milk added),Yes,Yes,92,Not suitable if nut butter or its milk is added
+73,vegan ricotta,Yes,No,Plant-based protein,No ( if nut buter or its milk is added),Yes,Yes,83,Not suitable if nut butter or its milk is added
+74,lasagna noodles,Yes,No,Plant-rich carb,Yes,Yes,Yes,100,
+75,"soy (sesame dressing, plain sauce and others)",Yes,No,Plant-based proteins,Yes,Yes,Yes,100,
+76,vegan tomato and basil soup,Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+77,red cabbage,Yes,No,Vegetable,Yes,Yes,Yes,100,
+78,vegan sour cream,Yes,No,Plant-based proteins,No ( nuts added),Yes,Yes,83,If nuts added not suitable
+79,mixed berries,Yes,No,Fruits,Yes,Yes,Yes,100,
+80,yogurt (dairy-free and vegan),Yes,No,Plant-based proteins,No ( if cashew or almond milk is used),Yes,Yes,83,If cashew or almond milk is used
+81,"zucchini (roasted, fresh and others)",Yes,No,Vegetable,Yes,Yes,Yes,100,
+82,"chickpeas (plain, sandwich, salad, roasted, and others)",Yes,No,Vegetable protein,Yes,Yes,Yes,100,
+83,broccoli (stir-fry and others),Yes,No,Vegetable,Yes,Yes,Yes,100,
+84,"vegan sushi (rolls, bowls, and others)",Yes,No,Plant-based carb meal,Yes,Yes,Yes,100,
+85,"kiwi (plain, slices, and salad)",Yes,No,Fruit,Yes,Yes,Yes,100,
+86,nori sheets,Yes,No,Vegetable,Yes,Yes,Yes,100,
+87,baking powder,Yes,No,Plant-extracts,Yes,No (I have reservation for baking powder),Yes,83,Baking powder is flagged with no additional reasons given
+88,vegan ice cream,Yes,No,Plant-rich snacks and dessert,Yes,Yes,Yes,100,
+89,corn,Yes,No,Plant-rich carb,Yes,Yes,Yes,100,
+90,mixed-nuts (nut-free option),Nut free options not specified,,,No,Yes,No (to reduce risk),58,Potential risk
+91,nutritional yeast,Yes,No,Plant-based extract,Yes,Yes,Yes,100,
+92,"peach (slices, diced and others)",Yes,No,Fruits,Yes,Yes,Yes,100,
+93,cinnamon,Yes,No,Plant-based herbs and spices,Yes,Yes,Yes,100,
+94,seasoned salt,Yes,No,Plant-based herbs and spices,Yes,Yes,Yes,100,
+95,seasoned pepper,Yes,No,Plant-based herbs and spices,Yes,Yes,Yes,100,
+96,veggie burger,Yes,No,Plant-rich carbs,Yes,Yes,Yes,100,
+97,vegan patty,Yes,No,Plant-rich protein,Yes,Yes,Yes,100,
+98,whole-grain bun,Yes,No,Plant-rich carbs,Yes,Yes,Yes,100,
+99,tomato soup,Yes,No,"Plant-rice sauce, spreads and dips",Yes,Yes,Yes,100,
+100,vegan french toast,Yes,No,Plant-based carbs,Yes,Yes,Yes,100,
+101,corn tortillas,Yes,No,Plant-rich carb,Yes,Yes,Yes,100,
+102,vinaigrette (balsamic and others),Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+103,"tacos (vegan, black beans, and others)",Yes,No,Plant-rich carb,Yes,Yes,Yes,100,
+104,vegan spaghetti (plain and bolognese),Yes,No,Plant-based carb,Yes,Yes,Yes,100,
+105,honey,Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+106,vegan mayo,Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+107,bread (not-specific),Not specific,,,Yes ( if free of nuts),Yes,Yes,92,Suitable if free of nuts
+108,vegan shepherd’s pie,Yes,No,Plant-rich carbs,No ( contain nut milk),Yes,Yes,83,If it contains nut milk not suitable
+109,buddha,Yes,No,Plant-rich carbs,Yes,Yes,Yes,100,
+110,vegan tzatziki,Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+111,edamame,Yes,No,Vegetable,Yes,Yes,Yes,100,
+112,vinegar,Yes,No,Plant-based sauce and dips,Yes,Yes,Yes,100,
+113,arugula,Yes,No,Vegetables,Yes,Yes,Yes,100,
+114,ketchup,Yes,No,Plant-based sauce and dips,Yes,Yes,Yes,100,
+115,dip (not specific),Not specific,,,Yes,No (What is dip?),Yes,83,Not sure what dip meant
+116,butter (almond and others),Yes,Yes,Almond is a potential risk,Yes,Yes,Yes,100,
+117,sesame oil,Yes,No,Plant-extract oil,Yes,Yes,Yes,100,
+118,pear,Yes,No,Fruit,Yes,Yes,Yes,100,
+119,"dressing (lime, lemon)",Yes,No,Plant-based sauce and dips,Yes,Yes,Yes,100,
+120,rice noodles,Yes,No,Plant-rich Carbs,Yes,Yes,Yes,100,
+121,tamari sauce,Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+122,"meatballs (meatless, vegan and others)",Yes,No,Plant-based protein,No (cashew butter added),Yes,Yes,83,Not suitable if cashew butter is added
+123,raisins,Yes,No,Fruits,Yes,Yes,Yes,100,
+124,raspberries,Yes,No,Fruits,Yes,Yes,Yes,100,
+125,side fruit (not specific),Not specific about fruit types,,,Yes,,,100,
+126,vegan ground meat substitute,Yes,No,Plant-based protein,Yes,Yes,Yes,100,
+127,vegan chocolate spread,Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+128,pumpkin seeds,Yes,No,Plant-based nuts and seeds,Yes,Yes,Yes,100,
+129,vanilla extract,Yes,No,Plant-extracts,Yes,Yes,Yes,100,
+130,coconut curry,Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+131,watermelon (diced and others),Yes,No,Fruits,Yes,Yes,Yes,100,
+132,vegan kebabs,Yes,No,Plant-Based Protein,Yes (if no trace of nuts from ingredients),Yes,Yes,92,Suitable if no trace of nuts from ingredients
+133,popcorn,Yes,No,Ideal for the age-group under consideration. Plant-based carbs,Yes,Yes,Yes,100,
+134,cilantro,Yes,No,Plant-based herbs and spices,Yes,Yes,Yes,100,
+135,"oats (cooked, porridge and gluten-free)",Yes,No,Plant-based fiber,Yes,Yes,Yes,100,
+136,vegan gravy,Yes,No,Plant-rich extract,No (almond milk added,Yes,Yes,83,Not suitable if almond milk is added
+137,coconut flakes,Yes,No,Plant-rich extract,Yes,Yes,Yes,100,
+138,kale,Yes,No,Vegetable,Yes,Yes,Yes,100,
+139,vegan jambalaya rice,Yes,No,Plant-based carbs,Yes (if peanut is not added),Yes,Yes,92,Not suitable if peanut is added
+140,vegan sausage,Yes,No,Plant-based protein,Yes,Yes,Yes,100,
+141,"bagel (whole-grain, vegan, etc.)",Yes,No,Plant-rich carb,Yes,Yes,Yes,100,
+142,vegan pad thai,Yes,No,Plant-rich carb,Yes,Yes,Yes,100,
+143,bean sprouts,Yes,No,Plant-based protein,Yes,Yes,Yes,100,
+144,tamarind sauce,Yes,No,"Plant-based sauce, spreads and dips",Yes,Yes,Yes,100,
+145,grapefruit,Yes,No,Fruits,Yes,Yes,Yes,100,
+146,fruit salad,Yes,No,Fruits,Yes,Yes,Yes,100,
+147,dried figs,Yes,No,Fruits,Yes,Yes,Yes,100,
+148,vegan omelet,Yes,No,Plant-based protein,Yes,Yes,Yes,100,
+149,chickpea flour,Yes,No,Plant-based protein,Yes,Yes,Yes,100,
+150,"vegan gyro
+ seitan",Yes,No,Plant-rich carb diet,Yes,Yes,Yes,100,
+151,whole wheat pita,Yes,No,Plant-rich carb,Yes,Yes,Yes,100,
+152,vegan mozzarella,Yes,No,Plant-based protein,No (contain nuts),Yes,Yes,83,Likely contains nuts
