@@ -361,22 +361,24 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         {
             entity.ToTable("meal_plans", table =>
             {
-                table.HasCheckConstraint("CK_meal_plans_1", "DATEDIFF(DAY, start_date, end_date) = 6");
-                table.HasCheckConstraint("CK_meal_plans_2", "height_cm > 0 AND weight_kg > 0 AND bmi_value > 0");
+                table.HasCheckConstraint("CK_meal_plans_1", "start_date IS NULL OR DATEDIFF(DAY, start_date, end_date) = 6");
+                table.HasCheckConstraint("CK_meal_plans_2", "height_cm IS NULL OR (height_cm > 0 AND weight_kg > 0 AND bmi_value > 0)");
                 table.HasCheckConstraint("CK_meal_plans_3", "diet_type IN ('vegan','lacto_ovo_vegetarian')");
                 table.HasCheckConstraint("CK_meal_plans_4", "ISJSON(allergies_snapshot) = 1");
                 table.HasCheckConstraint("CK_meal_plans_5", "ISJSON(available_ingredients_snapshot) = 1");
-                table.HasCheckConstraint("CK_meal_plans_6", "generation_source IN ('ai','manual')");
+                table.HasCheckConstraint("CK_meal_plans_6", "generation_source IN ('ai','manual','template')");
                 table.HasCheckConstraint("CK_meal_plans_7", "status IN ('pending','generating','completed','failed','saved','archived')");
             });
             entity.HasKey(x => new { x.Id }).HasName("PK_meal_plans");
             entity.Property(x => x.Id).HasColumnName("id").HasColumnType("BIGINT").IsRequired(true).UseIdentityColumn();
-            entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("BIGINT").IsRequired(true);
-            entity.Property(x => x.StartDate).HasColumnName("start_date").HasColumnType("DATE").IsRequired(true);
-            entity.Property(x => x.EndDate).HasColumnName("end_date").HasColumnType("DATE").IsRequired(true);
-            entity.Property(x => x.HeightCm).HasColumnName("height_cm").HasColumnType("DECIMAL(5,2)").IsRequired(true);
-            entity.Property(x => x.WeightKg).HasColumnName("weight_kg").HasColumnType("DECIMAL(6,2)").IsRequired(true);
-            entity.Property(x => x.BmiValue).HasColumnName("bmi_value").HasColumnType("DECIMAL(6,2)").IsRequired(true);
+            entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("BIGINT").IsRequired(false);
+            entity.Property(x => x.IsTemplate).HasColumnName("is_template").HasColumnType("BIT").IsRequired(true).HasDefaultValueSql("0");
+            entity.Property(x => x.TemplateName).HasColumnName("template_name").HasColumnType("NVARCHAR(255)").IsRequired(false);
+            entity.Property(x => x.StartDate).HasColumnName("start_date").HasColumnType("DATE").IsRequired(false);
+            entity.Property(x => x.EndDate).HasColumnName("end_date").HasColumnType("DATE").IsRequired(false);
+            entity.Property(x => x.HeightCm).HasColumnName("height_cm").HasColumnType("DECIMAL(5,2)").IsRequired(false);
+            entity.Property(x => x.WeightKg).HasColumnName("weight_kg").HasColumnType("DECIMAL(6,2)").IsRequired(false);
+            entity.Property(x => x.BmiValue).HasColumnName("bmi_value").HasColumnType("DECIMAL(6,2)").IsRequired(false);
             entity.Property(x => x.DietType).HasColumnName("diet_type").HasColumnType("NVARCHAR(30)").IsRequired(true).HasDefaultValueSql("'vegan'");
             entity.Property(x => x.AllergiesSnapshot).HasColumnName("allergies_snapshot").HasColumnType("NVARCHAR(MAX)").IsRequired(true).HasDefaultValueSql("N'[]'");
             entity.Property(x => x.AvailableIngredientsSnapshot).HasColumnName("available_ingredients_snapshot").HasColumnType("NVARCHAR(MAX)").IsRequired(true).HasDefaultValueSql("N'[]'");

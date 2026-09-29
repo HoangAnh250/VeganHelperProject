@@ -3,12 +3,14 @@ namespace VeganHelper.DAL.Models;
 public sealed class MealPlan
 {
     public long Id { get; set; }
-    public long UserId { get; set; }
-    public DateOnly StartDate { get; set; }
-    public DateOnly EndDate { get; set; }
-    public decimal HeightCm { get; set; }
-    public decimal WeightKg { get; set; }
-    public decimal BmiValue { get; set; }
+    public long? UserId { get; set; }
+    public bool IsTemplate { get; set; }
+    public string? TemplateName { get; set; }
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+    public decimal? HeightCm { get; set; }
+    public decimal? WeightKg { get; set; }
+    public decimal? BmiValue { get; set; }
     public string DietType { get; set; } = string.Empty;
     public string AllergiesSnapshot { get; set; } = string.Empty;
     public string AvailableIngredientsSnapshot { get; set; } = string.Empty;
