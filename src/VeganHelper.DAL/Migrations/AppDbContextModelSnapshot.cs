@@ -1759,12 +1759,9 @@ namespace VeganHelper.DAL.Migrations
                         .HasConstraintName("FK_ai_usage_1");
                 });
 
-<<<<<<< HEAD
-            modelBuilder.Entity("VeganHelper.DAL.Entities.ChatMessage", b =>
-=======
-            modelBuilder.Entity("VeganHelper.DAL.Models.BmiHistory", b =>
+            modelBuilder.Entity("VeganHelper.DAL.Entities.BmiHistory", b =>
                 {
-                    b.HasOne("VeganHelper.DAL.Models.User", "User")
+                    b.HasOne("VeganHelper.DAL.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1774,8 +1771,7 @@ namespace VeganHelper.DAL.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("VeganHelper.DAL.Models.ChatMessage", b =>
->>>>>>> develop
+            modelBuilder.Entity("VeganHelper.DAL.Entities.ChatMessage", b =>
                 {
                     b.HasOne("VeganHelper.DAL.Entities.ChatSession", null)
                         .WithMany()
@@ -1962,11 +1958,7 @@ namespace VeganHelper.DAL.Migrations
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.PostIngredient", b =>
                 {
-<<<<<<< HEAD
-                    b.HasOne("VeganHelper.DAL.Entities.Ingredient", null)
-=======
-                    b.HasOne("VeganHelper.DAL.Models.Ingredient", "Ingredient")
->>>>>>> develop
+                    b.HasOne("VeganHelper.DAL.Entities.Ingredient", "Ingredient")
                         .WithMany()
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.NoAction)

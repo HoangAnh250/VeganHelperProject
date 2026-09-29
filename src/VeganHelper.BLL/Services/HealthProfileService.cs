@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using VeganHelper.BLL.DTOs.HealthProfile;
-using VeganHelper.DAL.Data;
-using VeganHelper.DAL.Models;
+using VeganHelper.DAL.Persistence;
+using VeganHelper.DAL.Entities;
 
 namespace VeganHelper.BLL.Services;
 

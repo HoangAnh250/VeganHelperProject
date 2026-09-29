@@ -1,4 +1,4 @@
-namespace VeganHelper.DAL.Models;
+namespace VeganHelper.DAL.Entities;
 
 public sealed class BmiHistory
 {
