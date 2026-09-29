@@ -1,6 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using FluentValidation;
+using Microsoft.OpenApi.Models;
+using Microsoft.EntityFrameworkCore;
+using VeganHelper.BLL.DTOs.Posts;
+using VeganHelper.BLL.Services;
+using VeganHelper.BLL.Services.Media;
+using VeganHelper.DAL.Data;
+using VeganHelper.DAL.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -97,6 +104,10 @@ var avatarRoot = string.IsNullOrWhiteSpace(configuredAvatarRoot)
         ? configuredAvatarRoot
         : Path.Combine(builder.Environment.ContentRootPath, configuredAvatarRoot));
 builder.Services.AddSingleton<IAvatarStorage>(_ => new LocalAvatarStorage(avatarRoot));
+
+builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
+builder.Services.AddScoped<IMediaStorageService, CloudflareR2StorageService>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
 var app = builder.Build();
 Directory.CreateDirectory(avatarRoot);

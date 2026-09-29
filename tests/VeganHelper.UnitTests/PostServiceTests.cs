@@ -22,7 +22,7 @@ public class PostServiceTests
     private readonly Mock<IValidator<GetMyPostsRequest>> _mockGetMyPostsValidator;
 
     private readonly Mock<IValidator<UpdatePostRequest>> _mockUpdateValidator;
-
+    private readonly Mock<VeganHelper.BLL.Services.Media.IMediaStorageService> _mockMediaStorageService;
     private readonly PostService _postService;
 
     public PostServiceTests()
@@ -32,11 +32,13 @@ public class PostServiceTests
 
         _mockGetMyPostsValidator = new Mock<IValidator<GetMyPostsRequest>>();
         _mockUpdateValidator = new Mock<IValidator<UpdatePostRequest>>();
+        _mockMediaStorageService = new Mock<VeganHelper.BLL.Services.Media.IMediaStorageService>();
         _postService = new PostService(
             _mockPostRepository.Object, 
             _mockValidator.Object, 
             _mockGetMyPostsValidator.Object, 
-            _mockUpdateValidator.Object);
+            _mockUpdateValidator.Object,
+            _mockMediaStorageService.Object);
     }
 
     [Fact]

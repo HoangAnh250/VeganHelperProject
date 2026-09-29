@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+
+<html lang="en" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>BMI Calculator &amp; Weekly Menu - Botanical Hearth</title>
+<!-- Google Fonts: Fraunces, Libre Caslon Text & Be Vietnam Pro -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&amp;family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'herb-white': '#F3F6EE',
+            'surface-paper': '#FDFBF6',
+            'primary-moss': '#2F5233',
+            'primary-moss-hover': '#25401F',
+            'accent-beetroot': '#A63446',
+            'accent-turmeric': '#D9A441',
+            'text-charcoal': '#2B2A25',
+            'text-stem-gray': '#6B6F63',
+            'border-sage-mist': '#DCE3D5',
+            'sage-mist': '#DCE3D5',
+            'charcoal': '#2B2A25',
+            'stem-gray': '#6B6F63',
+            'success-sprout': '#4C8C4A',
+            'error-chili': '#C1432E'
+          },
+          fontFamily: {
+            fraunces: ['Fraunces', 'serif'],
+            caslon: ['"Libre Caslon Text"', 'serif'],
+            sans: ['"Be Vietnam Pro"', 'sans-serif'],
+          },
+          boxShadow: {
+            'subtle': '0 2px 12px rgba(43, 42, 37, 0.12)',
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #F3F6EE;
+      color: #2B2A25;
+      font-family: 'Be Vietnam Pro', sans-serif;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-herb-white text-text-charcoal">
+<!-- 1. Header-LoggedIn (Fixed 64px, 'Weekly Menu' active) -->
+<header class="sticky top-0 z-40 bg-surface-paper border-b border-border-sage-mist h-16 px-6 lg:px-12 flex items-center justify-between relative">
+<!-- Logo -->
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-moss/10 flex items-center justify-center text-primary-moss">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M12 2C6.5 2 2 6.5 2 12c0 4.5 3 8 7 9.5 0-3 .5-6 2-8 1.5-2 3.5-3.5 6.5-4 0 5-2 8-5 9.5-1 0-2 0-2 0s2 2.5 5 1.5c4-1.5 6.5-5 6.5-8.5C22 6.5 17.5 2 12 2z"></path>
+</svg>
+</div>
+<span class="font-fraunces text-2xl font-semibold text-primary-moss tracking-tight">Botanical Hearth</span>
+</div>
+<!-- Navigation Menu (Weekly Menu active) -->
+<nav class="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center justify-center gap-8 h-full">
+<a class="inline-flex items-center h-full text-[15px] font-medium text-text-charcoal hover:text-primary-moss transition-colors" href="#">Home</a>
+<a class="inline-flex items-center h-full text-[15px] font-semibold text-primary-moss border-b-2 border-primary-moss transition-colors" href="#">Weekly Menu</a>
+<a class="inline-flex items-center h-full text-[15px] font-medium text-text-charcoal hover:text-primary-moss transition-colors" href="#">Find Vegan Stores</a>
+<a class="inline-flex items-center h-full text-[15px] font-medium text-text-charcoal hover:text-primary-moss transition-colors" href="#">My Posts</a>
+</nav>
+<!-- User Profile Avatar -->
+<div class="flex items-center justify-end gap-6" id="header-user-actions"><div class="relative" id="notification-dropdown-container"><button aria-haspopup="true" aria-label="Notifications" class="relative w-9 h-9 rounded-full border border-[#DCE3D5] overflow-visible flex items-center justify-center bg-herb-white hover:border-primary-moss transition-colors focus:outline-none focus:ring-2 focus:ring-primary-moss/30 cursor-pointer" id="notification-menu-button" onclick="document.getElementById('notification-dropdown').classList.toggle('hidden'); var prof = document.getElementById('profile-dropdown'); if (prof) prof.classList.add('hidden'); event.stopPropagation();" title="Notifications"><svg class="w-5 h-5 text-text-stem-gray" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewbox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span class="absolute top-0 right-0 w-2.5 h-2.5 bg-primary-moss rounded-full border-2 border-surface-paper"></span></button><div class="hidden absolute right-0 top-full mt-2 w-[360px] max-w-[calc(100vw-32px)] bg-[#FDFBF6] border border-[#DCE3D5] rounded-xl shadow-subtle z-50 overflow-hidden text-left" id="notification-dropdown"><div class="px-4 py-3 border-b border-border-sage-mist flex items-center justify-between bg-surface-paper"><div class="flex items-center gap-2"><h3 class="font-fraunces text-[16px] font-semibold text-text-charcoal">Notifications</h3><span class="px-1.5 py-0.5 rounded-full bg-primary-moss/10 text-primary-moss text-[11px] font-medium leading-none">2 new</span></div><button class="text-[12px] font-medium text-text-stem-gray hover:text-primary-moss transition-colors focus:outline-none" onclick="event.stopPropagation();">Mark all as read</button></div><div class="max-h-[340px] overflow-y-auto divide-y divide-border-sage-mist"><a class="flex items-start gap-3 p-3.5 bg-herb-white hover:bg-herb-white/80 transition-colors cursor-pointer block" href="#" onclick="event.stopPropagation();"><div class="w-8 h-8 rounded-full bg-primary-moss/10 text-primary-moss flex items-center justify-center flex-shrink-0 mt-0.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div><div class="flex-1 min-w-0"><p class="text-[13px] text-text-charcoal leading-snug"><span class="font-medium">Anna Lin</span> liked your recipe <span class="font-medium text-primary-moss">'Silken Tofu Soup'</span></p><span class="text-[11px] text-text-stem-gray mt-1 block">5m ago</span></div><span class="w-2 h-2 rounded-full bg-primary-moss flex-shrink-0 mt-1.5"></span></a><a class="flex items-start gap-3 p-3.5 bg-herb-white hover:bg-herb-white/80 transition-colors cursor-pointer block" href="#" onclick="event.stopPropagation();"><div class="w-8 h-8 rounded-full bg-accent-turmeric/20 text-[#B8791A] flex items-center justify-center flex-shrink-0 mt-0.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div><div class="flex-1 min-w-0"><p class="text-[13px] text-text-charcoal leading-snug"><span class="font-medium">Chef Duy</span> commented on your weekly nutrition plan</p><span class="text-[11px] text-text-stem-gray mt-1 block">1h ago</span></div><span class="w-2 h-2 rounded-full bg-primary-moss flex-shrink-0 mt-1.5"></span></a><a class="flex items-start gap-3 p-3.5 hover:bg-herb-white transition-colors cursor-pointer block" href="#" onclick="event.stopPropagation();"><div class="w-8 h-8 rounded-full bg-herb-white border border-border-sage-mist text-text-stem-gray flex items-center justify-center flex-shrink-0 mt-0.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><div class="flex-1 min-w-0"><p class="text-[13px] text-text-stem-gray leading-snug">Your community post <span class="font-medium text-text-charcoal">'Spring Lotus Bowls'</span> has been approved.</p><span class="text-[11px] text-text-stem-gray/70 mt-1 block">Yesterday</span></div></a></div><div class="p-2.5 bg-surface-paper border-t border-border-sage-mist text-center"><a class="text-[13px] font-semibold text-primary-moss hover:text-primary-moss-hover transition-colors inline-block py-1" href="#">View all notifications</a></div></div></div><div class="relative" id="profile-dropdown-container"><button aria-haspopup="true" class="relative w-9 h-9 rounded-full border border-[#DCE3D5] overflow-hidden flex items-center justify-center bg-herb-white hover:border-primary-moss transition-colors focus:outline-none focus:ring-2 focus:ring-primary-moss/30 cursor-pointer" id="profile-menu-button" onclick="document.getElementById('profile-dropdown').classList.toggle('hidden'); var notif = document.getElementById('notification-dropdown'); if (notif) notif.classList.add('hidden'); event.stopPropagation();" title="User Profile"><svg class="w-5 h-5 text-text-stem-gray" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewbox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></button><div class="hidden absolute right-0 top-full mt-2 w-56 bg-[#FDFBF6] border border-[#DCE3D5] rounded-xl py-1.5 shadow-subtle z-50" id="profile-dropdown"><a class="flex items-center gap-3 px-4 h-11 text-sm text-text-charcoal hover:bg-herb-white transition-colors cursor-pointer" href="#"><svg class="w-4 h-4 text-text-stem-gray flex-shrink-0" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewbox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg><span class="">My Profile</span></a><a class="flex items-center gap-3 px-4 h-11 text-sm text-text-charcoal hover:bg-herb-white transition-colors cursor-pointer" href="#"><svg class="w-4 h-4 text-text-stem-gray flex-shrink-0" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewbox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg><span class="">Admin Dashboard</span></a><div class="my-1 border-t border-[#DCE3D5]"></div><a class="flex items-center gap-3 px-4 h-11 text-sm text-accent-beetroot hover:bg-herb-white transition-colors cursor-pointer" href="#"><svg class="w-4 h-4 text-accent-beetroot flex-shrink-0" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewbox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg><span class="">Log Out</span></a></div></div></div>
+</header>
+<!-- Main Content Container -->
+<main class="flex-1 max-w-[1120px] w-full mx-auto px-6 py-10 space-y-12">
+<!-- Page Title & Introduction -->
+<div class="text-left space-y-2">
+<h1 class="font-fraunces text-3xl md:text-4xl font-semibold text-text-charcoal tracking-tight">
+        BMI Calculator &amp; Weekly Menu
+      </h1>
+<p class="text-[17px] text-text-stem-gray max-w-2xl">
+        Track your body metrics and discover personalized 7-day plant-based menus balanced with wholesome nutrition.
+      </p>
+</div>
+<!-- Top Section: BMI Calculator Form & Dietary Context -->
+<section class="space-y-6"><div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"><div class="lg:col-span-6 bg-surface-paper border border-border-sage-mist rounded-xl p-6 lg:p-8 space-y-6"><div class="border-b border-border-sage-mist pb-4"><div class="flex items-center gap-2 mb-1"><span class="w-[3px] h-4 bg-primary-moss inline-block rounded-full"></span><span class="text-xs font-medium text-text-stem-gray tracking-wider uppercase">Body Metrics</span></div><h2 class="font-fraunces text-xl md:text-2xl font-medium text-text-charcoal">Enter Body Measurements</h2><p class="text-[13px] text-text-stem-gray mt-1">Provide basic physical parameters for tailored nutritional calculation</p></div><form class="space-y-5" onsubmit="event.preventDefault();"><div class="grid grid-cols-1 sm:grid-cols-2 gap-5"><div class="space-y-1.5"><label class="block text-[13px] font-medium text-text-stem-gray">Height (cm)</label><div class="relative"><input class="w-full bg-transparent border-2 border-[#DCE3D5] rounded-lg px-4 py-2 text-[#2B2A25] focus:outline-none focus:border-[#2F5233] focus:ring-0 transition-colors pr-12 font-medium" placeholder="Enter cm" type="number" value="165"/><span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-text-stem-gray">cm</span></div></div><div class="space-y-1.5"><label class="block text-[13px] font-medium text-text-stem-gray">Weight (kg)</label><div class="relative"><input class="w-full bg-transparent border-2 border-[#DCE3D5] rounded-lg px-4 py-2 text-[#2B2A25] focus:outline-none focus:border-[#2F5233] focus:ring-0 transition-colors pr-12 font-medium" placeholder="Enter kg" type="number" value="58"/><span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-text-stem-gray">kg</span></div></div><div class="space-y-1.5"><label class="block text-[13px] font-medium text-text-stem-gray">Age</label><div class="relative"><input class="w-full bg-transparent border-2 border-[#DCE3D5] rounded-lg px-4 py-2 text-[#2B2A25] focus:outline-none focus:border-[#2F5233] focus:ring-0 transition-colors pr-12 font-medium" placeholder="Enter age" type="number" value="28"/><span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-text-stem-gray">years</span></div></div><div class="space-y-1.5"><label class="block text-[13px] font-medium text-text-stem-gray">Biological Sex</label><div class="relative w-full">
+<button class="w-full flex items-center justify-between bg-transparent border-2 border-[#DCE3D5] rounded-lg px-4 py-2 text-[#2B2A25] focus:outline-none focus:border-[#2F5233] focus:ring-0 transition-colors cursor-pointer" id="gender-btn" type="button">
+<span class="" id="gender-text">Male</span>
+<svg class="w-4 h-4 text-stem-gray" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<ul class="hidden absolute left-0 top-full mt-1 w-full z-[60] bg-surface-paper border border-sage-mist rounded-lg shadow-md overflow-hidden" id="gender-menu">
+<li class="px-4 py-2 text-charcoal hover:bg-herb-white hover:text-primary-moss cursor-pointer transition-colors" onclick="selectGender(this)">Male</li>
+<li class="px-4 py-2 text-charcoal hover:bg-herb-white hover:text-primary-moss cursor-pointer transition-colors" onclick="selectGender(this)">Female</li>
+<li class="px-4 py-2 text-charcoal hover:bg-herb-white hover:text-primary-moss cursor-pointer transition-colors" onclick="selectGender(this)">Other</li>
+</ul>
+</div></div></div><div class="flex items-center gap-2 cursor-pointer select-none text-xs text-text-stem-gray"><label class="flex items-center gap-2 cursor-pointer"><input checked="" class="w-4 h-4 rounded border-border-sage-mist text-primary-moss focus:ring-primary-moss/30" type="checkbox"/><span class="">Auto-sync with personal profile</span></label></div>
+<!-- Nutritional Target Dashboard (replaces basic alert box) -->
+<div class="bg-[#F3F6EE] border border-[#DCE3D5] rounded-xl p-5 flex flex-col gap-4 mt-6">
+<!-- Top row: BMI Score & Status Badge -->
+<div class="flex items-center justify-between">
+<div>
+<span class="text-xs text-[#6B6F63] font-medium uppercase tracking-wider block">BMI SCORE</span>
+<span class="font-['Libre_Caslon_Text',serif] text-3xl font-bold text-[#2F5233] leading-none mt-0.5 block">21.3</span>
+</div>
+<span class="bg-[#2F5233]/10 text-[#2F5233] border border-[#2F5233]/20 px-3 py-1 rounded-full text-xs font-semibold">
+      Normal Weight
+    </span>
+</div>
+<!-- Middle row: Visual BMI Scale Bar with pointer -->
+<div class="space-y-1">
+<div class="relative w-full h-2 rounded-full bg-gradient-to-r from-amber-300 via-[#4C8C4A] to-[#C1432E] flex items-center">
+<div class="absolute left-[35%] -top-0.5 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-[#2F5233] shadow-xs"></div>
+</div>
+<div class="text-[10px] text-[#6B6F63] flex justify-between px-8 mt-1 font-medium">
+<span class="">18.5</span>
+<span class="">24.9</span>
+</div>
+</div>
+<!-- Bottom row: Macros Breakdown -->
+<div>
+<div class="text-xs font-semibold text-[#2B2A25] mb-2">Daily Target: 1,850 kcal</div>
+<div class="grid grid-cols-3 gap-2 text-center">
+<div class="border-t-2 border-[#D9A441] pt-1.5 bg-[#FDFBF6] rounded-b-md p-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+<div class="font-bold text-[#2B2A25] text-sm leading-tight">55%</div>
+<div class="text-[11px] text-[#6B6F63] font-medium">Carbs</div>
+</div>
+<div class="border-t-2 border-[#2F5233] pt-1.5 bg-[#FDFBF6] rounded-b-md p-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+<div class="font-bold text-[#2F5233] text-sm leading-tight">20%</div>
+<div class="text-[11px] text-[#6B6F63] font-medium">Protein</div>
+</div>
+<div class="border-t-2 border-[#A63446] pt-1.5 bg-[#FDFBF6] rounded-b-md p-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+<div class="font-bold text-[#A63446] text-sm leading-tight">25%</div>
+<div class="text-[11px] text-[#6B6F63] font-medium">Fat</div>
+</div>
+</div>
+</div>
+</div>
+</form></div><div class="lg:col-span-6 bg-surface-paper border border-border-sage-mist rounded-xl p-6 lg:p-8 space-y-6 flex flex-col justify-between h-full"><div class="space-y-6"><div class="border-b border-border-sage-mist pb-4"><div class="flex items-center gap-2 mb-1"><span class="w-[3px] h-4 bg-accent-turmeric inline-block rounded-full"></span><span class="text-xs font-medium text-text-stem-gray tracking-wider uppercase">Dietary Preferences</span></div><h2 class="font-fraunces text-xl md:text-2xl font-medium text-text-charcoal">Dietary &amp; Pantry Context</h2><p class="text-[13px] text-text-stem-gray mt-1">Specify ingredients to exclude or pantry items to prioritize for this week's plan.</p></div><div class="space-y-4"><div class="space-y-2"><label class="block text-[13px] font-medium text-text-stem-gray">Allergies &amp; Exclusions</label><div class="relative"><input class="w-full bg-transparent border-2 border-[#DCE3D5] rounded-lg px-4 py-2 text-[#2B2A25] focus:outline-none focus:border-[#2F5233] focus:ring-0 transition-colors font-medium placeholder:text-text-stem-gray/70" id="allergy-input" placeholder="Type an ingredient and press Enter..." type="text"/></div><div class="flex flex-wrap gap-2 mt-2 mb-4" id="selected-allergies-container"></div><div class="mt-2 pt-1 border-t border-border-sage-mist/60"><div class="text-xs text-text-stem-gray font-medium mb-1.5">Common exclusions:</div><div class="flex flex-wrap gap-1.5"><button class="allergy-quick-btn bg-herb-white text-stem-gray border border-transparent px-3 py-1 rounded-full text-sm cursor-pointer transition-colors" onclick="toggleAllergyState('Gluten')" type="button">Gluten</button><button class="allergy-quick-btn bg-herb-white text-stem-gray border border-transparent px-3 py-1 rounded-full text-sm cursor-pointer transition-colors" onclick="toggleAllergyState('Soy')" type="button">Soy</button><button class="allergy-quick-btn bg-herb-white text-stem-gray border border-transparent px-3 py-1 rounded-full text-sm cursor-pointer transition-colors" onclick="toggleAllergyState('Peanuts')" type="button">Peanuts</button><button class="allergy-quick-btn bg-herb-white text-stem-gray border border-transparent px-3 py-1 rounded-full text-sm cursor-pointer transition-colors" onclick="toggleAllergyState('Tree Nuts')" type="button">Tree Nuts</button><button class="allergy-quick-btn bg-herb-white text-stem-gray border border-transparent px-3 py-1 rounded-full text-sm cursor-pointer transition-colors" onclick="toggleAllergyState('Allium (Onion/Garlic)')" type="button">Allium (Onion/Garlic)</button></div></div></div><div class="space-y-2"><label class="block text-[13px] font-medium text-text-stem-gray">Pantry items to use up</label><textarea class="w-full bg-transparent border-2 border-[#DCE3D5] rounded-lg px-4 py-2 text-[#2B2A25] focus:outline-none focus:border-[#2F5233] focus:ring-0 transition-colors resize-none font-normal leading-relaxed" placeholder="e.g. Firm tofu, 2 carrots, king oyster mushrooms, fresh ginger..." rows="2">Firm tofu, fresh ginger, shiitake mushrooms, carrots</textarea><div class="mt-2.5"><div class="text-xs text-text-stem-gray font-medium mb-1.5">Quick add staples:</div><div class="max-h-40 overflow-y-auto pr-2 space-y-3.5 mt-2"><div class="space-y-1.5"><div class="text-[11px] text-text-stem-gray font-medium uppercase tracking-wider">Plant Proteins</div><div class="flex flex-wrap gap-1.5"><button class="bg-primary-moss text-white border border-primary-moss px-3 py-1 rounded-full text-xs cursor-pointer font-medium" onclick="togglePill(this)" type="button">Firm Tofu</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Silken Tofu</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Tempeh</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Chickpeas</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Lentils</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Edamame</button></div></div><div class="space-y-1.5"><div class="text-[11px] text-text-stem-gray font-medium uppercase tracking-wider">Fresh Produce</div><div class="flex flex-wrap gap-1.5"><button class="bg-primary-moss text-white border border-primary-moss px-3 py-1 rounded-full text-xs cursor-pointer font-medium" onclick="togglePill(this)" type="button">Shiitake</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Oyster Mushrooms</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Spinach</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Bok Choy</button><button class="bg-primary-moss text-white border border-primary-moss px-3 py-1 rounded-full text-xs cursor-pointer font-medium" onclick="togglePill(this)" type="button">Carrots</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Lotus Root</button></div></div><div class="space-y-1.5"><div class="text-[11px] text-text-stem-gray font-medium uppercase tracking-wider">Carbs &amp; Bases</div><div class="flex flex-wrap gap-1.5"><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Brown Rice</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Rice Noodles</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Sweet Potato</button><button class="bg-surface-paper border border-border-sage-mist text-text-charcoal px-3 py-1 rounded-full text-xs cursor-pointer hover:border-primary-moss transition-colors" onclick="togglePill(this)" type="button">Quinoa</button></div></div></div></div></div></div></div></div></div><div class="bg-surface-paper border border-border-sage-mist rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-primary-moss/10 text-primary-moss flex items-center justify-center flex-shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewbox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg></div><div><h3 class="text-sm font-semibold text-text-charcoal">Ready to regenerate your weekly menu?</h3><p class="text-xs text-text-stem-gray">AI will adapt recipes to your 21.3 BMI target and pantry availability.</p></div></div><button class="w-full sm:w-auto h-11 px-8 rounded-lg bg-primary-moss hover:bg-primary-moss-hover text-white text-[15px] font-medium transition-colors inline-flex items-center justify-center gap-2 flex-shrink-0 shadow-sm" type="button"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg><span class="">Generate AI Menu</span></button></div></section>
+<!-- Bottom Section: 7-Day Plant-Based Weekly Menu -->
+<section class="space-y-6">
+<!-- Header & Toolbar -->
+<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border-sage-mist pb-4">
+<div class="space-y-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="w-[3px] h-4 bg-primary-moss inline-block rounded-full"></span>
+<span class="text-xs font-medium text-text-stem-gray tracking-wider uppercase">AI Nutritional Plan</span>
+</div>
+<h2 class="font-fraunces text-2xl md:text-3xl font-semibold text-[#2B2A25] tracking-tight">
+        Your Personalized Plant-Based Menu
+      </h2>
+<p class="text-[14px] text-[#6B6F63]">
+        AI-curated 7-day culinary plan balanced for your calculated BMI and nutritional profile.
+      </p>
+</div>
+<div>
+<button class="h-10 px-4 rounded-lg border border-primary-moss text-primary-moss hover:bg-herb-white text-sm font-medium transition-colors inline-flex items-center gap-2" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+<polyline points="17 21 17 13 7 13 7 21"></polyline>
+<polyline points="7 3 7 8 15 8"></polyline>
+</svg>
+        Save Menu
+      </button>
+</div>
+</div>
+<!-- Weekday Navigation (Underline Tabs) -->
+<div class="border-b border-border-sage-mist overflow-x-auto">
+<div class="flex items-center space-x-6 min-w-max pb-[-1px]">
+<button class="pb-3 text-[15px] font-semibold text-[#2F5233] border-b-2 border-primary-moss flex items-center gap-2 focus:outline-none">
+<span class="">Monday</span>
+<span class="text-xs px-2 py-0.5 rounded bg-primary-moss/10 text-primary-moss font-normal">Today</span>
+</button>
+<button class="pb-3 text-[15px] font-medium text-[#6B6F63] hover:text-[#2B2A25] border-b-2 border-transparent hover:border-border-sage-mist transition-colors focus:outline-none">
+        Tuesday
+      </button>
+<button class="pb-3 text-[15px] font-medium text-[#6B6F63] hover:text-[#2B2A25] border-b-2 border-transparent hover:border-border-sage-mist transition-colors focus:outline-none">
+        Wednesday
+      </button>
+<button class="pb-3 text-[15px] font-medium text-[#6B6F63] hover:text-[#2B2A25] border-b-2 border-transparent hover:border-border-sage-mist transition-colors focus:outline-none">
+        Thursday
+      </button>
+<button class="pb-3 text-[15px] font-medium text-[#6B6F63] hover:text-[#2B2A25] border-b-2 border-transparent hover:border-border-sage-mist transition-colors focus:outline-none">
+        Friday
+      </button>
+<button class="pb-3 text-[15px] font-medium text-[#6B6F63] hover:text-[#2B2A25] border-b-2 border-transparent hover:border-border-sage-mist transition-colors focus:outline-none">
+        Saturday
+      </button>
+<button class="pb-3 text-[15px] font-medium text-[#6B6F63] hover:text-[#2B2A25] border-b-2 border-transparent hover:border-border-sage-mist transition-colors focus:outline-none">
+        Sunday
+      </button>
+</div>
+</div>
+<!-- Daily Meals Grid (Breakfast, Lunch, Dinner) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6"><!-- Breakfast Card -->
+<div class="bg-surface-paper border border-border-sage-mist rounded-xl p-5 flex flex-col justify-between transition-colors duration-200 hover:border-primary-moss cursor-pointer group">
+<div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="w-[3px] h-3.5 bg-primary-moss inline-block rounded-full"></span>
+<span class="text-xs font-bold text-primary-moss tracking-wider uppercase">Breakfast</span>
+</div>
+<button class="inline-flex items-center gap-1 text-xs font-medium text-text-stem-gray hover:text-primary-moss px-2 py-1 rounded bg-herb-white hover:bg-border-sage-mist/50 transition-colors focus:outline-none" onclick="event.stopPropagation();" title="Swap meal" type="button">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24"><path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">Swap</span>
+</button>
+</div>
+<img alt="Warm Steamed Silken Tofu with Ginger &amp; Scallions" class="w-full h-32 object-cover rounded-md mt-3 mb-3.5 border border-border-sage-mist group-hover:opacity-95 transition-opacity" src="https://lh3.googleusercontent.com/aida/AEtjO1WKcDwGR2GO1h8uT61hNF-s_62zOYXjY8wzlx8-YVN9qcyiWrINEaKUq1DV-gcQ-G7syVZEwHgyWph99ZzTpvTqJOjzjemUgHoHjo3bb00YP4VDdU3xDibxsswo6LbTzG4g7QCyuSTjBB8Y_0mQ57bOen8CA2NXIAsnJwC0eevQaGHA0yF_XXpq9R37yeuGktzM_K2CU24bUaiE8ADGempXrmLk1iKtN9tkU23B4jXFT560t4_50GAzSLI"/>
+<div class="space-y-2">
+<h3 class="font-fraunces font-semibold text-text-charcoal text-base leading-snug group-hover:text-primary-moss transition-colors">
+        Warm Steamed Silken Tofu with Ginger &amp; Scallions
+      </h3>
+<div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+<span class="bg-herb-white text-text-stem-gray text-xs font-medium px-2.5 py-1 rounded-md">340 kcal</span>
+<span class="bg-herb-white text-text-stem-gray text-xs font-medium px-2.5 py-1 rounded-md">18g Protein</span>
+<span class="bg-herb-white text-text-stem-gray text-xs font-medium px-2.5 py-1 rounded-md">15m Prep</span>
+</div>
+</div>
+</div>
+<div class="pt-4 mt-3.5 border-t border-border-sage-mist flex items-center justify-between text-[13px] text-text-stem-gray group-hover:text-primary-moss transition-colors">
+<span class="font-medium">View recipe detail</span>
+<svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24"><path d="M8.25 4.5l7.5 7.5-7.5 7.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</div>
+</div>
+<!-- Lunch Card -->
+<div class="bg-surface-paper border border-border-sage-mist rounded-xl p-5 flex flex-col justify-between transition-colors duration-200 hover:border-primary-moss cursor-pointer group">
+<div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="w-[3px] h-3.5 bg-accent-turmeric inline-block rounded-full"></span>
+<span class="text-xs font-bold text-primary-moss tracking-wider uppercase">Lunch</span>
+</div>
+<button class="inline-flex items-center gap-1 text-xs font-medium text-text-stem-gray hover:text-primary-moss px-2 py-1 rounded bg-herb-white hover:bg-border-sage-mist/50 transition-colors focus:outline-none" onclick="event.stopPropagation();" title="Swap meal" type="button">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24"><path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">Swap</span>
+</button>
+</div>
+<img alt="Claypot Braised King Oyster Mushrooms with Peppercorns" class="w-full h-32 object-cover rounded-md mt-3 mb-3.5 border border-border-sage-mist group-hover:opacity-95 transition-opacity" src="https://lh3.googleusercontent.com/aida/AEtjO1XzWa2CLI5VpF6lv2Se2NFKuKMJhpurIjsEnRdbq0Qq8yLg5eWbrGzs7a2Q7P-7F4b-DlE0CCNDOepbIKgjqFO3IgTO8q0pIDTmZInCz933PUbUywI62QpWlglFnYOJmyoDZW46J0CStifGdW4gHWI__lBUngz1XVw2eGFdoDb9lzox8d2q2wUq2mtH1O8YUHuLzyQt7Yx3BeprIhMpIhkhq2_xsTujcZDzuSu9NUUzAvBD8XUBnPE4rEM"/>
+<div class="space-y-2">
+<h3 class="font-fraunces font-semibold text-text-charcoal text-base leading-snug group-hover:text-primary-moss transition-colors">
+        Claypot Braised King Oyster Mushrooms with Peppercorns
+      </h3>
+<div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+<span class="bg-herb-white text-text-stem-gray text-xs font-medium px-2.5 py-1 rounded-md">520 kcal</span>
+<span class="bg-herb-white text-text-stem-gray text-xs font-medium px-2.5 py-1 rounded-md">24g Protein</span>
+<span class="bg-herb-white text-text-stem-gray text-xs font-medium px-2.5 py-1 rounded-md">25m Cook</span>
+</div>
+</div>
+</div>
+<div class="pt-4 mt-3.5 border-t border-border-sage-mist flex items-center justify-between text-[13px] text-text-stem-gray group-hover:text-primary-moss transition-colors">
+<span class="font-medium">View recipe detail</span>
+<svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24"><path d="M8.25 4.5l7.5 7.5-7.5 7.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</div>
+</div>
+<!-- Dinner Card -->
+<div class="bg-surface-paper border border-border-sage-mist rounded-xl p-5 flex flex-col justify-between transition-colors duration-200 hover:border-primary-moss cursor-pointer group">
+<div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="w-[3px] h-3.5 bg-primary-moss inline-block rounded-full"></span>
+<span class="text-xs font-bold text-primary-moss tracking-wider uppercase">Dinner</span>
+</div>
+<button class="inline-flex items-center gap-1 text-xs font-medium text-text-stem-gray hover:text-primary-moss px-2 py-1 rounded bg-herb-white hover:bg-border-sage-mist/50 transition-colors focus:outline-none" onclick="event.stopPropagation();" title="Swap meal" type="button">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24"><path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">Swap</span>
+</button>
+</div>
+<img alt="Lotus Root &amp; Sweet Corn Herbal Broth" class="w-full h-32 object-cover rounded-md mt-3 mb-3.5 border border-border-sage-mist group-hover:opacity-95 transition-opacity" src="https://lh3.googleusercontent.com/aida/AEtjO1Ude7R11IRRpW2c9kLST45kXxemd6HOkh2-3ywiA-NEd9BFFlae2UOlQHWXuk8S78GKCMsukyOUOynA_N7Gc8U60OoApLxfzXOb9RBn6H42RsA04OziYAc7bo40OIuNe7Emdbspcw0hZJQRJbAPUgroKPHCVnlWmVNeqHAdF1WUaI2X1SuwQx4vr4ktGCK0_PO0JMuaPKkRxeDk4r9CkBCLZgNvgxaa5yWnXS9OHik61nlauWRd5Zn2Bhc"/>
+<div class="space-y-2">
+<h3 class="font-fraunces font-semibold text-text-charcoal text-base leading-snug group-hover:text-primary-moss transition-colors">
+        Lotus Root &amp; Sweet Corn Herbal Broth
+      </h3>
+<div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+<span class="bg-herb-white text-text-stem-gray text-xs font-medium px-2.5 py-1 rounded-md">410 kcal</span>
+<span class="bg-herb-white text-text-stem-gray text-xs font-medium px-2.5 py-1 rounded-md">16g Protein</span>
+<span class="bg-herb-white text-text-stem-gray text-xs font-medium px-2.5 py-1 rounded-md">30m Simmer</span>
+</div>
+</div>
+</div>
+<div class="pt-4 mt-3.5 border-t border-border-sage-mist flex items-center justify-between text-[13px] text-text-stem-gray group-hover:text-primary-moss transition-colors">
+<span class="font-medium">View recipe detail</span>
+<svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24"><path d="M8.25 4.5l7.5 7.5-7.5 7.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</div>
+</div></div>
+</section>
+</main>
+<!-- Global Chatbot FAB & Interactive Popup Widget -->
+<aside class="fixed bottom-6 right-6 z-50">
+<!-- Chat FAB Button (56px circle, primary-moss, white AI sparkle) -->
+<button class="w-14 h-14 rounded-full bg-primary-moss hover:bg-primary-moss-hover text-white flex items-center justify-center shadow-subtle transition-all focus:outline-none focus:ring-2 focus:ring-primary-moss/40 cursor-pointer" id="chat-fab" onclick="document.getElementById('chat-popup').classList.remove('hidden'); document.getElementById('chat-fab').classList.add('hidden');" title="AI Nutrition Assistant">
+<svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+</svg>
+</button>
+<!-- Chat Popup Panel -->
+<div class="w-[380px] max-w-[calc(100vw-32px)] h-[520px] bg-surface-paper border border-border-sage-mist rounded-2xl shadow-subtle flex flex-col overflow-hidden hidden" id="chat-popup">
+<!-- Header -->
+<div class="p-3.5 bg-surface-paper border-b border-border-sage-mist flex items-center justify-between flex-shrink-0">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-full bg-herb-white border border-border-sage-mist flex items-center justify-center text-primary-moss flex-shrink-0">
+<svg class="w-5 h-5 text-primary-moss" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+</svg>
+</div>
+<div>
+<h3 class="text-[14px] font-semibold text-text-charcoal leading-tight">AI Nutrition Assistant</h3>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="w-2 h-2 rounded-full bg-success-sprout inline-block"></span>
+<span class="text-[11px] text-text-stem-gray">Online &amp; ready</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 text-text-stem-gray">
+<button class="w-7 h-7 rounded-lg hover:bg-herb-white flex items-center justify-center transition-colors" id="chat-minimize" onclick="document.getElementById('chat-popup').classList.add('hidden'); document.getElementById('chat-fab').classList.remove('hidden');" title="Minimize">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<line x1="5" x2="19" y1="12" y2="12"></line>
+</svg>
+</button>
+<button class="w-7 h-7 rounded-lg hover:bg-herb-white flex items-center justify-center transition-colors" id="chat-close" onclick="document.getElementById('chat-popup').classList.add('hidden'); document.getElementById('chat-fab').classList.remove('hidden');" title="Close">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<line x1="18" x2="6" y1="6" y2="18"></line>
+<line x1="6" x2="18" y1="6" y2="18"></line>
+</svg>
+</button>
+</div>
+</div>
+<!-- Chat History / Messages -->
+<div class="flex-1 p-4 overflow-y-auto space-y-3.5 text-[13px] bg-herb-white/50">
+<!-- AI Greeting -->
+<div class="flex items-start gap-2 max-w-[88%]">
+<div class="w-7 h-7 rounded-full bg-primary-moss/10 flex items-center justify-center text-primary-moss flex-shrink-0 mt-0.5">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+</svg>
+</div>
+<div class="p-3 rounded-2xl rounded-tl-sm bg-surface-paper border border-border-sage-mist text-text-charcoal shadow-sm leading-relaxed">
+            Hello! I am the Botanical Hearth AI Nutrition Assistant. I can assist you with wholesome plant-based recipes, balanced nutrition insights, or personalized menu suggestions for today.
+          </div>
+</div>
+<!-- User message -->
+<div class="flex justify-end">
+<div class="max-w-[85%] p-3 rounded-2xl rounded-tr-sm bg-primary-moss text-white leading-relaxed">
+            Could you recommend a light, high-protein plant-based lunch for today?
+          </div>
+</div>
+<!-- AI Reply -->
+<div class="flex items-start gap-2 max-w-[90%]">
+<div class="w-7 h-7 rounded-full bg-primary-moss/10 flex items-center justify-center text-primary-moss flex-shrink-0 mt-0.5">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+</svg>
+</div>
+<div class="p-3 rounded-2xl rounded-tl-sm bg-surface-paper border border-border-sage-mist text-text-charcoal shadow-sm leading-relaxed">
+            For lunch today, consider pairing <strong>Lotus Seed &amp; Seaweed Soup</strong> with <strong>Silken Tofu in Shiitake Sauce</strong>. This combination delivers clean plant protein, promotes gentle digestion, and replenishes energy!
+          </div>
+</div>
+</div>
+<!-- Quick Suggestion Chips -->
+<div class="px-3 py-2 bg-surface-paper border-t border-border-sage-mist overflow-x-auto flex-shrink-0 flex items-center gap-1.5 min-w-max">
+<button class="text-[11px] px-2.5 py-1 rounded-full bg-herb-white hover:bg-border-sage-mist/50 border border-border-sage-mist text-text-charcoal transition-colors whitespace-nowrap focus:outline-none">
+          🌱 High Protein Dishes
+        </button>
+<button class="text-[11px] px-2.5 py-1 rounded-full bg-herb-white hover:bg-border-sage-mist/50 border border-border-sage-mist text-text-charcoal transition-colors whitespace-nowrap focus:outline-none">
+          🥣 Weight Loss Menu
+        </button>
+<button class="text-[11px] px-2.5 py-1 rounded-full bg-herb-white hover:bg-border-sage-mist/50 border border-border-sage-mist text-text-charcoal transition-colors whitespace-nowrap focus:outline-none">
+          🥦 Ingredient Swaps
+        </button>
+</div>
+<!-- Message Input -->
+<div class="p-3 bg-surface-paper border-t border-border-sage-mist flex-shrink-0">
+<form class="flex items-center gap-2" onsubmit="event.preventDefault();">
+<input class="flex-1 h-10 px-3.5 rounded-lg bg-herb-white border border-border-sage-mist text-[13px] text-text-charcoal focus:outline-none focus:border-primary-moss" placeholder="Ask AI nutrition assistant..." type="text"/>
+<button class="w-10 h-10 rounded-lg bg-primary-moss hover:bg-primary-moss-hover text-white flex items-center justify-center flex-shrink-0 transition-colors focus:outline-none" title="Send message" type="submit">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<line x1="22" x2="11" y1="2" y2="13"></line>
+<polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+</svg>
+</button>
+</form>
+</div>
+</div>
+</aside>
+<!-- Footer -->
+<footer class="w-full border-t border-[#DCE3D5] bg-[#FDFBF6] py-6 mt-16">
+<div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between text-sm text-[#6B6F63] gap-4">
+<div class="flex items-center gap-2">
+<span class="font-fraunces font-semibold text-[#2F5233] text-base">Botanical Hearth</span>
+<span class="">•</span>
+<span class="">Plant-based culinary &amp; family nutrition platform</span>
+</div>
+<div class="flex items-center gap-6 text-sm">
+<a class="hover:text-[#2F5233] transition-colors" href="#">About Us</a>
+<a class="hover:text-[#2F5233] transition-colors" href="#">Terms of Service</a>
+<a class="hover:text-[#2F5233] transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-[#2F5233] transition-colors" href="#">Contact Support</a>
+</div>
+</div>
+</footer>
+<script>
+    document.addEventListener('click', function(event) {
+      var container = document.getElementById('profile-dropdown-container');
+      var menu = document.getElementById('profile-dropdown');
+      if (container && menu && !container.contains(event.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+  </script>
+<script>
+// Dropdown Logic
+const genderBtn = document.getElementById('gender-btn');
+const genderMenu = document.getElementById('gender-menu');
+const genderText = document.getElementById('gender-text');
+if(genderBtn && genderMenu) {
+    genderBtn.onclick = (e) => {
+        e.preventDefault();
+        genderMenu.classList.toggle('hidden');
+    };
+    document.addEventListener('click', (e) => {
+        if (!genderBtn.contains(e.target) && !genderMenu.contains(e.target)) {
+            genderMenu.classList.add('hidden');
+        }
+    });
+}
+window.selectGender = function(el) {
+    if(genderText) genderText.innerText = el.innerText;
+    if(genderMenu) genderMenu.classList.add('hidden');
+};
+// Pantry Pill Toggle Logic
+window.togglePill = function(el) {
+    el.classList.toggle('bg-surface-paper');
+    el.classList.toggle('text-charcoal');
+    el.classList.toggle('bg-primary-moss');
+    el.classList.toggle('text-white');
+};
+
+// Allergy State Management
+window.selectedAllergies = new Set();
+
+window.renderAllergies = function() {
+    const container = document.getElementById('selected-allergies-container');
+    if(!container) return;
+    
+    // 1. Render the selected pills with 'x' to remove
+    container.innerHTML = '';
+    window.selectedAllergies.forEach(allergy => {
+        const pill = document.createElement('div');
+        pill.className = 'inline-flex items-center gap-1 bg-accent-beetroot/10 text-accent-beetroot border border-accent-beetroot px-3 py-1 rounded-full text-sm';
+        pill.innerHTML = `<span>${allergy}</span><button onclick="toggleAllergyState('${allergy}')" class="hover:text-red-700 ml-1 cursor-pointer">&times;</button>`;
+        container.appendChild(pill);
+    });
+    
+    // 2. Sync the UI of the Quick-Select buttons
+    document.querySelectorAll('.allergy-quick-btn').forEach(btn => {
+        const allergyName = btn.innerText.trim();
+        if (window.selectedAllergies.has(allergyName)) {
+            btn.classList.add('bg-accent-beetroot/10', 'text-accent-beetroot', 'border-accent-beetroot');
+            btn.classList.remove('bg-herb-white', 'text-stem-gray', 'border-transparent');
+        } else {
+            btn.classList.remove('bg-accent-beetroot/10', 'text-accent-beetroot', 'border-accent-beetroot');
+            btn.classList.add('bg-herb-white', 'text-stem-gray', 'border-transparent');
+        }
+    });
+};
+
+window.toggleAllergyState = function(allergy) {
+    if (window.selectedAllergies.has(allergy)) {
+        window.selectedAllergies.delete(allergy);
+    } else {
+        window.selectedAllergies.add(allergy);
+    }
+    window.renderAllergies();
+};
+
+// Input Enter Key Event
+const allergyInput = document.getElementById('allergy-input');
+if (allergyInput) {
+    allergyInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && this.value.trim() !== '') {
+            e.preventDefault();
+            window.toggleAllergyState(this.value.trim());
+            this.value = '';
+        }
+    });
+}
+
+// Initial render
+window.renderAllergies();
+</script>
+</body></html>

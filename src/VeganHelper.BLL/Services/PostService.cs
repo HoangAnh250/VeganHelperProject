@@ -10,6 +10,7 @@ using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.Posts;
 using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
+using VeganHelper.BLL.Services.Media;
 
 public sealed class PostService : IPostService
 {
@@ -17,17 +18,20 @@ public sealed class PostService : IPostService
     private readonly IValidator<CreatePostRequest> _validator;
     private readonly IValidator<GetMyPostsRequest> _getMyPostsValidator;
     private readonly IValidator<UpdatePostRequest> _updateValidator;
+    private readonly IMediaStorageService _mediaStorageService;
 
     public PostService(
         IPostRepository postRepository, 
         IValidator<CreatePostRequest> validator, 
         IValidator<GetMyPostsRequest> getMyPostsValidator,
-        IValidator<UpdatePostRequest> updateValidator)
+        IValidator<UpdatePostRequest> updateValidator,
+        IMediaStorageService mediaStorageService)
     {
         _postRepository = postRepository;
         _validator = validator;
         _getMyPostsValidator = getMyPostsValidator;
         _updateValidator = updateValidator;
+        _mediaStorageService = mediaStorageService;
     }
 
     public async Task<long> CreatePostAsync(CreatePostRequest request, long authorId, CancellationToken cancellationToken = default)
@@ -104,18 +108,18 @@ public sealed class PostService : IPostService
         }
 
         // Process Media Files
+        var uploadedFileUrls = new List<string>();
         if (request.MediaFiles != null && request.MediaFiles.Count > 0)
         {
             int order = 0;
             foreach (var file in request.MediaFiles)
             {
-                // TODO: Upload file to Storage (e.g., Cloudinary/Azure) and get URL.
-                // For now, we simulate a saved URL.
-                string simulatedUrl = $"/uploads/simulated_{Guid.NewGuid()}_{file.FileName}";
+                var uploadedUrl = await _mediaStorageService.UploadFileAsync(file, "posts");
+                uploadedFileUrls.Add(uploadedUrl);
                 
                 post.Media.Add(new PostMedia
                 {
-                    MediaUrl = simulatedUrl,
+                    MediaUrl = uploadedUrl,
                     MediaType = file.ContentType.StartsWith("video") ? "video" : "image",
                     IsPrimary = order == 0,
                     DisplayOrder = order++,
@@ -136,6 +140,11 @@ public sealed class PostService : IPostService
         catch
         {
             await _postRepository.RollbackTransactionAsync(cancellationToken);
+            // Cleanup uploaded files
+            foreach (var url in uploadedFileUrls)
+            {
+                await _mediaStorageService.DeleteFileAsync(url);
+            }
             throw;
         }
     }
@@ -276,6 +285,15 @@ public sealed class PostService : IPostService
         {
             throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} could not be deleted.");
         }
+
+        // Clean up media files from cloud storage
+        if (post.Media != null && post.Media.Any())
+        {
+            foreach (var media in post.Media)
+            {
+                await _mediaStorageService.DeleteFileAsync(media.MediaUrl);
+            }
+        }
     }
 
     public async Task UpdatePostAsync(long postId, UpdatePostRequest request, long authorId, CancellationToken cancellationToken = default)
@@ -360,25 +378,29 @@ public sealed class PostService : IPostService
         }
 
         // Update Media (simulate)
+        var filesToDeleteFromCloud = new List<string>();
         if (request.MediaIdsToRemove != null && request.MediaIdsToRemove.Count > 0)
         {
             var mediaToRemove = post.Media.Where(m => request.MediaIdsToRemove.Contains(m.Id)).ToList();
             foreach (var m in mediaToRemove)
             {
+                filesToDeleteFromCloud.Add(m.MediaUrl);
                 post.Media.Remove(m);
             }
         }
 
+        var uploadedFileUrls = new List<string>();
         if (request.MediaFilesToAdd != null && request.MediaFilesToAdd.Count > 0)
         {
-            // Note: In real app, we upload and get URLs.
             int newOrder = post.Media.Count > 0 ? post.Media.Max(m => m.DisplayOrder) + 1 : 0;
             foreach (var file in request.MediaFilesToAdd)
             {
-                string simulatedUrl = $"/uploads/simulated_{Guid.NewGuid()}_{file.FileName}";
+                var uploadedUrl = await _mediaStorageService.UploadFileAsync(file, "posts");
+                uploadedFileUrls.Add(uploadedUrl);
+                
                 post.Media.Add(new PostMedia
                 {
-                    MediaUrl = simulatedUrl,
+                    MediaUrl = uploadedUrl,
                     MediaType = file.ContentType.StartsWith("video") ? "video" : "image",
                     IsPrimary = post.Media.Count == 0 && newOrder == 0,
                     DisplayOrder = newOrder++,
@@ -391,6 +413,10 @@ public sealed class PostService : IPostService
         // Check if there is still at least 1 media for thumbnail (if required)
         if (post.Media.Count == 0)
         {
+            foreach (var url in uploadedFileUrls)
+            {
+                await _mediaStorageService.DeleteFileAsync(url);
+            }
             throw new ArgumentException("At least 1 media file is required for thumbnail.");
         }
 
@@ -405,10 +431,21 @@ public sealed class PostService : IPostService
         {
             await _postRepository.SaveChangesAsync(cancellationToken);
             await _postRepository.CommitTransactionAsync(cancellationToken);
+            
+            // Clean up removed files from cloud after successful commit
+            foreach (var url in filesToDeleteFromCloud)
+            {
+                await _mediaStorageService.DeleteFileAsync(url);
+            }
         }
         catch
         {
             await _postRepository.RollbackTransactionAsync(cancellationToken);
+            // Clean up newly uploaded files since transaction failed
+            foreach (var url in uploadedFileUrls)
+            {
+                await _mediaStorageService.DeleteFileAsync(url);
+            }
             throw;
         }
     }
