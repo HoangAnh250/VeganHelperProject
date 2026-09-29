@@ -65,6 +65,8 @@ builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
 builder.Services.AddScoped<IMediaStorageService, CloudflareR2StorageService>();
+builder.Services.Configure<VeganHelper.BLL.Integrations.GooglePlaces.GooglePlacesOptions>(builder.Configuration.GetSection("GooglePlaces"));
+builder.Services.AddHttpClient<VeganHelper.BLL.Integrations.GooglePlaces.IGooglePlacesClient, VeganHelper.BLL.Integrations.GooglePlaces.GooglePlacesClient>();
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
