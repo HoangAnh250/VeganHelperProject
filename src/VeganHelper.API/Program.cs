@@ -3,6 +3,7 @@ using Microsoft.OpenApi.Models;
 using Microsoft.EntityFrameworkCore;
 using VeganHelper.BLL.DTOs.Posts;
 using VeganHelper.BLL.Services;
+using VeganHelper.BLL.Services.Media;
 using VeganHelper.DAL.Data;
 using VeganHelper.DAL.Repositories;
 
@@ -63,6 +64,7 @@ builder.Services.AddScoped<IPostRepository, PostRepository>();
 
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
+builder.Services.AddScoped<IMediaStorageService, CloudflareR2StorageService>();
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
