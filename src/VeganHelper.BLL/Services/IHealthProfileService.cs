@@ -8,4 +8,5 @@ public interface IHealthProfileService
     Task<UpdateHealthProfileResponse> UpdateHealthProfileAsync(long userId, UpdateHealthProfileRequest request);
     Task<BmiCalculationResult?> GetBmiResultAsync(long userId);
     Task<GetBmiHistoryResponse> GetBmiHistoryAsync(long userId);
+    Task DeclareAllergiesAsync(long userId, DeclareAllergiesRequest request);
 }

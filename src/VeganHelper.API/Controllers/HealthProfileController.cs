@@ -73,4 +73,15 @@ public class HealthProfileController : ControllerBase
         var response = await _healthProfileService.GetBmiHistoryAsync(userId);
         return Ok(response);
     }
+
+    [HttpPut("allergies")]
+    public async Task<IActionResult> DeclareAllergies([FromBody] DeclareAllergiesRequest request)
+    {
+        var userId = GetUserId();
+        if (userId == 0) return Unauthorized();
+
+        await _healthProfileService.DeclareAllergiesAsync(userId, request);
+
+        return Ok(new { message = "Cập nhật danh sách dị ứng thành công" });
+    }
 }
