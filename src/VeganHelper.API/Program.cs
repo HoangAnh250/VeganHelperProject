@@ -62,6 +62,7 @@ builder.Services.AddScoped<IStatusService, StatusService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 
 builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
