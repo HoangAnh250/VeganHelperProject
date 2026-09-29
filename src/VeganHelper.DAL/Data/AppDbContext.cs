@@ -503,20 +503,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         });
         modelBuilder.Entity<Shop>(entity =>
         {
-            entity.ToTable("shops", table =>
-            {
-                table.HasCheckConstraint("CK_shops_1", "latitude BETWEEN -90 AND 90");
-                table.HasCheckConstraint("CK_shops_2", "longitude BETWEEN -180 AND 180");
-                table.HasCheckConstraint("CK_shops_3", "(latitude IS NULL AND longitude IS NULL) OR (latitude IS NOT NULL AND longitude IS NOT NULL)");
-            });
+            entity.ToTable("shops");
             entity.HasKey(x => new { x.Id }).HasName("PK_shops");
             entity.Property(x => x.Id).HasColumnName("id").HasColumnType("BIGINT").IsRequired(true).UseIdentityColumn();
             entity.Property(x => x.SuggestedByUserId).HasColumnName("suggested_by_user_id").HasColumnType("BIGINT").IsRequired(false);
             entity.Property(x => x.GooglePlaceId).HasColumnName("google_place_id").HasColumnType("NVARCHAR(255)").IsRequired(false);
             entity.Property(x => x.Name).HasColumnName("name").HasColumnType("NVARCHAR(255)").IsRequired(true);
             entity.Property(x => x.Address).HasColumnName("address").HasColumnType("NVARCHAR(1000)").IsRequired(false);
-            entity.Property(x => x.Latitude).HasColumnName("latitude").HasColumnType("DECIMAL(10,7)").IsRequired(false);
-            entity.Property(x => x.Longitude).HasColumnName("longitude").HasColumnType("DECIMAL(10,7)").IsRequired(false);
+            entity.Property(x => x.Location).HasColumnName("location").HasColumnType("geography").IsRequired(false);
+            entity.Property(x => x.OpeningHours).HasColumnName("opening_hours").HasColumnType("NVARCHAR(500)").IsRequired(false);
+            entity.Property(x => x.Rating).HasColumnName("rating").HasColumnType("DECIMAL(3,1)").IsRequired(true).HasDefaultValueSql("0.0");
             entity.Property(x => x.IsApproved).HasColumnName("is_approved").HasColumnType("BIT").IsRequired(true).HasDefaultValueSql("0");
             entity.Property(x => x.IsDeleted).HasColumnName("is_deleted").HasColumnType("BIT").IsRequired(true).HasDefaultValueSql("0");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("DATETIME2").IsRequired(true).HasDefaultValueSql("SYSUTCDATETIME()");

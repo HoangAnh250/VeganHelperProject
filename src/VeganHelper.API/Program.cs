@@ -56,12 +56,13 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
-builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("DefaultConnection is missing.")));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("DefaultConnection is missing."), x => x.UseNetTopologySuite()));
 builder.Services.AddScoped<IStatusRepository, StatusRepository>();
 builder.Services.AddScoped<IStatusService, StatusService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 
 builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IShopService, ShopService>();
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
