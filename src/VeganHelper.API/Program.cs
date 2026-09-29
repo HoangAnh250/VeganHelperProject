@@ -1,6 +1,12 @@
 using System.Security.Cryptography;
 using System.Text;
 using FluentValidation;
+using Microsoft.OpenApi.Models;
+using Microsoft.EntityFrameworkCore;
+using VeganHelper.BLL.DTOs.Posts;
+using VeganHelper.BLL.Services;
+using VeganHelper.BLL.Services.Media;
+using VeganHelper.DAL.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -9,10 +15,12 @@ using VeganHelper.API.Infrastructure.Google;
 using VeganHelper.API.Middlewares;
 using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
-using VeganHelper.BLL.DTOs.Posts;
-using VeganHelper.BLL.Services;
 using VeganHelper.DAL.DependencyInjection;
 using VeganHelper.DAL.Repositories;
+using VeganHelper.DAL.Storage;
+using VeganHelper.BLL.DTOs;
+using VeganHelper.BLL.DTOs;
+using VeganHelper.DAL.DependencyInjection;
 using VeganHelper.DAL.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,9 +51,19 @@ builder.Services.AddSwaggerGen(options =>
         In = ParameterLocation.Header,
         Description = "Enter a valid JWT access token."
     });
-    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
-        [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
     });
 });
 
@@ -97,6 +115,10 @@ var avatarRoot = string.IsNullOrWhiteSpace(configuredAvatarRoot)
         ? configuredAvatarRoot
         : Path.Combine(builder.Environment.ContentRootPath, configuredAvatarRoot));
 builder.Services.AddSingleton<IAvatarStorage>(_ => new LocalAvatarStorage(avatarRoot));
+
+builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
+builder.Services.AddScoped<IMediaStorageService, CloudflareR2StorageService>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
 var app = builder.Build();
 Directory.CreateDirectory(avatarRoot);

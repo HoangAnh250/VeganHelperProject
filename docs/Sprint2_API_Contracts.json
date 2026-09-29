@@ -1,0 +1,168 @@
+{
+  "Sprint2_API_Contracts": {
+    "HealthAndNutrition": {
+      "FN22_GetHealthProfile": {
+        "method": "GET",
+        "endpoint": "/api/HealthProfile",
+        "description": "Lấy thông tin hồ sơ sức khỏe (Height, Weight, Activity Level) và Dị ứng hiện tại để fill vào form",
+        "output": {
+          "statusCode": 200,
+          "heightCm": "decimal",
+          "weightKg": "decimal",
+          "biologicalSex": "string",
+          "birthDate": "date",
+          "dietType": "string",
+          "activityLevel": "string",
+          "currentBmi": "decimal",
+          "allergyIngredientIds": ["long"],
+          "customAllergies": ["string"]
+        }
+      },
+      "FN22_UpdateHealthProfile": {
+        "method": "PUT",
+        "endpoint": "/api/HealthProfile",
+        "description": "Nhập / Cập nhật hồ sơ sức khỏe cá nhân",
+        "input": {
+          "heightCm": "decimal (100 - 250)",
+          "weightKg": "decimal (30 - 200)",
+          "biologicalSex": "string (male, female, other)",
+          "birthDate": "date",
+          "dietType": "string",
+          "activityLevel": "string (sedentary, light, moderate, active, very_active)"
+        },
+        "output": {
+          "statusCode": 200,
+          "message": "Cập nhật hồ sơ sức khỏe thành công",
+          "currentBmi": "decimal",
+          "bmiCategory": "string",
+          "estimatedTdee": "decimal"
+        }
+      },
+      "FN23_DeclareAllergies": {
+        "method": "PUT",
+        "endpoint": "/api/HealthProfile/allergies",
+        "description": "Khai báo dị ứng thực phẩm",
+        "input": {
+          "allergyIngredientIds": "array of long (các nguyên liệu người dùng bị dị ứng)",
+          "customAllergies": "array of string (nếu muốn nhập tay)"
+        },
+        "output": {
+          "statusCode": 200,
+          "message": "Cập nhật danh sách dị ứng thành công"
+        }
+      },
+      "FN24_CalculateBMI": {
+        "method": "GET",
+        "endpoint": "/api/HealthProfile/bmi",
+        "description": "Tính chỉ số BMI, phân loại theo WHO và đề xuất calo. Lấy dữ liệu từ Health Profile hiện tại.",
+        "output": {
+          "statusCode": 200,
+          "bmi": "decimal",
+          "category": "string (Underweight, Normal, Overweight, Obese)",
+          "idealWeightRange": {
+            "minKg": "decimal",
+            "maxKg": "decimal"
+          },
+          "dailyCalorieRecommendation": "int"
+        }
+      },
+      "FN25_GetBmiHistory": {
+        "method": "GET",
+        "endpoint": "/api/HealthProfile/bmi-history",
+        "description": "Xem biểu đồ biến thiên BMI/Cân nặng trong 6 tháng gần nhất",
+        "output": {
+          "statusCode": 200,
+          "history": [
+            {
+              "timestamp": "datetime",
+              "weightKg": "decimal",
+              "bmi": "decimal"
+            }
+          ]
+        }
+      },
+      "FN26_GenerateWeeklyMealPlan": {
+        "method": "POST",
+        "endpoint": "/api/MealPlans/generate",
+        "description": "Tự động tạo thực đơn tuần (Rule-based) dựa trên TDEE và tránh các món dị ứng",
+        "input": {
+          "targetCaloriesPerDay": "int (tùy chọn, nếu null sẽ lấy theo TDEE)",
+          "dietType": "string (tùy chọn)"
+        },
+        "output": {
+          "statusCode": 201,
+          "mealPlanId": "long",
+          "schedule": [
+            {
+              "dayOfWeek": "int (1-7)",
+              "breakfast": "PostDetailDto",
+              "lunch": "PostDetailDto",
+              "dinner": "PostDetailDto",
+              "totalCalories": "decimal"
+            }
+          ]
+        }
+      }
+    },
+    "VeganShops": {
+      "FN27_GetNearbyShops": {
+        "method": "GET",
+        "endpoint": "/api/Shops/nearby?lat={lat}&lng={lng}&radiusKm={radiusKm}",
+        "description": "Xem danh sách quán chay gần vị trí hiện tại (bán kính 5-10km)",
+        "output": {
+          "statusCode": 200,
+          "shops": [
+            {
+              "shopId": "long",
+              "name": "string",
+              "address": "string",
+              "distanceKm": "decimal",
+              "rating": "decimal",
+              "isOpenNow": "boolean"
+            }
+          ]
+        }
+      },
+      "FN28_SearchShops": {
+        "method": "GET",
+        "endpoint": "/api/Shops/search?keyword={keyword}&lat={lat}&lng={lng}",
+        "description": "Gợi ý quán chay theo từ khóa, ưu tiên rating cao và khoảng cách gần",
+        "output": {
+          "statusCode": 200,
+          "shops": [
+            {
+              "shopId": "long",
+              "name": "string",
+              "address": "string",
+              "distanceKm": "decimal",
+              "rating": "decimal"
+            }
+          ],
+          "pagination": {
+            "pageIndex": "int",
+            "pageSize": "int",
+            "totalCount": "long"
+          }
+        }
+      },
+      "FN29_GetShopDetail": {
+        "method": "GET",
+        "endpoint": "/api/Shops/{id}?lat={userLat}&lng={userLng}",
+        "description": "Xem chi tiết quán chay, hình ảnh, giờ mở cửa và link chỉ đường Google Maps",
+        "output": {
+          "statusCode": 200,
+          "shopId": "long",
+          "name": "string",
+          "description": "string",
+          "address": "string",
+          "openingHours": "string",
+          "contactPhone": "string",
+          "rating": "decimal",
+          "distanceKm": "decimal",
+          "googleMapsDirectionsUrl": "string (ví dụ: https://www.google.com/maps/dir/?api=1&origin=lat,lng&destination=shopLat,shopLng)",
+          "mediaUrls": ["string"]
+        }
+      }
+    }
+  }
+}

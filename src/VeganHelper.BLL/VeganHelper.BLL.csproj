@@ -11,6 +11,7 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.2" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.103.4" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,487 @@
+<!DOCTYPE html><html class="h-full" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Vegan Platform - Admin Dashboard Layout Skeleton</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&amp;display=swap" rel="stylesheet">
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'bg-main': '#F3F4F6',
+            'moss-primary': '#2F5233',
+            'moss-dark': '#213B24',
+            'moss-light': '#3E6B43',
+            'moss-subtle': '#EAF0E9',
+            'emerald-accent': '#10B981',
+            'charcoal': '#1F2937',
+            'muted-gray': '#6B7280',
+            'border-soft': '#E5E7EB',
+          },
+          fontFamily: {
+            sans: ['"Be Vietnam Pro"', 'sans-serif'],
+            serif: ['"Fraunces"', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #D1D5DB;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #9CA3AF;
+    }
+
+    /* Accordion transition helper */
+    .accordion-content {
+      transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-in-out;
+    }
+    .accordion-content.collapsed {
+      max-height: 0 !important;
+      opacity: 0;
+      overflow: hidden;
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    .accordion-content.expanded {
+      max-height: 400px;
+      opacity: 1;
+    }
+
+    /* Sidebar transitions */
+    #sidebar {
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Collapsed mode tooltips & styling */
+    .sidebar-collapsed .nav-text,
+    .sidebar-collapsed .nav-badge,
+    .sidebar-collapsed .nav-arrow,
+    .sidebar-collapsed .group-title,
+    .sidebar-collapsed .logo-text,
+    .sidebar-collapsed .admin-user-info {
+      display: none !important;
+    }
+    .sidebar-collapsed .nav-link {
+      justify-content: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .sidebar-collapsed .group-header {
+      justify-content: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+  </style>
+</head>
+<body class="h-full bg-[#F3F6EE] text-[#2B2A25] font-['Be_Vietnam_Pro',sans-serif] antialiased overflow-hidden flex flex-col">
+<!-- Mobile Backdrop Overlay -->
+<div class="fixed inset-0 bg-black/40 z-40 lg:hidden hidden transition-opacity duration-300 backdrop-blur-sm" id="mobileBackdrop" onclick="toggleMobileSidebar(false)"></div>
+<!-- Outer Dashboard Flex Frame -->
+<div class="flex-1 flex h-screen w-screen overflow-hidden">
+<!-- ========================================================================= -->
+<!-- 1. LEFT SIDEBAR (NAVIGATION) -->
+<!-- ========================================================================= -->
+<aside class="w-72 bg-[#FDFBF6] border-r border-[#DCE3D5] flex flex-col z-50 fixed lg:static inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 select-none" id="sidebar">
+<!-- Platform Branding & Logo -->
+<div class="h-16 flex items-center justify-between px-5 border-b border-[#DCE3D5] shrink-0">
+<div class="flex items-center gap-3 overflow-hidden">
+<div class="w-10 h-10 rounded-lg bg-[#2F5233] flex items-center justify-center text-white shrink-0 border border-[#DCE3D5]">
+<!-- Organic Leaf / Sprout Icon -->
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
+<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+<path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+</svg>
+</div>
+<div class="logo-text leading-tight truncate">
+<h1 class="font-['Libre_Caslon_Text',serif] font-bold text-lg text-[#2F5233] tracking-tight truncate">Botanical Hearth</h1>
+<p class="text-[11px] font-semibold text-[#4C8C4A] tracking-wider">Vegan admin core</p>
+</div>
+</div>
+<!-- Desktop Collapse / Expand Toggle Button -->
+<button class="hidden lg:flex p-1.5 rounded-lg text-[#6B6F63] hover:text-[#2B2A25] hover:bg-[#F3F6EE] transition-colors border border-transparent hover:border-[#DCE3D5]" id="desktopSidebarCollapseBtn" onclick="toggleDesktopSidebar()" title="Collapse Sidebar">
+<svg class="w-5 h-5 transition-transform duration-200" fill="none" id="collapseIcon" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M11 19l-7-7 7-7m8 14l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<!-- Mobile Close Button -->
+<button class="lg:hidden p-1.5 rounded-lg text-[#6B6F63] hover:text-[#2B2A25] hover:bg-[#F3F6EE]" onclick="toggleMobileSidebar(false)">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+<!-- Navigation Accordion Scroll Area -->
+<div class="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+<!-- GROUP 1: OVERVIEW -->
+<div class="nav-group">
+<div class="group-header flex items-center justify-between px-3 mb-1.5 cursor-pointer text-[#6B6F63] hover:text-[#2B2A25]" onclick="toggleAccordion('acc-overview', 'arrow-overview')">
+<span class="group-title font-['Libre_Caslon_Text',serif] text-xs font-bold tracking-wide text-[#6B6F63]">Overview</span>
+<svg class="nav-arrow w-3.5 h-3.5 transition-transform duration-200" fill="none" id="arrow-overview" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="accordion-content expanded space-y-1" id="acc-overview">
+<a class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#2B2A25] hover:bg-[#F3F6EE] hover:text-[#2F5233] transition-colors group" href="#dashboard"><svg class="w-5 h-5 text-[#6B6F63] group-hover:text-[#2F5233] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg><span class="nav-text truncate">Dashboard (Home)</span></a>
+</div>
+</div>
+<!-- GROUP 2: CORE SYSTEM -->
+<div class="nav-group">
+<div class="group-header flex items-center justify-between px-3 mb-1.5 cursor-pointer text-[#6B6F63] hover:text-[#2B2A25]" onclick="toggleAccordion('acc-core', 'arrow-core')">
+<span class="group-title font-['Libre_Caslon_Text',serif] text-xs font-bold tracking-wide text-[#6B6F63]">Core system</span>
+<svg class="nav-arrow w-3.5 h-3.5 transition-transform duration-200" fill="none" id="arrow-core" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="accordion-content expanded space-y-1" id="acc-core"><a class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#2B2A25] hover:bg-[#F3F6EE] hover:text-[#2F5233] transition-colors group" href="#members"><svg class="w-5 h-5 text-[#6B6F63] group-hover:text-[#2F5233] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg><span class="nav-text truncate">Member Management</span></a><a class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#2B2A25] hover:bg-[#F3F6EE] hover:text-[#2F5233] transition-colors group" href="#categories"><svg class="w-5 h-5 text-[#6B6F63] group-hover:text-[#2F5233] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg><span class="nav-text truncate">Category Management</span></a></div>
+</div>
+<!-- GROUP 3: CONTENT MODERATION -->
+<div class="nav-group">
+<div class="group-header flex items-center justify-between px-3 mb-1.5 cursor-pointer text-[#6B6F63] hover:text-[#2B2A25]" onclick="toggleAccordion('acc-moderation', 'arrow-moderation')">
+<span class="group-title font-['Libre_Caslon_Text',serif] text-xs font-bold tracking-wide text-[#6B6F63]">Content moderation</span>
+<svg class="nav-arrow w-3.5 h-3.5 transition-transform duration-200" fill="none" id="arrow-moderation" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="accordion-content expanded space-y-1" id="acc-moderation">
+<a class="nav-link flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-[#2F5233] hover:bg-[#25401F] transition-all" href="#manual-moderation"><div class="flex items-center gap-3 overflow-hidden"><svg class="w-5 h-5 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg><span class="nav-text truncate font-semibold">Manual Moderation</span></div><span class="nav-badge text-[11px] font-semibold bg-[#25401F] text-[#c4edc3] border border-[#DCE3D5]/30 px-2 py-0.5 rounded-lg">12</span></a>
+<a class="nav-link flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-[#2B2A25] hover:bg-[#F3F6EE] hover:text-[#2F5233] transition-colors group" href="#ai-queue">
+<div class="flex items-center gap-3 overflow-hidden">
+<svg class="w-5 h-5 text-[#B8791A] group-hover:text-[#2F5233] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="nav-text truncate">AI Flagged Queue</span>
+</div>
+<span class="nav-badge text-[11px] font-semibold bg-[#ffdad6] text-[#ba1a1a] border border-[#DCE3D5] px-2 py-0.5 rounded-lg">5</span>
+</a>
+</div>
+</div>
+<!-- GROUP 4: AI OPERATIONS & MLOPS -->
+<div class="nav-group">
+<div class="group-header flex items-center justify-between px-3 mb-1.5 cursor-pointer text-[#6B6F63] hover:text-[#2B2A25]" onclick="toggleAccordion('acc-ai', 'arrow-ai')">
+<span class="group-title font-['Libre_Caslon_Text',serif] text-xs font-bold tracking-wide text-[#6B6F63]">AI operations &amp; MLOps</span>
+<svg class="nav-arrow w-3.5 h-3.5 transition-transform duration-200" fill="none" id="arrow-ai" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="accordion-content expanded space-y-1" id="acc-ai">
+<a class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#2B2A25] hover:bg-[#F3F6EE] hover:text-[#2F5233] transition-colors group" href="#model-monitoring">
+<svg class="w-5 h-5 text-[#4C8C4A] group-hover:text-[#2F5233] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="nav-text truncate">AI Model Monitoring</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#2B2A25] hover:bg-[#F3F6EE] hover:text-[#2F5233] transition-colors group" href="#meal-planner">
+<svg class="w-5 h-5 text-[#6B6F63] group-hover:text-[#2F5233] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="nav-text truncate">Meal Planner Config</span>
+</a>
+<a class="nav-link flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-[#2B2A25] hover:bg-[#F3F6EE] hover:text-[#2F5233] transition-colors group" href="#video-jobs">
+<div class="flex items-center gap-3 overflow-hidden">
+<svg class="w-5 h-5 text-[#6B6F63] group-hover:text-[#2F5233] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="nav-text truncate">Video Summarize Jobs</span>
+</div>
+<span class="nav-badge text-[11px] font-semibold bg-[#c4edc3] text-[#0f2a0b] border border-[#DCE3D5] px-2 py-0.5 rounded-lg">Active</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Sidebar Footer: System Status Pill -->
+<div class="p-3 border-t border-[#DCE3D5] shrink-0">
+<div class="bg-[#F3F6EE] p-2.5 rounded-lg border border-[#DCE3D5] flex items-center justify-between">
+<div class="flex items-center gap-2 overflow-hidden">
+<span class="relative flex h-2 w-2 shrink-0">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4C8C4A] opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-[#4C8C4A]"></span>
+</span>
+<span class="nav-text text-xs text-[#6B6F63] font-medium truncate">LLM &amp; Vector API Online</span>
+</div>
+<span class="nav-badge text-[10px] text-[#2F5233] font-bold bg-[#EAF0E9] border border-[#DCE3D5] px-1.5 py-0.5 rounded-lg">v2.4</span>
+</div>
+</div>
+</aside>
+<!-- ========================================================================= -->
+<!-- 2. MAIN CONTENT WRAPPER WITH STICKY HEADER -->
+<!-- ========================================================================= -->
+<div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F3F6EE]">
+<!-- TOP STICKY HEADER (NAVBAR) -->
+<header class="sticky top-0 z-30 bg-[#FDFBF6] border-b border-[#DCE3D5] h-16 flex items-center justify-between px-4 sm:px-6 shrink-0">
+<!-- Left: Mobile Menu Toggle & Global Search Bar -->
+<div class="flex items-center gap-3 sm:gap-4 flex-1 max-w-xl">
+<!-- Hamburger Button (Mobile) -->
+<button class="lg:hidden p-2 rounded-lg text-[#6B6F63] hover:text-[#2B2A25] hover:bg-[#F3F6EE] transition-colors border border-transparent hover:border-[#DCE3D5]" onclick="toggleMobileSidebar(true)" title="Open Navigation Menu">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<!-- Global Search Input -->
+<div class="relative w-full">
+<div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#6B6F63]">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<input class="w-full pl-10 pr-4 py-2 text-sm bg-[#F3F6EE] border border-[#DCE3D5] rounded-lg focus:bg-[#FDFBF6] focus:border-[#2F5233] focus:ring-1 focus:ring-[#2F5233] outline-none transition-all placeholder-[#6B6F63] text-[#2B2A25]" placeholder="Search members, recipes, categories, or AI logs... (Press '/' to focus)" type="text">
+<div class="hidden sm:flex absolute inset-y-0 right-0 pr-2.5 items-center pointer-events-none">
+<kbd class="px-1.5 py-0.5 text-[10px] font-semibold text-[#6B6F63] bg-[#FDFBF6] border border-[#DCE3D5] rounded-lg">/</kbd>
+</div>
+</div>
+</div>
+<!-- Right: Actions, Notifications & Admin Profile Dropdown -->
+<div class="flex items-center gap-2 sm:gap-4 ml-4">
+<!-- Quick Shortcut to Public Platform -->
+<a class="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#2F5233] bg-[#EAF0E9] border border-[#DCE3D5] hover:bg-[#2F5233] hover:text-white rounded-lg transition-colors" href="#view-platform" title="View Public Platform">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Live Site</span>
+</a>
+<!-- Notification Bell with Indicator Badge -->
+<div class="relative">
+<button class="relative p-2 rounded-lg text-[#6B6F63] hover:text-[#2B2A25] hover:bg-[#F3F6EE] transition-colors border border-transparent hover:border-[#DCE3D5]" id="notificationBtn" onclick="toggleDropdown('notificationMenu')" title="Notifications">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<!-- Indicator Badge -->
+<span class="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C1432E] opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C1432E] border-2 border-[#FDFBF6]"></span>
+</span>
+</button>
+<!-- Notifications Dropdown Flyout with allowable subtle shadow -->
+<div class="hidden absolute right-0 mt-2 w-80 bg-[#FDFBF6] rounded-xl shadow-[0_2px_12px_rgba(43,42,37,0.12)] border border-[#DCE3D5] py-2 z-50" id="notificationMenu">
+<div class="px-4 py-2 border-b border-[#DCE3D5] flex items-center justify-between">
+<span class="text-xs font-bold font-['Libre_Caslon_Text',serif] text-[#2B2A25]">Notifications</span>
+<span class="text-[10px] font-semibold text-[#2F5233] bg-[#EAF0E9] border border-[#DCE3D5] px-2 py-0.5 rounded-lg">3 unread</span>
+</div>
+<div class="divide-y divide-[#DCE3D5] max-h-64 overflow-y-auto">
+<div class="px-4 py-3 hover:bg-[#F3F6EE] cursor-pointer transition-colors">
+<p class="text-xs font-semibold text-[#2B2A25]">5 recipes queued for AI inspection</p>
+<p class="text-[11px] text-[#6B6F63] mt-0.5">Vegetable broth moderation rule triggered</p>
+<span class="text-[10px] text-[#6B6F63] mt-1 block">5 mins ago</span>
+</div>
+<div class="px-4 py-3 hover:bg-[#F3F6EE] cursor-pointer transition-colors">
+<p class="text-xs font-semibold text-[#2B2A25]">New chef member registered</p>
+<p class="text-[11px] text-[#6B6F63] mt-0.5">Chef Nguyen applied for verified creator</p>
+<span class="text-[10px] text-[#6B6F63] mt-1 block">35 mins ago</span>
+</div>
+</div>
+<div class="p-2 border-t border-[#DCE3D5] text-center">
+<a class="text-xs text-[#2F5233] hover:underline font-medium" href="#all-notifications">View all notifications</a>
+</div>
+</div>
+</div>
+<!-- Vertical Divider -->
+<div class="h-6 w-px bg-[#DCE3D5]"></div>
+<!-- Admin Profile Section with Dropdown -->
+<div class="relative">
+<button class="flex items-center gap-2.5 p-1 rounded-lg hover:bg-[#F3F6EE] transition-colors border border-transparent hover:border-[#DCE3D5]" id="profileBtn" onclick="toggleDropdown('profileMenu')">
+<div class="w-8 h-8 rounded-full bg-[#2F5233] text-white flex items-center justify-center font-bold text-xs border border-[#DCE3D5]">
+                AD
+              </div>
+<div class="hidden sm:block text-left leading-tight">
+<p class="text-xs font-semibold text-[#2B2A25]">Administrator</p>
+<p class="text-[10px] text-[#6B6F63]">Super Admin</p>
+</div>
+<svg class="w-4 h-4 text-[#6B6F63]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<!-- Admin Dropdown Menu with allowable subtle shadow -->
+<div class="hidden absolute right-0 mt-2 w-52 bg-[#FDFBF6] rounded-xl shadow-[0_2px_12px_rgba(43,42,37,0.12)] border border-[#DCE3D5] py-1.5 z-50" id="profileMenu">
+<div class="px-4 py-2 border-b border-[#DCE3D5] sm:hidden">
+<p class="text-xs font-semibold text-[#2B2A25]">Administrator</p>
+<p class="text-[10px] text-[#6B6F63]">admin@bepchay.vn</p>
+</div>
+<a class="flex items-center gap-2.5 px-4 py-2 text-xs text-[#2B2A25] hover:bg-[#F3F6EE] hover:text-[#2F5233] transition-colors" href="#admin-settings">
+<svg class="w-4 h-4 text-[#6B6F63]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Admin Profile</span>
+</a>
+<a class="flex items-center gap-2.5 px-4 py-2 text-xs text-[#2B2A25] hover:bg-[#F3F6EE] hover:text-[#2F5233] transition-colors" href="#security">
+<svg class="w-4 h-4 text-[#6B6F63]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Security &amp; Keys</span>
+</a>
+<div class="h-px bg-[#DCE3D5] my-1"></div>
+<a class="flex items-center gap-2.5 px-4 py-2 text-xs text-[#ba1a1a] hover:bg-[#ffdad6]/40 transition-colors" href="#logout">
+<svg class="w-4 h-4 text-[#ba1a1a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Log Out</span>
+</a>
+</div>
+</div>
+</div>
+</header>
+<!-- ========================================================================= -->
+<!-- 3. MAIN CONTENT AREA (RESPONSIVE CONTAINER) -->
+<!-- ========================================================================= -->
+<main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+<!-- Outer Responsive Container -->
+<div class="max-w-7xl mx-auto h-full flex flex-col">
+<!-- Breadcrumbs Bar Placeholder -->
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-2 text-xs text-[#6B6F63]"><span>Admin Console</span><span>/</span><span class="font-medium text-[#2B2A25]">Content moderation</span><span>/</span><span class="text-[#2F5233] font-semibold">Manual Moderation</span></div>
+<div class="flex items-center gap-2">
+<span class="text-xs text-[#6B6F63] hidden sm:inline">Current Environment:</span>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#EAF0E9] text-[#2F5233] border border-[#DCE3D5]">
+<span class="w-1.5 h-1.5 rounded-full bg-[#4C8C4A]"></span>
+                Production
+              </span>
+</div>
+</div>
+<!-- Central Canvas Container with Skeleton Placeholder (rounded-xl, border-[#DCE3D5], zero shadow, surface-paper) -->
+<div class="space-y-6 flex-1 flex flex-col"><div class="flex flex-col md:flex-row md:items-end justify-between gap-4"><div><h2 class="text-2xl sm:text-3xl font-bold font-['Libre_Caslon_Text',serif] text-[#2B2A25] tracking-tight">Content Management</h2><p class="text-sm text-[#6B6F63] mt-1 font-['Be_Vietnam_Pro',sans-serif]">Review, moderate, and manage community recipes, cooking videos, and member discussions.</p></div><div class="flex items-center gap-3 shrink-0"><div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#EAF0E9] border border-[#DCE3D5] text-xs font-semibold text-[#2F5233]"><span class="w-2 h-2 rounded-full bg-[#4C8C4A]"></span><span>12 Pending Reviews</span></div></div></div><div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4"><div class="flex flex-wrap items-center gap-2"><button class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#2F5233] text-white transition-colors">All Content (156)</button><button class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-[#FDFBF6] text-[#6B6F63] hover:text-[#2B2A25] border border-[#DCE3D5] transition-colors">Blogs (98)</button><button class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-[#FDFBF6] text-[#6B6F63] hover:text-[#2B2A25] border border-[#DCE3D5] transition-colors">Videos (42)</button><button class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-[#FDFBF6] text-[#6B6F63] hover:text-[#2B2A25] border border-[#DCE3D5] transition-colors">Comments (16)</button></div><div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3"><div class="relative min-w-0 w-full sm:w-72"><div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6B6F63]"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></div><input class="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-[#FDFBF6] border border-[#DCE3D5] rounded-lg focus:border-[#2F5233] outline-none transition-colors placeholder-[#6B6F63] text-[#2B2A25]" placeholder="Search title, author, or keywords..." type="text"></div><div class="relative shrink-0"><select class="w-full sm:w-auto text-xs sm:text-sm bg-[#FDFBF6] text-[#2B2A25] border border-[#DCE3D5] rounded-lg px-3 py-1.5 outline-none cursor-pointer pr-8 font-medium"><option value="all">All Statuses</option><option value="published">Published</option><option value="hidden">Hidden</option><option value="flagged">Flagged</option></select></div></div></div><div class="bg-[#FDFBF6] rounded-xl border border-[#DCE3D5] p-6 flex flex-col flex-1 shadow-none"><div class="overflow-x-auto flex-1"><div class="divide-y divide-[#DCE3D5]"><div class="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"><div class="flex items-start gap-4 min-w-0 flex-1"><div class="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-[#DCE3D5] bg-[#F3F6EE]"><img alt="Claypot Braised Tofu" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1WKcDwGR2GO1h8uT61hNF-s_62zOYXjY8wzlx8-YVN9qcyiWrINEaKUq1DV-gcQ-G7syVZEwHgyWph99ZzTpvTqJOjzjemUgHoHjo3bb00YP4VDdU3xDibxsswo6LbTzG4g7QCyuSTjBB8Y_0mQ57bOen8CA2NXIAsnJwC0eevQaGHA0yF_XXpq9R37yeuGktzM_K2CU24bUaiE8ADGempXrmLk1iKtN9tkU23B4jXFT560t4_50GAzSLI"></div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2 mb-1"><span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-[#EAF0E9] text-[#2F5233] border border-[#DCE3D5]">Blog</span><span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-[#EAF0E9] text-[#2F5233] border border-[#DCE3D5]">Published</span></div><h4 class="font-medium text-sm sm:text-base text-[#2B2A25] hover:text-[#2F5233] cursor-pointer transition-colors truncate">Traditional Claypot Braised Tofu with Lemongrass &amp; Chili</h4><p class="text-xs text-[#6B6F63] line-clamp-1 mt-0.5">A deeply savory, caramelized tofu dish infused with fresh lemongrass, garlic, and cracked black pepper.</p><div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-[#6B6F63]"><span>Author: <strong class="font-medium text-[#2B2A25]">Mai Linh @mailinh_chef</strong></span><span>•</span><span>Oct 24, 2024 · 14:20</span><span>•</span><span>1,420 views · 28 comments</span></div></div></div><div class="flex items-center gap-2 shrink-0 self-end sm:self-center"><button class="px-3 py-1.5 text-xs font-medium text-[#6B6F63] hover:text-[#2F5233] transition-colors">View</button><button class="px-3 py-1.5 text-xs font-medium text-[#6B6F63] hover:text-[#2B2A25] rounded-lg border border-[#DCE3D5] bg-[#FDFBF6] hover:bg-[#F3F6EE] transition-colors">Hide</button><button class="px-3 py-1.5 text-xs font-medium text-[#C1432E] hover:bg-[#ffdad6]/40 rounded-lg border border-transparent hover:border-[#C1432E]/30 transition-colors">Delete</button></div></div><div class="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"><div class="flex items-start gap-4 min-w-0 flex-1"><div class="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-[#DCE3D5] bg-[#F3F6EE]"><img alt="Vietnamese Pho Broth Video" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1XzWa2CLI5VpF6lv2Se2NFKuKMJhpurIjsEnRdbq0Qq8yLg5eWbrGzs7a2Q7P-7F4b-DlE0CCNDOepbIKgjqFO3IgTO8q0pIDTmZInCz933PUbUywI62QpWlglFnYOJmyoDZW46J0CStifGdW4gHWI__lBUngz1XVw2eGFdoDb9lzox8d2q2wUq2mtH1O8YUHuLzyQt7Yx3BeprIhMpIhkhq2_xsTujcZDzuSu9NUUzAvBD8XUBnPE4rEM"><div class="absolute inset-0 bg-black/30 flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></div><span class="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[9px] font-semibold px-1 rounded">12:34</span></div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2 mb-1"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium bg-[#EAF0E9] text-[#2F5233] border border-[#DCE3D5]"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>Video (12:34)</span><span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-[#ffdad6] text-[#ba1a1a] border border-[#DCE3D5]">Reported</span></div><h4 class="font-medium text-sm sm:text-base text-[#2B2A25] hover:text-[#2F5233] cursor-pointer transition-colors truncate">Mastering Vegan Phở Broth: Charred Ginger and Botanical Spices</h4><p class="text-xs text-[#6B6F63] line-clamp-1 mt-0.5">Step-by-step masterclass on slow-charring ginger and star anise for golden vegan phở broth.</p><div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-[#6B6F63]"><span>Author: <strong class="font-medium text-[#2B2A25]">Chef Duy</strong></span><span>•</span><span>Oct 23, 2024 · 09:15</span><span>•</span><span>3,890 views · 54 comments</span><span class="text-[#B8791A] font-medium">Flagged: Promotional links in video</span></div></div></div><div class="flex items-center gap-2 shrink-0 self-end sm:self-center"><button class="px-3 py-1.5 text-xs font-medium text-[#6B6F63] hover:text-[#2F5233] transition-colors">View</button><button class="px-3 py-1.5 text-xs font-medium text-[#6B6F63] hover:text-[#2B2A25] rounded-lg border border-[#DCE3D5] bg-[#FDFBF6] hover:bg-[#F3F6EE] transition-colors">Hide</button><button class="px-3 py-1.5 text-xs font-medium text-[#C1432E] hover:bg-[#ffdad6]/40 rounded-lg border border-transparent hover:border-[#C1432E]/30 transition-colors">Delete</button></div></div><div class="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"><div class="flex items-start gap-4 min-w-0 flex-1"><div class="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-[#DCE3D5] bg-[#F3F6EE]"><img alt="Banana Blossom Salad" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1Ude7R11IRRpW2c9kLST45kXxemd6HOkh2-3ywiA-NEd9BFFlae2UOlQHWXuk8S78GKCMsukyOUOynA_N7Gc8U60OoApLxfzXOb9RBn6H42RsA04OziYAc7bo40OIuNe7Emdbspcw0hZJQRJbAPUgroKPHCVnlWmVNeqHAdF1WUaI2X1SuwQx4vr4ktGCK0_PO0JMuaPKkRxeDk4r9CkBCLZgNvgxaa5yWnXS9OHik61nlauWRd5Zn2Bhc"></div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2 mb-1"><span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-[#EAF0E9] text-[#2F5233] border border-[#DCE3D5]">Blog</span><span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-[#F3F6EE] text-[#6B6F63] border border-[#DCE3D5]">Hidden</span></div><h4 class="font-medium text-sm sm:text-base text-[#2B2A25] hover:text-[#2F5233] cursor-pointer transition-colors truncate">Vietnamese Crisp Banana Blossom Salad with Roasted Peanuts</h4><p class="text-xs text-[#6B6F63] line-clamp-1 mt-0.5">Refreshing botanical salad featuring thinly sliced banana blossoms tossed in lime dressing.</p><div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-[#6B6F63]"><span>Author: <strong class="font-medium text-[#2B2A25]">Le Ngoc Mai</strong></span><span>•</span><span>Oct 22, 2024 · 18:40</span><span>•</span><span>620 views · 8 comments</span></div></div></div><div class="flex items-center gap-2 shrink-0 self-end sm:self-center"><button class="px-3 py-1.5 text-xs font-medium text-[#6B6F63] hover:text-[#2F5233] transition-colors">View</button><button class="px-3 py-1.5 text-xs font-medium text-[#2F5233] hover:text-[#25401F] rounded-lg border border-[#DCE3D5] bg-[#EAF0E9] hover:bg-[#c4edc3] transition-colors">Unhide</button><button class="px-3 py-1.5 text-xs font-medium text-[#C1432E] hover:bg-[#ffdad6]/40 rounded-lg border border-transparent hover:border-[#C1432E]/30 transition-colors">Delete</button></div></div><div class="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"><div class="flex items-start gap-4 min-w-0 flex-1"><div class="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-[#DCE3D5] bg-[#F3F6EE]"><img alt="Lotus Seed Sweet Soup Video" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1WpWnTW3IliMcPvAEqMET47e7nvomtpGiUFVxPFVJsewU31dL3vBDsUadPlj_M0vakri4y7awqWj7lKfo6DLFvgJSCpKr6YnjqB-w54xzY0eYy8Rxh9rwXXcnmsgf_jhIiWDsgvjzXwWTarZKBVZMmNx0iuQV7m9h7GxfNlKQJvZ3j_KBs5orPc0tFCUFcPaGrYnIiJmxd1DI-up6x0OUILcVG3xoY9BjUSALB9AmH54gtmWNcKA9CjlUA"><div class="absolute inset-0 bg-black/30 flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></div><span class="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[9px] font-semibold px-1 rounded">08:45</span></div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2 mb-1"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium bg-[#EAF0E9] text-[#2F5233] border border-[#DCE3D5]"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>Video (08:45)</span><span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-[#EAF0E9] text-[#2F5233] border border-[#DCE3D5]">Published</span></div><h4 class="font-medium text-sm sm:text-base text-[#2B2A25] hover:text-[#2F5233] cursor-pointer transition-colors truncate">Healing Lotus Seed &amp; Longan Sweet Soup (Chè Hạt Sen)</h4><p class="text-xs text-[#6B6F63] line-clamp-1 mt-0.5">A soothing, naturally sweetened dessert soup celebrated for calming the nervous system.</p><div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-[#6B6F63]"><span>Author: <strong class="font-medium text-[#2B2A25]">Huong Tra</strong></span><span>•</span><span>Oct 21, 2024 · 11:05</span><span>•</span><span>2,140 views · 39 comments</span></div></div></div><div class="flex items-center gap-2 shrink-0 self-end sm:self-center"><button class="px-3 py-1.5 text-xs font-medium text-[#6B6F63] hover:text-[#2F5233] transition-colors">View</button><button class="px-3 py-1.5 text-xs font-medium text-[#6B6F63] hover:text-[#2B2A25] rounded-lg border border-[#DCE3D5] bg-[#FDFBF6] hover:bg-[#F3F6EE] transition-colors">Hide</button><button class="px-3 py-1.5 text-xs font-medium text-[#C1432E] hover:bg-[#ffdad6]/40 rounded-lg border border-transparent hover:border-[#C1432E]/30 transition-colors">Delete</button></div></div><div class="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"><div class="flex items-start gap-4 min-w-0 flex-1"><div class="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-[#DCE3D5] bg-[#EAF0E9] flex items-center justify-center text-[#2F5233]"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2 mb-1"><span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-[#EAF0E9] text-[#2F5233] border border-[#DCE3D5]">Comment</span><span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-[#ffdad6] text-[#ba1a1a] border border-[#DCE3D5]">Reported</span></div><h4 class="font-medium text-sm sm:text-base text-[#2B2A25] hover:text-[#2F5233] cursor-pointer transition-colors truncate">Comment on "Fermented Organic Tempeh in Claypot"</h4><p class="text-xs text-[#6B6F63] line-clamp-1 mt-0.5">“Check my telegram link for crypto gains and culinary supplies t.me/...”</p><div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-[#6B6F63]"><span>Author: <strong class="font-medium text-[#2B2A25]">user_99218</strong></span><span>•</span><span>Oct 20, 2024 · 23:48</span><span>•</span><span class="text-[#ba1a1a] font-medium">Automated Spam Classifier Triggered</span></div></div></div><div class="flex items-center gap-2 shrink-0 self-end sm:self-center"><button class="px-3 py-1.5 text-xs font-medium text-[#6B6F63] hover:text-[#2F5233] transition-colors">View</button><button class="px-3 py-1.5 text-xs font-medium text-[#6B6F63] hover:text-[#2B2A25] rounded-lg border border-[#DCE3D5] bg-[#FDFBF6] hover:bg-[#F3F6EE] transition-colors">Hide</button><button class="px-3 py-1.5 text-xs font-medium text-[#C1432E] hover:bg-[#ffdad6]/40 rounded-lg border border-transparent hover:border-[#C1432E]/30 transition-colors">Delete</button></div></div></div></div><div class="pt-4 mt-4 border-t border-[#DCE3D5] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#6B6F63]"><div>Showing <span class="font-semibold text-[#2B2A25]">1 - 5</span> of <span class="font-semibold text-[#2B2A25]">156</span> items</div><div class="flex items-center gap-1.5"><button class="px-3 py-1.5 rounded-lg border border-[#DCE3D5] bg-[#FDFBF6] text-[#6B6F63] opacity-75 cursor-default transition-colors" disabled="">Previous</button><button class="px-3 py-1.5 rounded-lg bg-[#2F5233] text-white font-semibold transition-colors">1</button><button class="px-3 py-1.5 rounded-lg border border-[#DCE3D5] bg-[#FDFBF6] text-[#6B6F63] hover:bg-[#F3F6EE] transition-colors">2</button><button class="px-3 py-1.5 rounded-lg border border-[#DCE3D5] bg-[#FDFBF6] text-[#6B6F63] hover:bg-[#F3F6EE] transition-colors">3</button><span class="px-1.5 text-[#6B6F63]">...</span><button class="px-3 py-1.5 rounded-lg border border-[#DCE3D5] bg-[#FDFBF6] text-[#6B6F63] hover:bg-[#F3F6EE] transition-colors">32</button><button class="px-3 py-1.5 rounded-lg border border-[#DCE3D5] bg-[#FDFBF6] text-[#6B6F63] hover:bg-[#F3F6EE] hover:text-[#2B2A25] transition-colors">Next</button></div></div></div></div>
+<!-- Bottom Status Footer -->
+<footer class="mt-6 text-center sm:text-left text-xs text-[#6B6F63] flex flex-col sm:flex-row items-center justify-between gap-2">
+<span class="">© 2025 Botanical Hearth • Vegan Cooking &amp; Nutrition Platform</span>
+<div class="flex items-center gap-4">
+<a class="hover:text-[#2F5233] transition-colors" href="#docs">Admin Guidelines</a>
+<a class="hover:text-[#2F5233] transition-colors" href="#api">MLOps Status</a>
+<a class="hover:text-[#2F5233] transition-colors" href="#support">Tech Support</a>
+</div>
+</footer>
+</div>
+</main>
+</div>
+</div>
+<!-- ========================================================================= -->
+<!-- TECHNICAL JAVASCRIPT: ACCORDION, COLLAPSE & MOBILE CONTROLS -->
+<!-- ========================================================================= -->
+<script>
+    // 1. Mobile Sidebar Controls
+    function toggleMobileSidebar(open) {
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('mobileBackdrop');
+      
+      if (open) {
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+      } else {
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+    }
+
+    // 2. Desktop Sidebar Collapse (Icon-only mode)
+    let isCollapsed = false;
+    function toggleDesktopSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const icon = document.getElementById('collapseIcon');
+      isCollapsed = !isCollapsed;
+
+      if (isCollapsed) {
+        sidebar.classList.remove('w-72');
+        sidebar.classList.add('w-20', 'sidebar-collapsed');
+        if (icon) icon.classList.add('rotate-180');
+      } else {
+        sidebar.classList.remove('w-20', 'sidebar-collapsed');
+        sidebar.classList.add('w-72');
+        if (icon) icon.classList.remove('rotate-180');
+      }
+    }
+
+    // 3. Navigation Accordion Functionality
+    function toggleAccordion(contentId, arrowId) {
+      // If sidebar is collapsed to icon-only, auto-expand first for usability
+      if (isCollapsed) {
+        toggleDesktopSidebar();
+      }
+
+      const content = document.getElementById(contentId);
+      const arrow = document.getElementById(arrowId);
+      
+      if (content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        content.classList.add('collapsed');
+        if (arrow) arrow.classList.add('-rotate-90');
+      } else {
+        content.classList.remove('collapsed');
+        content.classList.add('expanded');
+        if (arrow) arrow.classList.remove('-rotate-90');
+      }
+    }
+
+    // Quick toggle all accordions
+    let allOpen = true;
+    function toggleAllAccordions() {
+      allOpen = !allOpen;
+      const ids = ['overview', 'core', 'moderation', 'ai'];
+      ids.forEach(id => {
+        const content = document.getElementById('acc-' + id);
+        const arrow = document.getElementById('arrow-' + id);
+        if (allOpen) {
+          content.classList.remove('collapsed');
+          content.classList.add('expanded');
+          if (arrow) arrow.classList.remove('-rotate-90');
+        } else {
+          content.classList.remove('expanded');
+          content.classList.add('collapsed');
+          if (arrow) arrow.classList.add('-rotate-90');
+        }
+      });
+    }
+
+    // 4. Dropdown Menus (Notifications & Profile) with Click-Outside handler
+    function toggleDropdown(menuId) {
+      const menu = document.getElementById(menuId);
+      const isHidden = menu.classList.contains('hidden');
+      
+      // Close other dropdowns
+      ['notificationMenu', 'profileMenu'].forEach(id => {
+        const other = document.getElementById(id);
+        if (other && id !== menuId) other.classList.add('hidden');
+      });
+
+      if (isHidden) {
+        menu.classList.remove('hidden');
+      } else {
+        menu.classList.add('hidden');
+      }
+    }
+
+    // Click outside to close dropdowns
+    document.addEventListener('click', function(e) {
+      const notifBtn = document.getElementById('notificationBtn');
+      const notifMenu = document.getElementById('notificationMenu');
+      const profileBtn = document.getElementById('profileBtn');
+      const profileMenu = document.getElementById('profileMenu');
+
+      if (notifMenu && !notifMenu.contains(e.target) && !notifBtn.contains(e.target)) {
+        notifMenu.classList.add('hidden');
+      }
+      if (profileMenu && !profileMenu.contains(e.target) && !profileBtn.contains(e.target)) {
+        profileMenu.classList.add('hidden');
+      }
+    });
+
+    // Keyboard shortcut to focus search input
+    document.addEventListener('keydown', function(e) {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[type="text"]');
+        if (searchInput) searchInput.focus();
+      }
+    });
+  </script>
+</body></html>
