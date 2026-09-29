@@ -9,6 +9,7 @@
     <ProjectReference Include="../VeganHelper.DAL/VeganHelper.DAL.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.103.4" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
   </ItemGroup>
 </Project>
