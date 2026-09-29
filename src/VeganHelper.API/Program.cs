@@ -25,6 +25,13 @@ using VeganHelper.DAL.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var envFilePath = FindEnvironmentFile(builder.Environment.ContentRootPath);
+if (envFilePath is not null)
+{
+    DotNetEnv.Env.Load(envFilePath);
+    builder.Configuration.AddEnvironmentVariables();
+}
+
 builder.Services.AddControllers();
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:3000"];
@@ -137,3 +144,21 @@ app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapControllers();
 app.Run();
+
+static string? FindEnvironmentFile(string startPath)
+{
+    var directory = new DirectoryInfo(startPath);
+
+    while (directory is not null)
+    {
+        var candidate = Path.Combine(directory.FullName, ".env");
+        if (File.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        directory = directory.Parent;
+    }
+
+    return null;
+}
