@@ -23,6 +23,9 @@ public sealed class AuthService(
 
     public async Task<ServiceResult<MessageResponseDto>> RegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken)
     {
+        if (!string.Equals(request.Password, request.ConfirmPassword, StringComparison.Ordinal))
+            return ServiceResult<MessageResponseDto>.Fail("Password and confirm password must match.", 400);
+
         var email = NormalizeEmail(request.Email);
         var username = request.Username.Trim();
         if (await repository.FindUserByEmailAsync(email, cancellationToken) is not null)
