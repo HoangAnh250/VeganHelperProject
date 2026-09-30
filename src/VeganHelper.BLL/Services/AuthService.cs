@@ -101,11 +101,7 @@ public sealed class AuthService(
         }, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         var emailSent = await TrySendEmailAsync(
-            new EmailMessage(
-                email,
-                "Verify your VeganHelper account",
-                $"Your VeganHelper verification code is {verificationCode}. It expires in {EmailTokenLifetimeMinutes} minutes.",
-                $"<p>Your VeganHelper verification code is <strong>{verificationCode}</strong>.</p><p>This code expires in {EmailTokenLifetimeMinutes} minutes.</p>"),
+            AuthEmailTemplates.VerificationCode(email, verificationCode, EmailTokenLifetimeMinutes),
             cancellationToken);
         if (!emailSent)
             return ServiceResult<MessageResponseDto>.Fail("Registration was created, but the verification email could not be sent. Please request another code.", 503);
@@ -133,11 +129,7 @@ public sealed class AuthService(
         await repository.SaveChangesAsync(cancellationToken);
 
         var emailSent = await TrySendEmailAsync(
-            new EmailMessage(
-                email,
-                "Your new VeganHelper verification code",
-                $"Your VeganHelper verification code is {verificationCode}. It expires in {EmailTokenLifetimeMinutes} minutes.",
-                $"<p>Your VeganHelper verification code is <strong>{verificationCode}</strong>.</p><p>This code expires in {EmailTokenLifetimeMinutes} minutes.</p>"),
+            AuthEmailTemplates.VerificationCode(email, verificationCode, EmailTokenLifetimeMinutes, isResend: true),
             cancellationToken);
         if (!emailSent)
             return ServiceResult<MessageResponseDto>.Fail("The verification email could not be sent. Please try again later.", 503);
@@ -386,11 +378,7 @@ public sealed class AuthService(
             }, cancellationToken);
             await repository.SaveChangesAsync(cancellationToken);
             await TrySendEmailAsync(
-                new EmailMessage(
-                    email,
-                    "Reset your VeganHelper password",
-                    $"Your VeganHelper password reset token is {rawToken}. It expires in {PasswordResetLifetimeMinutes} minutes.",
-                    $"<p>Your VeganHelper password reset token is <strong>{rawToken}</strong>.</p><p>This token expires in {PasswordResetLifetimeMinutes} minutes.</p>"),
+                AuthEmailTemplates.PasswordReset(email, rawToken, PasswordResetLifetimeMinutes),
                 cancellationToken);
         }
         return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("If the email exists, a password reset link has been sent."));
