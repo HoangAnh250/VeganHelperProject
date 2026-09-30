@@ -28,8 +28,44 @@ public sealed class AuthService(
 
         var email = NormalizeEmail(request.Email);
         var username = request.Username.Trim();
-        if (await repository.FindUserByEmailAsync(email, cancellationToken) is not null)
-            return ServiceResult<MessageResponseDto>.Fail("Email is already registered.", 409);
+        var existingUser = await repository.FindUserByEmailAsync(email, cancellationToken);
+        if (existingUser is not null)
+        {
+            // A pending registration can be restarted. The user remains inactive
+            // until the newly issued verification code is accepted.
+            if (existingUser.IsActive || existingUser.EmailVerifiedAt is not null || existingUser.DeletedAt is not null)
+                return ServiceResult<MessageResponseDto>.Fail("Email is already registered.", 409);
+
+            var usernameOwner = await repository.FindUserByUsernameAsync(username, cancellationToken);
+            if (usernameOwner is not null && usernameOwner.Id != existingUser.Id)
+                return ServiceResult<MessageResponseDto>.Fail("Username is already registered.", 409);
+
+            var pendingNow = DateTime.UtcNow;
+            existingUser.Username = username;
+            existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            existingUser.UpdatedAt = pendingNow;
+
+            var existingProfile = await userRepository.FindUserProfileAsync(existingUser.Id, cancellationToken);
+            if (existingProfile is null)
+            {
+                await userRepository.AddUserProfileAsync(new UserProfile
+                {
+                    UserId = existingUser.Id,
+                    DisplayName = username,
+                    DietType = "vegan"
+                }, cancellationToken);
+            }
+            else
+            {
+                existingProfile.DisplayName = username;
+            }
+
+            await userRepository.SaveChangesAsync(cancellationToken);
+            return await ResendVerificationAsync(
+                new ResendVerificationRequestDto { Email = email },
+                cancellationToken);
+        }
+
         if (await repository.FindUserByUsernameAsync(username, cancellationToken) is not null)
             return ServiceResult<MessageResponseDto>.Fail("Username is already registered.", 409);
 
@@ -86,6 +122,7 @@ public sealed class AuthService(
 
         var now = DateTime.UtcNow;
         var verificationCode = TokenSecurity.GenerateOtp();
+        await repository.RevokeEmailVerificationTokensAsync(user.Id, now, cancellationToken);
         await repository.AddEmailVerificationTokenAsync(new EmailVerificationToken
         {
             UserId = user.Id,
@@ -284,6 +321,9 @@ public sealed class AuthService(
 
     public async Task<ServiceResult<MessageResponseDto>> SetPasswordAsync(long userId, SetPasswordRequestDto request, CancellationToken cancellationToken)
     {
+        if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
+            return ServiceResult<MessageResponseDto>.Fail("Password and confirm password must match.", 400);
+
         var user = await repository.FindUserByIdAsync(userId, cancellationToken);
         if (user is null || user.DeletedAt is not null)
             return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
