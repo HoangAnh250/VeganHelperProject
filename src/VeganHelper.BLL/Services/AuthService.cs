@@ -345,12 +345,13 @@ public sealed class AuthService(
                 CreatedAt = now
             }, cancellationToken);
             await repository.SaveChangesAsync(cancellationToken);
+            var resetLink = $"http://localhost:3000/forgot-password?token={rawToken}&email={System.Net.WebUtility.UrlEncode(email)}";
             await TrySendEmailAsync(
                 new EmailMessage(
                     email,
                     "Reset your VeganHelper password",
-                    $"Your VeganHelper password reset token is {rawToken}. It expires in {PasswordResetLifetimeMinutes} minutes.",
-                    $"<p>Your VeganHelper password reset token is <strong>{rawToken}</strong>.</p><p>This token expires in {PasswordResetLifetimeMinutes} minutes.</p>"),
+                    $"Click the link to reset your password: {resetLink}\nIt expires in {PasswordResetLifetimeMinutes} minutes.",
+                    $"<p>Click the link below to reset your password:</p><p><a href=\"{resetLink}\">{resetLink}</a></p><p>This link expires in {PasswordResetLifetimeMinutes} minutes.</p>"),
                 cancellationToken);
         }
         return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("If the email exists, a password reset link has been sent."));
