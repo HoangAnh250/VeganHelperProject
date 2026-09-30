@@ -39,6 +39,13 @@ public sealed class AuthRepository(AppDbContext db) : IAuthRepository
     public Task AddEmailVerificationTokenAsync(EmailVerificationToken token, CancellationToken cancellationToken) =>
         db.EmailVerificationTokens.AddAsync(token, cancellationToken).AsTask();
 
+    public Task RevokeEmailVerificationTokensAsync(long userId, DateTime revokedAt, CancellationToken cancellationToken) =>
+        db.EmailVerificationTokens
+            .Where(x => x.UserId == userId && x.ConsumedAt == null && x.ExpiresAt > revokedAt)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(x => x.ConsumedAt, revokedAt),
+                cancellationToken);
+
     public Task<EmailVerificationToken?> FindEmailVerificationTokenAsync(string tokenHash, CancellationToken cancellationToken) =>
         db.EmailVerificationTokens.SingleOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
 

@@ -14,6 +14,7 @@ public interface IAuthRepository
     Task AddUserIdentityAsync(UserIdentity identity, CancellationToken cancellationToken);
     void RemoveUserIdentity(UserIdentity identity);
     Task AddEmailVerificationTokenAsync(EmailVerificationToken token, CancellationToken cancellationToken);
+    Task RevokeEmailVerificationTokensAsync(long userId, DateTime revokedAt, CancellationToken cancellationToken);
     Task<EmailVerificationToken?> FindEmailVerificationTokenAsync(string tokenHash, CancellationToken cancellationToken);
     Task AddPasswordResetTokenAsync(PasswordResetToken token, CancellationToken cancellationToken);
     Task<PasswordResetToken?> FindPasswordResetTokenAsync(string tokenHash, CancellationToken cancellationToken);

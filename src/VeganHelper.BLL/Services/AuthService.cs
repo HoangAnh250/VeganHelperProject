@@ -28,8 +28,44 @@ public sealed class AuthService(
 
         var email = NormalizeEmail(request.Email);
         var username = request.Username.Trim();
-        if (await repository.FindUserByEmailAsync(email, cancellationToken) is not null)
-            return ServiceResult<MessageResponseDto>.Fail("Email is already registered.", 409);
+        var existingUser = await repository.FindUserByEmailAsync(email, cancellationToken);
+        if (existingUser is not null)
+        {
+            // A pending registration can be restarted. The user remains inactive
+            // until the newly issued verification code is accepted.
+            if (existingUser.IsActive || existingUser.EmailVerifiedAt is not null || existingUser.DeletedAt is not null)
+                return ServiceResult<MessageResponseDto>.Fail("Email is already registered.", 409);
+
+            var usernameOwner = await repository.FindUserByUsernameAsync(username, cancellationToken);
+            if (usernameOwner is not null && usernameOwner.Id != existingUser.Id)
+                return ServiceResult<MessageResponseDto>.Fail("Username is already registered.", 409);
+
+            var pendingNow = DateTime.UtcNow;
+            existingUser.Username = username;
+            existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            existingUser.UpdatedAt = pendingNow;
+
+            var existingProfile = await userRepository.FindUserProfileAsync(existingUser.Id, cancellationToken);
+            if (existingProfile is null)
+            {
+                await userRepository.AddUserProfileAsync(new UserProfile
+                {
+                    UserId = existingUser.Id,
+                    DisplayName = username,
+                    DietType = "vegan"
+                }, cancellationToken);
+            }
+            else
+            {
+                existingProfile.DisplayName = username;
+            }
+
+            await userRepository.SaveChangesAsync(cancellationToken);
+            return await ResendVerificationAsync(
+                new ResendVerificationRequestDto { Email = email },
+                cancellationToken);
+        }
+
         if (await repository.FindUserByUsernameAsync(username, cancellationToken) is not null)
             return ServiceResult<MessageResponseDto>.Fail("Username is already registered.", 409);
 
@@ -65,11 +101,7 @@ public sealed class AuthService(
         }, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         var emailSent = await TrySendEmailAsync(
-            new EmailMessage(
-                email,
-                "Verify your VeganHelper account",
-                $"Your VeganHelper verification code is {verificationCode}. It expires in {EmailTokenLifetimeMinutes} minutes.",
-                $"<p>Your VeganHelper verification code is <strong>{verificationCode}</strong>.</p><p>This code expires in {EmailTokenLifetimeMinutes} minutes.</p>"),
+            AuthEmailTemplates.VerificationCode(email, verificationCode, EmailTokenLifetimeMinutes),
             cancellationToken);
         if (!emailSent)
             return ServiceResult<MessageResponseDto>.Fail("Registration was created, but the verification email could not be sent. Please request another code.", 503);
@@ -86,6 +118,7 @@ public sealed class AuthService(
 
         var now = DateTime.UtcNow;
         var verificationCode = TokenSecurity.GenerateOtp();
+        await repository.RevokeEmailVerificationTokensAsync(user.Id, now, cancellationToken);
         await repository.AddEmailVerificationTokenAsync(new EmailVerificationToken
         {
             UserId = user.Id,
@@ -96,11 +129,7 @@ public sealed class AuthService(
         await repository.SaveChangesAsync(cancellationToken);
 
         var emailSent = await TrySendEmailAsync(
-            new EmailMessage(
-                email,
-                "Your new VeganHelper verification code",
-                $"Your VeganHelper verification code is {verificationCode}. It expires in {EmailTokenLifetimeMinutes} minutes.",
-                $"<p>Your VeganHelper verification code is <strong>{verificationCode}</strong>.</p><p>This code expires in {EmailTokenLifetimeMinutes} minutes.</p>"),
+            AuthEmailTemplates.VerificationCode(email, verificationCode, EmailTokenLifetimeMinutes, isResend: true),
             cancellationToken);
         if (!emailSent)
             return ServiceResult<MessageResponseDto>.Fail("The verification email could not be sent. Please try again later.", 503);
@@ -284,6 +313,9 @@ public sealed class AuthService(
 
     public async Task<ServiceResult<MessageResponseDto>> SetPasswordAsync(long userId, SetPasswordRequestDto request, CancellationToken cancellationToken)
     {
+        if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
+            return ServiceResult<MessageResponseDto>.Fail("Password and confirm password must match.", 400);
+
         var user = await repository.FindUserByIdAsync(userId, cancellationToken);
         if (user is null || user.DeletedAt is not null)
             return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
@@ -347,11 +379,7 @@ public sealed class AuthService(
             await repository.SaveChangesAsync(cancellationToken);
             var resetLink = $"http://localhost:3000/forgot-password?token={rawToken}&email={System.Net.WebUtility.UrlEncode(email)}";
             await TrySendEmailAsync(
-                new EmailMessage(
-                    email,
-                    "Reset your VeganHelper password",
-                    $"Click the link to reset your password: {resetLink}\nIt expires in {PasswordResetLifetimeMinutes} minutes.",
-                    $"<p>Click the link below to reset your password:</p><p><a href=\"{resetLink}\">{resetLink}</a></p><p>This link expires in {PasswordResetLifetimeMinutes} minutes.</p>"),
+                AuthEmailTemplates.PasswordReset(email, resetLink, PasswordResetLifetimeMinutes),
                 cancellationToken);
         }
         return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("If the email exists, a password reset link has been sent."));
