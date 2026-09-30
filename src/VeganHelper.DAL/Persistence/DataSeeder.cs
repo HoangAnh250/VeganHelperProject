@@ -29,27 +29,27 @@ public static class DataSeeder
             var categories = new List<Category>
             {
                 // Shop Categories
-                new Category { Name = "Nhà hàng sang trọng", Slug = "nha-hang-sang-trong", CategoryType = "shop", PostCategoryKind = null, IsActive = true },
-                new Category { Name = "Quán ăn bình dân", Slug = "quan-an-binh-dan", CategoryType = "shop", PostCategoryKind = null, IsActive = true },
-                new Category { Name = "Quán chay sân vườn", Slug = "quan-chay-san-vuon", CategoryType = "shop", PostCategoryKind = null, IsActive = true },
-                new Category { Name = "Quán chay gia đình", Slug = "quan-chay-gia-dinh", CategoryType = "shop", PostCategoryKind = null, IsActive = true },
-                new Category { Name = "Buffet chay", Slug = "buffet-chay", CategoryType = "shop", PostCategoryKind = null, IsActive = true },
+                new Category { Name = "Fine Dining", Slug = "fine-dining", CategoryType = "shop", PostCategoryKind = null, IsActive = true },
+                new Category { Name = "Casual Dining", Slug = "casual-dining", CategoryType = "shop", PostCategoryKind = null, IsActive = true },
+                new Category { Name = "Garden Restaurant", Slug = "garden-restaurant", CategoryType = "shop", PostCategoryKind = null, IsActive = true },
+                new Category { Name = "Family Restaurant", Slug = "family-restaurant", CategoryType = "shop", PostCategoryKind = null, IsActive = true },
+                new Category { Name = "Vegan Buffet", Slug = "vegan-buffet", CategoryType = "shop", PostCategoryKind = null, IsActive = true },
 
                 // Post Categories (Recipe)
-                new Category { Name = "Món kho", Slug = "mon-kho", CategoryType = "post", PostCategoryKind = "recipe", IsActive = true },
-                new Category { Name = "Món xào", Slug = "mon-xao", CategoryType = "post", PostCategoryKind = "recipe", IsActive = true },
-                new Category { Name = "Món canh", Slug = "mon-canh", CategoryType = "post", PostCategoryKind = "recipe", IsActive = true },
-                new Category { Name = "Món lẩu", Slug = "mon-lau", CategoryType = "post", PostCategoryKind = "recipe", IsActive = true },
-                new Category { Name = "Bánh ngọt chay", Slug = "banh-ngot-chay", CategoryType = "post", PostCategoryKind = "recipe", IsActive = true },
+                new Category { Name = "Braised Dishes", Slug = "braised-dishes", CategoryType = "post", PostCategoryKind = "recipe", IsActive = true },
+                new Category { Name = "Stir-fried Dishes", Slug = "stir-fried-dishes", CategoryType = "post", PostCategoryKind = "recipe", IsActive = true },
+                new Category { Name = "Soups", Slug = "soups", CategoryType = "post", PostCategoryKind = "recipe", IsActive = true },
+                new Category { Name = "Hot Pots", Slug = "hot-pots", CategoryType = "post", PostCategoryKind = "recipe", IsActive = true },
+                new Category { Name = "Vegan Pastries", Slug = "vegan-pastries", CategoryType = "post", PostCategoryKind = "recipe", IsActive = true },
 
                 // Post Categories (Topic)
-                new Category { Name = "Kiến thức dinh dưỡng", Slug = "kien-thuc-dinh-duong", CategoryType = "post", PostCategoryKind = "topic", IsActive = true },
-                new Category { Name = "Tin tức ăn chay", Slug = "tin-tuc-an-chay", CategoryType = "post", PostCategoryKind = "topic", IsActive = true },
-                new Category { Name = "Câu chuyện truyền cảm hứng", Slug = "cau-chuyen-truyen-cam-hung", CategoryType = "post", PostCategoryKind = "topic", IsActive = true },
+                new Category { Name = "Nutritional Knowledge", Slug = "nutritional-knowledge", CategoryType = "post", PostCategoryKind = "topic", IsActive = true },
+                new Category { Name = "Vegan News", Slug = "vegan-news", CategoryType = "post", PostCategoryKind = "topic", IsActive = true },
+                new Category { Name = "Inspiring Stories", Slug = "inspiring-stories", CategoryType = "post", PostCategoryKind = "topic", IsActive = true },
 
                 // Post Categories (Food)
-                new Category { Name = "Món chay Việt", Slug = "mon-chay-viet", CategoryType = "post", PostCategoryKind = "food", IsActive = true },
-                new Category { Name = "Món chay Âu", Slug = "mon-chay-au", CategoryType = "post", PostCategoryKind = "food", IsActive = true }
+                new Category { Name = "Vietnamese Vegan Foods", Slug = "vietnamese-vegan-foods", CategoryType = "post", PostCategoryKind = "food", IsActive = true },
+                new Category { Name = "Western Vegan Foods", Slug = "western-vegan-foods", CategoryType = "post", PostCategoryKind = "food", IsActive = true }
             };
 
             await context.Categories.AddRangeAsync(categories);
