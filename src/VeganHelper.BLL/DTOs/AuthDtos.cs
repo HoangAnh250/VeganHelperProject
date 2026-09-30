@@ -12,6 +12,9 @@ public sealed class RegisterRequestDto
 
     [Required, MinLength(8), StringLength(128)]
     public string Password { get; init; } = string.Empty;
+
+    [Required, Compare(nameof(Password), ErrorMessage = "Password and confirm password must match.")]
+    public string ConfirmPassword { get; init; } = string.Empty;
 }
 
 public sealed class VerifyEmailRequestDto
