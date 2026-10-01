@@ -78,6 +78,8 @@ builder.Services.AddDal(builder.Configuration);
 builder.Services.AddScoped<IStatusService, StatusService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IPostInteractionRepository, PostInteractionRepository>();
+builder.Services.AddScoped<IPostInteractionService, PostInteractionService>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();

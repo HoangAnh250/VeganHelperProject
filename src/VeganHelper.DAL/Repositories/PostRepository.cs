@@ -36,7 +36,8 @@ public sealed class PostRepository : IPostRepository
     {
         var query = _context.Posts.AsQueryable();
 
-        query = query.Where(p => !p.IsDeleted);
+        // The feed is public, so only approved/published and non-deleted posts are visible.
+        query = query.Where(p => !p.IsDeleted && p.Status == "published");
 
         if (categoryId.HasValue)
         {
@@ -78,6 +79,55 @@ public sealed class PostRepository : IPostRepository
             });
 
         var items = await projectedQuery.ToListAsync(cancellationToken);
+
+        return (totalCount, items);
+    }
+
+    public async Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> SearchPostsAsync(
+        string keyword,
+        int pageIndex,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var pattern = $"%{keyword}%";
+        var query = _context.Posts
+            .AsNoTracking()
+            .Where(p => !p.IsDeleted
+                && p.Status == "published"
+                && (p.PostType == "article" || p.PostType == "video")
+                && (EF.Functions.Like(p.Title, pattern)
+                    || (p.Content != null && EF.Functions.Like(p.Content, pattern))));
+
+        var totalCount = await query.LongCountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(p => p.CreatedAt)
+            .ThenByDescending(p => p.Id)
+            .Skip((pageIndex - 1) * pageSize)
+            .Take(pageSize)
+            .Select(p => new PostFeedProjection
+            {
+                Id = p.Id,
+                Title = p.Title,
+                PostType = p.PostType,
+                ThumbnailUrl = p.Media.Where(m => m.IsPrimary).Select(m => m.MediaUrl).FirstOrDefault(),
+                AuthorName = _context.UserProfiles
+                    .Where(up => up.UserId == p.AuthorId)
+                    .Select(up => up.DisplayName)
+                    .FirstOrDefault()
+                    ?? _context.Users
+                        .Where(u => u.Id == p.AuthorId)
+                        .Select(u => u.Username)
+                        .FirstOrDefault()
+                    ?? "Unknown",
+                AvatarUrl = _context.UserProfiles
+                    .Where(up => up.UserId == p.AuthorId)
+                    .Select(up => up.AvatarUrl)
+                    .FirstOrDefault(),
+                ViewCount = p.ViewCount,
+                CreatedAt = p.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
 
         return (totalCount, items);
     }
