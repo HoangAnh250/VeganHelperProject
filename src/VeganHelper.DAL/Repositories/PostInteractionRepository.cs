@@ -34,6 +34,58 @@ public sealed class PostInteractionRepository(AppDbContext context) : IPostInter
 
     public void RemoveSavedPost(SavedPost savedPost) => context.SavedPosts.Remove(savedPost);
 
+    public async Task<(long TotalCount, IReadOnlyList<SavedPostProjection> Items)> GetSavedPostsAsync(
+        long userId,
+        int pageIndex,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = context.SavedPosts
+            .AsNoTracking()
+            .Where(saved => saved.UserId == userId)
+            .Join(
+                context.Posts.AsNoTracking().Where(post => post.Status == "published" && !post.IsDeleted),
+                saved => saved.PostId,
+                post => post.Id,
+                (saved, post) => new { saved, post });
+
+        var totalCount = await query.LongCountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(item => item.saved.SavedAt)
+            .ThenByDescending(item => item.post.Id)
+            .Skip((pageIndex - 1) * pageSize)
+            .Take(pageSize)
+            .Select(item => new SavedPostProjection
+            {
+                PostId = item.post.Id,
+                Title = item.post.Title,
+                PostType = item.post.PostType,
+                ThumbnailUrl = item.post.Media
+                    .Where(media => media.IsPrimary)
+                    .Select(media => media.MediaUrl)
+                    .FirstOrDefault(),
+                AuthorName = context.UserProfiles
+                    .Where(profile => profile.UserId == item.post.AuthorId)
+                    .Select(profile => profile.DisplayName)
+                    .FirstOrDefault()
+                    ?? context.Users
+                        .Where(author => author.Id == item.post.AuthorId)
+                        .Select(author => author.Username)
+                        .FirstOrDefault()
+                    ?? "Unknown",
+                AvatarUrl = context.UserProfiles
+                    .Where(profile => profile.UserId == item.post.AuthorId)
+                    .Select(profile => profile.AvatarUrl)
+                    .FirstOrDefault(),
+                ViewCount = item.post.ViewCount,
+                CreatedAt = item.post.CreatedAt,
+                SavedAt = item.saved.SavedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        return (totalCount, items);
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
         context.SaveChangesAsync(cancellationToken);
 }

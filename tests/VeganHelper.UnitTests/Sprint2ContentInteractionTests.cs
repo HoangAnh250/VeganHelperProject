@@ -6,11 +6,116 @@ using VeganHelper.BLL.Services;
 using VeganHelper.BLL.Services.Media;
 using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
+using VeganHelper.DAL.Storage;
 
 namespace VeganHelper.UnitTests;
 
 public sealed class Sprint2ContentInteractionTests
 {
+    [Fact]
+    public async Task SearchUsersAsync_TrimsKeywordAndMapsPagedResults()
+    {
+        var repository = new Mock<IUserRepository>();
+        IReadOnlyList<UserSearchProjection> projections = new List<UserSearchProjection>
+        {
+            new()
+            {
+                Id = 7,
+                Username = "tofu_lover",
+                DisplayName = "Tofu Lover",
+                AvatarUrl = "avatar.jpg"
+            }
+        };
+        repository.Setup(x => x.SearchUsersAsync("tofu", 1, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((1L, projections));
+
+        var service = new UserService(repository.Object, new Mock<IAvatarStorage>().Object);
+        var result = await service.SearchUsersAsync("  tofu  ", 0, 10, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.NotNull(result.Data);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("tofu_lover", result.Data.Items.First().Username);
+        Assert.Equal(1, result.Data.PageIndex);
+        repository.Verify(x => x.SearchUsersAsync("tofu", 1, 10, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SearchUsersAsync_RejectsShortKeyword()
+    {
+        var repository = new Mock<IUserRepository>();
+        var service = new UserService(repository.Object, new Mock<IAvatarStorage>().Object);
+
+        var result = await service.SearchUsersAsync("a", 1, 10, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(400, result.StatusCode);
+        repository.Verify(x => x.SearchUsersAsync(
+            It.IsAny<string>(),
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetPublicProfileAsync_MapsPublishedPostStatistics()
+    {
+        var repository = new Mock<IUserRepository>();
+        repository.Setup(x => x.GetPublicProfileAsync(12, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PublicUserProfileProjection
+            {
+                Id = 12,
+                Username = "vegan_user",
+                DisplayName = "Vegan User",
+                DietType = "vegan",
+                JoinedAt = new DateTime(2026, 1, 1),
+                PublishedPostCount = 2,
+                ReceivedLikeCount = 9,
+                Posts = new List<PostFeedProjection>
+                {
+                    new() { Id = 101, Title = "Tofu Bowl", PostType = "recipe" }
+                }
+            });
+
+        var service = new UserService(repository.Object, new Mock<IAvatarStorage>().Object);
+        var result = await service.GetPublicProfileAsync(12, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.NotNull(result.Data);
+        Assert.Equal(2, result.Data!.PublishedPostCount);
+        Assert.Equal(9, result.Data.ReceivedLikeCount);
+        Assert.Single(result.Data.Posts);
+        Assert.Equal(101, result.Data.Posts.First().Id);
+    }
+
+    [Fact]
+    public async Task GetSavedPostsAsync_MapsNewestFirstPage()
+    {
+        var repository = new Mock<IPostInteractionRepository>();
+        IReadOnlyList<SavedPostProjection> projections = new List<SavedPostProjection>
+        {
+            new()
+            {
+                PostId = 50,
+                Title = "Saved Curry",
+                PostType = "recipe",
+                AuthorName = "Chef",
+                SavedAt = new DateTime(2026, 2, 1)
+            }
+        };
+        repository.Setup(x => x.GetSavedPostsAsync(3, 1, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((1L, projections));
+
+        var service = new PostInteractionService(repository.Object);
+        var result = await service.GetSavedPostsAsync(3, 0, 10, CancellationToken.None);
+
+        Assert.Single(result.Items);
+        Assert.Equal(50, result.Items.First().PostId);
+        Assert.Equal("Saved Curry", result.Items.First().Title);
+        Assert.Equal(1, result.PageIndex);
+        repository.Verify(x => x.GetSavedPostsAsync(3, 1, 10, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task SearchPostsAsync_RejectsKeywordShorterThanTwoCharacters()
     {

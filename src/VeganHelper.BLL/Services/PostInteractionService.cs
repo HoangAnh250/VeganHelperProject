@@ -1,3 +1,4 @@
+using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.Posts;
 using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
@@ -66,6 +67,43 @@ public sealed class PostInteractionService(IPostInteractionRepository repository
 
         await repository.SaveChangesAsync(cancellationToken);
         return new ToggleSaveResponse(postId, isSaved);
+    }
+
+    public async Task<PagedResult<SavedPostItemDto>> GetSavedPostsAsync(
+        long userId,
+        int pageIndex,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        pageIndex = pageIndex < 1 ? 1 : pageIndex;
+        pageSize = pageSize < 1 ? 10 : Math.Min(pageSize, 50);
+
+        var (totalCount, projections) = await repository.GetSavedPostsAsync(
+            userId,
+            pageIndex,
+            pageSize,
+            cancellationToken);
+
+        return new PagedResult<SavedPostItemDto>
+        {
+            TotalItems = totalCount,
+            TotalCount = totalCount > int.MaxValue ? int.MaxValue : (int)totalCount,
+            PageIndex = pageIndex,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
+            Items = projections.Select(post => new SavedPostItemDto
+            {
+                PostId = post.PostId,
+                Title = post.Title,
+                PostType = post.PostType,
+                ThumbnailUrl = post.ThumbnailUrl,
+                AuthorName = post.AuthorName,
+                AvatarUrl = post.AvatarUrl,
+                ViewCount = post.ViewCount,
+                CreatedAt = post.CreatedAt,
+                SavedAt = post.SavedAt
+            }).ToList()
+        };
     }
 
     private async Task EnsurePublishedPostAsync(long postId, CancellationToken cancellationToken)

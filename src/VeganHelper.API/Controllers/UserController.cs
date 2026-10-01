@@ -19,6 +19,32 @@ public sealed class UserController(IUserService service) : ControllerBase
         return ToActionResult(await service.GetProfileAsync(userId.Value, cancellationToken));
     }
 
+    [HttpGet("search")]
+    [ProducesResponseType(typeof(PagedResult<UserSearchResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SearchUsers(
+        [FromQuery] string? keyword,
+        [FromQuery] int pageIndex = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        return ToActionResult(await service.SearchUsersAsync(
+            keyword,
+            pageIndex,
+            pageSize,
+            cancellationToken));
+    }
+
+    [HttpGet("{userId:long}/profile")]
+    [ProducesResponseType(typeof(PublicUserProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPublicProfile(
+        long userId,
+        CancellationToken cancellationToken)
+    {
+        return ToActionResult(await service.GetPublicProfileAsync(userId, cancellationToken));
+    }
+
     [HttpPut("me")]
     [RequestSizeLimit(5 * 1024 * 1024 + 64 * 1024)]
     public async Task<IActionResult> UpdateMe(
