@@ -135,6 +135,13 @@ using (var scope = app.Services.CreateScope())
     try
     {
         await DataSeeder.SeedDataAsync(dbContext);
+        
+        if (args.Contains("--seed-posts"))
+        {
+            await PostSeeder.SeedPostsAsync(dbContext);
+            Console.WriteLine("Post seeding completed.");
+            return; // Exit after one-time seed
+        }
     }
     catch (Exception ex)
     {
