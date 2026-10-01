@@ -55,6 +55,21 @@ public class PostsController : ControllerBase
     }
 
     /// <summary>
+    /// Searches published articles and videos by title or content.
+    /// </summary>
+    [HttpGet("search")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(PagedResult<PostFeedItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SearchPosts(
+        [FromQuery] SearchPostsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _postService.SearchPostsAsync(request, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Gets a paginated list of posts created by the current user.
     /// </summary>
     [HttpGet("my-posts")]

@@ -184,6 +184,49 @@ public sealed class PostService : IPostService
             Items = dtoItems
         };
     }
+
+    public async Task<PagedResult<PostFeedItemDto>> SearchPostsAsync(
+        SearchPostsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var keyword = request.Keyword?.Trim();
+        if (string.IsNullOrWhiteSpace(keyword) || keyword.Length < 2)
+        {
+            throw new ArgumentException("Keyword must contain at least 2 characters.");
+        }
+
+        var pageIndex = request.PageIndex < 1 ? 1 : request.PageIndex;
+        var pageSize = request.PageSize < 1 ? 10 : Math.Min(request.PageSize, 50);
+
+        var (totalCount, items) = await _postRepository.SearchPostsAsync(
+            keyword,
+            pageIndex,
+            pageSize,
+            cancellationToken);
+
+        var dtoItems = items.Select(p => new PostFeedItemDto
+        {
+            Id = p.Id,
+            Title = p.Title,
+            PostType = p.PostType,
+            ThumbnailUrl = p.ThumbnailUrl,
+            AuthorName = p.AuthorName,
+            AvatarUrl = p.AvatarUrl,
+            ViewCount = p.ViewCount,
+            CreatedAt = p.CreatedAt
+        }).ToList();
+
+        return new PagedResult<PostFeedItemDto>
+        {
+            TotalItems = totalCount,
+            TotalCount = totalCount > int.MaxValue ? int.MaxValue : (int)totalCount,
+            PageIndex = pageIndex,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
+            Items = dtoItems
+        };
+    }
+
     public async Task<PostDetailDto> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default)
     {
         var (post, authorName) = await _postRepository.GetPostDetailAsync(postId, cancellationToken);
