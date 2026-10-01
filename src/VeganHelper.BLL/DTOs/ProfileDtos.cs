@@ -14,7 +14,8 @@ public sealed record UserProfileDto(
     decimal? WeightKg,
     DateOnly? BirthDate,
     string? BiologicalSex,
-    string DietType);
+    string DietType,
+    DateTime CreatedAt);
 
 public sealed record UserSearchResultDto(
     long Id,

@@ -377,8 +377,9 @@ public sealed class AuthService(
                 CreatedAt = now
             }, cancellationToken);
             await repository.SaveChangesAsync(cancellationToken);
+            var resetLink = $"http://localhost:3000/forgot-password?token={rawToken}&email={System.Net.WebUtility.UrlEncode(email)}";
             await TrySendEmailAsync(
-                AuthEmailTemplates.PasswordReset(email, rawToken, PasswordResetLifetimeMinutes),
+                AuthEmailTemplates.PasswordReset(email, resetLink, PasswordResetLifetimeMinutes),
                 cancellationToken);
         }
         return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("If the email exists, a password reset link has been sent."));

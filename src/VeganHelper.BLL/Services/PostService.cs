@@ -295,7 +295,11 @@ public sealed class PostService : IPostService
             Title = p.Title,
             Status = p.Status,
             CreatedAt = p.CreatedAt,
-            ThumbnailUrl = p.Media.FirstOrDefault(m => m.IsPrimary)?.MediaUrl
+            ThumbnailUrl = p.Media.FirstOrDefault(m => m.IsPrimary)?.MediaUrl,
+            Content = p.Content,
+            PostType = p.PostType,
+            CategoryName = null,
+            ViewCount = p.ViewCount
         }).ToList();
 
         int totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);

@@ -41,18 +41,21 @@ public static class AuthEmailTemplates
 
     public static EmailMessage PasswordReset(
         string toEmail,
-        string resetToken,
+        string resetLink,
         int lifetimeMinutes)
     {
         const string subject = "Reset your VeganHelper password";
         const string title = "Reset your password";
         const string intro = "We received a request to reset the password for your VeganHelper account.";
-        var plainText = $"{title}\n\nYour password reset token is:\n{resetToken}\n\nCopy this token into the password reset screen. It expires in {lifetimeMinutes} minutes. If you did not request a password reset, you can safely ignore this email.";
-        var safeToken = Encode(resetToken);
+        var plainText = $"{title}\n\nClick the link below to reset your password:\n{resetLink}\n\nIt expires in {lifetimeMinutes} minutes. If you did not request a password reset, you can safely ignore this email.";
+        var safeLink = Encode(resetLink);
         var content = $$"""
-            <p style="margin:0 0 18px;color:#344054;font-size:16px;line-height:1.6;">Copy the token below into the VeganHelper password reset screen:</p>
-            <div style="margin:0 0 20px;padding:16px;background:#f8fafc;border:1px solid #d0d5dd;border-radius:12px;color:#344054;font-family:Consolas,'Courier New',monospace;font-size:14px;line-height:1.6;word-break:break-all;overflow-wrap:anywhere;">{{safeToken}}</div>
-            <p style="margin:0;color:#667085;font-size:14px;line-height:1.6;">This token expires in <strong style="color:#344054;">{{lifetimeMinutes}} minutes</strong> and can only be used once.</p>
+            <p style="margin:0 0 18px;color:#344054;font-size:16px;line-height:1.6;">Click the button below to reset your password:</p>
+            <div style="margin:0 0 20px;text-align:center;">
+                <a href="{{safeLink}}" style="display:inline-block;padding:12px 24px;background:#1f6f4a;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">Reset Password</a>
+            </div>
+            <p style="margin:0 0 18px;color:#667085;font-size:14px;line-height:1.6;">Or copy and paste this link into your browser:<br><a href="{{safeLink}}" style="color:#1f6f4a;word-break:break-all;">{{safeLink}}</a></p>
+            <p style="margin:0;color:#667085;font-size:14px;line-height:1.6;">This link expires in <strong style="color:#344054;">{{lifetimeMinutes}} minutes</strong> and can only be used once.</p>
             """;
 
         return new EmailMessage(
