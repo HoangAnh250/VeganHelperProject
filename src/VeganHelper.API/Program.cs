@@ -117,16 +117,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-var configuredAvatarRoot = builder.Configuration["Storage:AvatarRoot"];
-var avatarRoot = string.IsNullOrWhiteSpace(configuredAvatarRoot)
-    ? Path.Combine(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"), "uploads", "avatars")
-    : Path.GetFullPath(Path.IsPathRooted(configuredAvatarRoot)
-        ? configuredAvatarRoot
-        : Path.Combine(builder.Environment.ContentRootPath, configuredAvatarRoot));
-builder.Services.AddSingleton<IAvatarStorage>(_ => new LocalAvatarStorage(avatarRoot));
-
 builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
-builder.Services.AddScoped<IMediaStorageService, CloudflareR2StorageService>();
+builder.Services.AddScoped<CloudflareR2StorageService>();
+builder.Services.AddScoped<IMediaStorageService>(sp => sp.GetRequiredService<CloudflareR2StorageService>());
+builder.Services.AddScoped<IAvatarStorage>(sp => sp.GetRequiredService<CloudflareR2StorageService>());
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
 var app = builder.Build();
@@ -152,7 +146,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-Directory.CreateDirectory(avatarRoot);
 app.UseExceptionHandler();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment())

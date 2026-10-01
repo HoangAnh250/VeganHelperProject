@@ -40,6 +40,10 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         if (user is null || user.DeletedAt is not null)
             return ServiceResult<UserProfileDto>.Fail("User was not found.", 404);
 
+        if (command.DisplayName is not null && command.DisplayName.Trim().Length < 3)
+            return ServiceResult<UserProfileDto>.Fail("Full name must contain at least 3 characters.", 400);
+        if (command.BirthDate is { } birthDate && birthDate >= DateOnly.FromDateTime(DateTime.UtcNow))
+            return ServiceResult<UserProfileDto>.Fail("Date of birth must be a valid date before today.", 400);
         if (command.HeightCm is <= 0 or > 300 || command.WeightKg is <= 0 or > 500)
             return ServiceResult<UserProfileDto>.Fail("Height and weight must be positive and within the allowed range.", 400);
         if (command.BiologicalSex is not null && command.BiologicalSex is not ("male" or "female" or "other"))

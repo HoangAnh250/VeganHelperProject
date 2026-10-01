@@ -2,10 +2,11 @@ using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using VeganHelper.DAL.Storage;
 
 namespace VeganHelper.BLL.Services.Media;
 
-public class CloudflareR2StorageService : IMediaStorageService
+public class CloudflareR2StorageService : IMediaStorageService, IAvatarStorage
 {
     private readonly AmazonS3Client _s3Client;
     private readonly string _bucketName;
@@ -51,6 +52,36 @@ public class CloudflareR2StorageService : IMediaStorageService
         await _s3Client.PutObjectAsync(request);
 
         return $"{_publicUrl}/{fileName}";
+    }
+
+    public async Task<string> SaveAsync(
+        byte[] content,
+        string originalFileName,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
+        if (content is null || content.Length == 0)
+        {
+            throw new ArgumentException("Avatar content is empty.", nameof(content));
+        }
+
+        var extension = contentType.Equals("image/png", StringComparison.OrdinalIgnoreCase)
+            ? ".png"
+            : ".jpg";
+        var objectKey = $"avatars/{Guid.NewGuid():N}{extension}";
+
+        await using var stream = new MemoryStream(content, writable: false);
+        var request = new PutObjectRequest
+        {
+            BucketName = _bucketName,
+            Key = objectKey,
+            InputStream = stream,
+            ContentType = contentType,
+            DisablePayloadSigning = true
+        };
+
+        await _s3Client.PutObjectAsync(request, cancellationToken);
+        return $"{_publicUrl}/{objectKey}";
     }
     
     public async Task DeleteFileAsync(string fileUrl)

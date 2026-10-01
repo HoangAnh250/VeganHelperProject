@@ -36,7 +36,7 @@ public sealed record PublicUserProfileDto(
 
 public sealed class UpdateProfileRequestDto
 {
-    [StringLength(100)]
+    [StringLength(100, MinimumLength = 3)]
     public string? DisplayName { get; init; }
 
     public string? PhoneNumber { get; init; }
