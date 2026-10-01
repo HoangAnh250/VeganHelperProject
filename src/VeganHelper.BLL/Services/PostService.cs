@@ -256,6 +256,7 @@ public sealed class PostService : IPostService
             Content = p.Content,
             PostType = p.PostType,
             CategoryName = null,
+            CategoryId = p.PostCategories.FirstOrDefault() != null ? p.PostCategories.FirstOrDefault().CategoryId : 0,
             ViewCount = p.ViewCount
         }).ToList();
 
