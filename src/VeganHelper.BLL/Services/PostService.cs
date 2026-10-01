@@ -255,7 +255,7 @@ public sealed class PostService : IPostService
             ThumbnailUrl = p.Media.FirstOrDefault(m => m.IsPrimary)?.MediaUrl,
             Content = p.Content,
             PostType = p.PostType,
-            CategoryName = p.Category != null ? p.Category.Name : null,
+            CategoryName = null,
             ViewCount = p.ViewCount
         }).ToList();
 

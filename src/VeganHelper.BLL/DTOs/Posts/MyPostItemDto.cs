@@ -12,5 +12,5 @@ public class MyPostItemDto
     public string? Content { get; set; }
     public string? PostType { get; set; }
     public string? CategoryName { get; set; }
-    public int ViewCount { get; set; }
+    public long ViewCount { get; set; }
 }
