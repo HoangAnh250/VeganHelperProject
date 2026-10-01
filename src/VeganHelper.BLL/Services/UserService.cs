@@ -110,6 +110,7 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         profile.WeightKg,
         profile.BirthDate,
         profile.BiologicalSex,
-        profile.DietType);
+        profile.DietType,
+        user.CreatedAt);
 
 }
