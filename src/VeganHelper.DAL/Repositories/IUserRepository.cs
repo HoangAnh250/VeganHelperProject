@@ -8,5 +8,13 @@ public interface IUserRepository
     Task<User?> FindUserAsync(long userId, CancellationToken cancellationToken);
     Task<UserProfile?> FindUserProfileAsync(long userId, CancellationToken cancellationToken);
     Task AddUserProfileAsync(UserProfile profile, CancellationToken cancellationToken);
+    Task<(long TotalCount, IReadOnlyList<UserSearchProjection> Items)> SearchUsersAsync(
+        string keyword,
+        int pageIndex,
+        int pageSize,
+        CancellationToken cancellationToken);
+    Task<PublicUserProfileProjection?> GetPublicProfileAsync(
+        long userId,
+        CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

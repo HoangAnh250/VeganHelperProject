@@ -1,15 +1,6 @@
-namespace VeganHelper.BLL.DTOs.Posts;
+namespace VeganHelper.DAL.Entities;
 
-public sealed record ToggleLikeResponse(
-    long PostId,
-    bool IsLiked,
-    long LikeCount);
-
-public sealed record ToggleSaveResponse(
-    long PostId,
-    bool IsSaved);
-
-public sealed class SavedPostItemDto
+public sealed class SavedPostProjection
 {
     public long PostId { get; set; }
     public string Title { get; set; } = string.Empty;

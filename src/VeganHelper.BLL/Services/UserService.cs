@@ -98,6 +98,87 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         return ServiceResult<UserProfileDto>.Ok(Map(user, profile));
     }
 
+    public async Task<ServiceResult<PagedResult<UserSearchResultDto>>> SearchUsersAsync(
+        string? keyword,
+        int pageIndex,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var normalizedKeyword = keyword?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedKeyword) || normalizedKeyword.Length < 2)
+        {
+            return ServiceResult<PagedResult<UserSearchResultDto>>.Fail(
+                "Keyword must contain at least 2 characters.",
+                400);
+        }
+
+        pageIndex = pageIndex < 1 ? 1 : pageIndex;
+        pageSize = pageSize < 1 ? 10 : Math.Min(pageSize, 50);
+
+        var (totalCount, projections) = await repository.SearchUsersAsync(
+            normalizedKeyword,
+            pageIndex,
+            pageSize,
+            cancellationToken);
+
+        var result = new PagedResult<UserSearchResultDto>
+        {
+            TotalItems = totalCount,
+            TotalCount = totalCount > int.MaxValue ? int.MaxValue : (int)totalCount,
+            PageIndex = pageIndex,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
+            Items = projections.Select(user => new UserSearchResultDto(
+                user.Id,
+                user.Username,
+                user.DisplayName,
+                user.AvatarUrl))
+        };
+
+        return ServiceResult<PagedResult<UserSearchResultDto>>.Ok(result);
+    }
+
+    public async Task<ServiceResult<PublicUserProfileDto>> GetPublicProfileAsync(
+        long userId,
+        CancellationToken cancellationToken)
+    {
+        if (userId <= 0)
+        {
+            return ServiceResult<PublicUserProfileDto>.Fail("User profile was not found.", 404);
+        }
+
+        var projection = await repository.GetPublicProfileAsync(userId, cancellationToken);
+        if (projection is null)
+        {
+            return ServiceResult<PublicUserProfileDto>.Fail("User profile was not found.", 404);
+        }
+
+        var posts = projection.Posts.Select(post => new VeganHelper.BLL.DTOs.Posts.PostFeedItemDto
+        {
+            Id = post.Id,
+            Title = post.Title,
+            PostType = post.PostType,
+            ThumbnailUrl = post.ThumbnailUrl,
+            AuthorName = post.AuthorName,
+            AvatarUrl = post.AvatarUrl,
+            ViewCount = post.ViewCount,
+            CreatedAt = post.CreatedAt
+        }).ToList();
+
+        var result = new PublicUserProfileDto(
+            projection.Id,
+            projection.Username,
+            projection.DisplayName,
+            projection.AvatarUrl,
+            projection.DietType,
+            projection.JoinedAt,
+            projection.PublishedPostCount,
+            projection.ReceivedLikeCount,
+            posts);
+
+        return ServiceResult<PublicUserProfileDto>.Ok(result);
+    }
+
     private static UserProfileDto Map(User user, UserProfile profile) => new(
         user.Id,
         user.Username,

@@ -16,6 +16,23 @@ public sealed record UserProfileDto(
     string? BiologicalSex,
     string DietType);
 
+public sealed record UserSearchResultDto(
+    long Id,
+    string Username,
+    string DisplayName,
+    string? AvatarUrl);
+
+public sealed record PublicUserProfileDto(
+    long Id,
+    string Username,
+    string DisplayName,
+    string? AvatarUrl,
+    string DietType,
+    DateTime JoinedAt,
+    long PublishedPostCount,
+    long ReceivedLikeCount,
+    IReadOnlyList<Posts.PostFeedItemDto> Posts);
+
 public sealed class UpdateProfileRequestDto
 {
     [StringLength(100)]

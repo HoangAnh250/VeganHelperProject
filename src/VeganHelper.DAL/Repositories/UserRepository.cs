@@ -24,5 +24,129 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
     public Task AddUserProfileAsync(UserProfile profile, CancellationToken cancellationToken) =>
         db.UserProfiles.AddAsync(profile, cancellationToken).AsTask();
 
+    public async Task<(long TotalCount, IReadOnlyList<UserSearchProjection> Items)> SearchUsersAsync(
+        string keyword,
+        int pageIndex,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = db.Users
+            .AsNoTracking()
+            .Where(user => user.IsActive
+                && user.DeletedAt == null
+                && (user.Username.Contains(keyword)
+                    || db.UserProfiles.Any(profile =>
+                        profile.UserId == user.Id && profile.DisplayName.Contains(keyword))))
+            .Select(user => new
+            {
+                user.Id,
+                user.Username,
+                DisplayName = db.UserProfiles
+                    .Where(profile => profile.UserId == user.Id)
+                    .Select(profile => profile.DisplayName)
+                    .FirstOrDefault(),
+                AvatarUrl = db.UserProfiles
+                    .Where(profile => profile.UserId == user.Id)
+                    .Select(profile => profile.AvatarUrl)
+                    .FirstOrDefault()
+            });
+
+        var totalCount = await query.LongCountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(user => user.Username.StartsWith(keyword))
+            .ThenByDescending(user => user.DisplayName != null && user.DisplayName.StartsWith(keyword))
+            .ThenBy(user => user.Username)
+            .ThenBy(user => user.Id)
+            .Skip((pageIndex - 1) * pageSize)
+            .Take(pageSize)
+            .Select(user => new UserSearchProjection
+            {
+                Id = user.Id,
+                Username = user.Username,
+                DisplayName = user.DisplayName ?? user.Username,
+                AvatarUrl = user.AvatarUrl
+            })
+            .ToListAsync(cancellationToken);
+
+        return (totalCount, items);
+    }
+
+    public async Task<PublicUserProfileProjection?> GetPublicProfileAsync(
+        long userId,
+        CancellationToken cancellationToken)
+    {
+        var user = await db.Users
+            .AsNoTracking()
+            .Where(candidate => candidate.Id == userId
+                && candidate.IsActive
+                && candidate.DeletedAt == null)
+            .Select(candidate => new
+            {
+                candidate.Id,
+                candidate.Username,
+                candidate.CreatedAt,
+                DisplayName = db.UserProfiles
+                    .Where(profile => profile.UserId == candidate.Id)
+                    .Select(profile => profile.DisplayName)
+                    .FirstOrDefault(),
+                AvatarUrl = db.UserProfiles
+                    .Where(profile => profile.UserId == candidate.Id)
+                    .Select(profile => profile.AvatarUrl)
+                    .FirstOrDefault(),
+                DietType = db.UserProfiles
+                    .Where(profile => profile.UserId == candidate.Id)
+                    .Select(profile => profile.DietType)
+                    .FirstOrDefault()
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (user is null)
+        {
+            return null;
+        }
+
+        var publishedPostsQuery = db.Posts
+            .AsNoTracking()
+            .Where(post => post.AuthorId == userId
+                && post.Status == "published"
+                && !post.IsDeleted);
+
+        var posts = await publishedPostsQuery
+            .OrderByDescending(post => post.CreatedAt)
+            .ThenByDescending(post => post.Id)
+            .Select(post => new PostFeedProjection
+            {
+                Id = post.Id,
+                Title = post.Title,
+                PostType = post.PostType,
+                ThumbnailUrl = post.Media
+                    .Where(media => media.IsPrimary)
+                    .Select(media => media.MediaUrl)
+                    .FirstOrDefault(),
+                AuthorName = user.DisplayName ?? user.Username,
+                AvatarUrl = user.AvatarUrl,
+                ViewCount = post.ViewCount,
+                CreatedAt = post.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var publishedPostCount = posts.LongCount();
+        var receivedLikeCount = await db.PostLikes
+            .LongCountAsync(like => publishedPostsQuery.Any(post => post.Id == like.PostId), cancellationToken);
+
+        return new PublicUserProfileProjection
+        {
+            Id = user.Id,
+            Username = user.Username,
+            DisplayName = user.DisplayName ?? user.Username,
+            AvatarUrl = user.AvatarUrl,
+            DietType = user.DietType ?? "vegan",
+            JoinedAt = user.CreatedAt,
+            PublishedPostCount = publishedPostCount,
+            ReceivedLikeCount = receivedLikeCount,
+            Posts = posts
+        };
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) => db.SaveChangesAsync(cancellationToken);
 }
