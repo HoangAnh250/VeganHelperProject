@@ -5,6 +5,7 @@ public sealed class User
     public long Id { get; set; }
     public string Username { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string? PendingEmail { get; set; }
     public string? PhoneNumber { get; set; }
     public string? PasswordHash { get; set; }
     public DateTime? EmailVerifiedAt { get; set; }

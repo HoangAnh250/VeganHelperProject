@@ -69,6 +69,36 @@ public static class AuthEmailTemplates
                 content));
     }
 
+    public static EmailMessage SecurityCode(
+        string toEmail,
+        string verificationCode,
+        int lifetimeMinutes,
+        string action)
+    {
+        const string subject = "Confirm a VeganHelper security action";
+        const string title = "Confirm your security action";
+        var intro = $"Use this one-time code to confirm that you want to {action}.";
+        var plainText = $"{title}\n\nYour verification code is: {verificationCode}\n\nThis code expires in {lifetimeMinutes} minutes. If you did not request this action, change your password and contact support.";
+        var safeCode = Encode(verificationCode);
+        var content = $$"""
+            <p style="margin:0 0 18px;color:#344054;font-size:16px;line-height:1.6;">Use the one-time code below to confirm this request:</p>
+            <div style="margin:0 0 20px;padding:18px 16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;text-align:center;">
+                <span style="color:#9a3412;font-size:32px;font-weight:700;letter-spacing:8px;line-height:1.2;">{{safeCode}}</span>
+            </div>
+            <p style="margin:0;color:#667085;font-size:14px;line-height:1.6;">This code expires in <strong style="color:#344054;">{{lifetimeMinutes}} minutes</strong> and can only be used once.</p>
+            """;
+
+        return new EmailMessage(
+            toEmail,
+            subject,
+            plainText,
+            Render(
+                preheader: "Confirm a VeganHelper security action",
+                title,
+                intro,
+                content));
+    }
+
     private static string Render(string preheader, string title, string intro, string content)
     {
         return $$"""

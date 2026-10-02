@@ -10,6 +10,9 @@ public sealed class RegisterRequestDto
     [Required, EmailAddress, StringLength(255)]
     public string Email { get; init; } = string.Empty;
 
+    [Required, StringLength(100, MinimumLength = 3)]
+    public string FullName { get; init; } = string.Empty;
+
     [Required, MinLength(8), StringLength(128)]
     public string Password { get; init; } = string.Empty;
 
@@ -34,8 +37,8 @@ public sealed class ResendVerificationRequestDto
 
 public sealed class LoginRequestDto
 {
-    [Required, EmailAddress]
-    public string Email { get; init; } = string.Empty;
+    [Required, StringLength(255)]
+    public string Identifier { get; init; } = string.Empty;
 
     [Required]
     public string Password { get; init; } = string.Empty;
@@ -56,10 +59,31 @@ public sealed class SetPasswordRequestDto
     public string ConfirmPassword { get; init; } = string.Empty;
 }
 
-public sealed class UnlinkGoogleRequestDto
+public sealed class RequestGoogleUnlinkDto
 {
     [Required]
     public string CurrentPassword { get; init; } = string.Empty;
+}
+
+public sealed class ConfirmGoogleUnlinkDto
+{
+    [Required, RegularExpression("^[0-9]{6}$")]
+    public string Otp { get; init; } = string.Empty;
+}
+
+public sealed class RequestEmailChangeDto
+{
+    [Required, EmailAddress, StringLength(255)]
+    public string NewEmail { get; init; } = string.Empty;
+
+    [Required]
+    public string CurrentPassword { get; init; } = string.Empty;
+}
+
+public sealed class ConfirmEmailChangeOtpDto
+{
+    [Required, RegularExpression("^[0-9]{6}$")]
+    public string Otp { get; init; } = string.Empty;
 }
 
 public sealed class RefreshTokenRequestDto

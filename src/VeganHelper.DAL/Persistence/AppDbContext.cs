@@ -53,6 +53,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasAlternateKey(x => x.Username).HasName("UQ_users_username");
             entity.Property(x => x.Email).HasColumnName("email").HasColumnType("character varying(255)").UseCollation("veganhelper_ci").IsRequired(true);
             entity.HasAlternateKey(x => x.Email).HasName("UQ_users_email");
+            entity.Property(x => x.PendingEmail).HasColumnName("pending_email").HasColumnType("character varying(255)").UseCollation("veganhelper_ci").IsRequired(false);
             entity.Property(x => x.PhoneNumber).HasColumnName("phone_number").HasColumnType("character varying(20)").IsRequired(false);
             entity.Property(x => x.PasswordHash).HasColumnName("password_hash").HasColumnType("character varying(500)").IsRequired(false);
             entity.Property(x => x.EmailVerifiedAt).HasColumnName("email_verified_at").HasColumnType("timestamp with time zone").IsRequired(false);
@@ -72,12 +73,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasKey(x => x.Id).HasName("PK_email_verification_tokens");
             entity.Property(x => x.Id).HasColumnName("id").HasColumnType("bigint").UseIdentityByDefaultColumn();
             entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("bigint").IsRequired();
+            entity.Property(x => x.Purpose).HasColumnName("purpose").HasColumnType("character varying(40)").IsRequired().HasDefaultValueSql("'registration'");
+            entity.Property(x => x.TargetEmail).HasColumnName("target_email").HasColumnType("character varying(255)").UseCollation("veganhelper_ci").IsRequired(false);
             entity.Property(x => x.TokenHash).HasColumnName("token_hash").HasColumnType("character varying(128)").IsRequired();
             entity.Property(x => x.ExpiresAt).HasColumnName("expires_at").HasColumnType("timestamp with time zone").IsRequired();
             entity.Property(x => x.ConsumedAt).HasColumnName("consumed_at").HasColumnType("timestamp with time zone").IsRequired(false);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_email_verification_tokens_users");
-            entity.HasIndex(x => new { x.UserId, x.ExpiresAt }).HasDatabaseName("IX_email_verification_tokens_user_expiry");
+            entity.HasIndex(x => new { x.UserId, x.Purpose, x.ExpiresAt }).HasDatabaseName("IX_email_verification_tokens_user_purpose_expiry");
             entity.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("UQ_email_verification_tokens_hash");
         });
         modelBuilder.Entity<PasswordResetToken>(entity =>

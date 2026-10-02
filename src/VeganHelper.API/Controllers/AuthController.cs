@@ -46,13 +46,53 @@ public sealed class AuthController(IAuthService service) : ControllerBase
     }
 
     [Authorize]
-    [HttpDelete("google/link")]
-    public async Task<IActionResult> UnlinkGoogle(UnlinkGoogleRequestDto request, CancellationToken cancellationToken)
+    [HttpPost("google/unlink/request")]
+    public async Task<IActionResult> RequestGoogleUnlink(RequestGoogleUnlinkDto request, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         return userId is null
             ? Unauthorized()
-            : ToActionResult(await service.UnlinkGoogleAsync(userId.Value, request, cancellationToken));
+            : ToActionResult(await service.RequestGoogleUnlinkAsync(userId.Value, request, cancellationToken));
+    }
+
+    [Authorize]
+    [HttpPost("google/unlink/confirm")]
+    public async Task<IActionResult> ConfirmGoogleUnlink(ConfirmGoogleUnlinkDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        return userId is null
+            ? Unauthorized()
+            : ToActionResult(await service.ConfirmGoogleUnlinkAsync(userId.Value, request, cancellationToken));
+    }
+
+    [Authorize]
+    [HttpPost("change-email/request")]
+    public async Task<IActionResult> RequestEmailChange(RequestEmailChangeDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        return userId is null
+            ? Unauthorized()
+            : ToActionResult(await service.RequestEmailChangeAsync(userId.Value, request, cancellationToken));
+    }
+
+    [Authorize]
+    [HttpPost("change-email/verify-current")]
+    public async Task<IActionResult> VerifyCurrentEmailChangeOtp(ConfirmEmailChangeOtpDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        return userId is null
+            ? Unauthorized()
+            : ToActionResult(await service.ConfirmCurrentEmailChangeOtpAsync(userId.Value, request, cancellationToken));
+    }
+
+    [Authorize]
+    [HttpPost("change-email/confirm")]
+    public async Task<IActionResult> ConfirmNewEmail(ConfirmEmailChangeOtpDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        return userId is null
+            ? Unauthorized()
+            : ToActionResult(await service.ConfirmNewEmailAsync(userId.Value, request, cancellationToken));
     }
 
     [Authorize]
