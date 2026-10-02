@@ -17,6 +17,11 @@ public interface IPostRepository
         string? dietType = null,
         int? prepTimeMax = null,
         CancellationToken cancellationToken = default);
+    Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> SearchPostsAsync(
+        string keyword,
+        int pageIndex,
+        int pageSize,
+        CancellationToken cancellationToken = default);
     Task<(Post? Post, string AuthorName)> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default);
 
     Task<(System.Collections.Generic.List<Post> Posts, int TotalCount)> GetMyPostsAsync(long authorId, string? status, int pageIndex, int pageSize, CancellationToken cancellationToken = default);

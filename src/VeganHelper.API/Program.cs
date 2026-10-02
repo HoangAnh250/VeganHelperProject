@@ -83,6 +83,8 @@ builder.Services.AddScoped<IStatusService, StatusService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IPostInteractionRepository, PostInteractionRepository>();
+builder.Services.AddScoped<IPostInteractionService, PostInteractionService>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -120,16 +122,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-var configuredAvatarRoot = builder.Configuration["Storage:AvatarRoot"];
-var avatarRoot = string.IsNullOrWhiteSpace(configuredAvatarRoot)
-    ? Path.Combine(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"), "uploads", "avatars")
-    : Path.GetFullPath(Path.IsPathRooted(configuredAvatarRoot)
-        ? configuredAvatarRoot
-        : Path.Combine(builder.Environment.ContentRootPath, configuredAvatarRoot));
-builder.Services.AddSingleton<IAvatarStorage>(_ => new LocalAvatarStorage(avatarRoot));
-
 builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
-builder.Services.AddScoped<IMediaStorageService, CloudflareR2StorageService>();
+builder.Services.AddScoped<CloudflareR2StorageService>();
+builder.Services.AddScoped<IMediaStorageService>(sp => sp.GetRequiredService<CloudflareR2StorageService>());
+builder.Services.AddScoped<IAvatarStorage>(sp => sp.GetRequiredService<CloudflareR2StorageService>());
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
 var app = builder.Build();
@@ -152,7 +148,6 @@ if (args.Contains("--migrate") || args.Contains("--seed") || args.Contains("--se
     return;
 }
 
-Directory.CreateDirectory(avatarRoot);
 app.UseExceptionHandler();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment())

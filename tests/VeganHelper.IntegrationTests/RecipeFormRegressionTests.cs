@@ -13,6 +13,28 @@ namespace VeganHelper.IntegrationTests;
 
 public partial class PostRepositoryTests
 {
+    [Fact]
+    public async Task DeveloperUserSearch_WorksWithPostgreSqlCaseInsensitiveUsername()
+    {
+        var user = await AddUser();
+        var result = await new UserRepository(_context).SearchUsersAsync(user.Username.ToUpperInvariant(), 1, 10, default);
+        Assert.Equal(user.Id, Assert.Single(result.Items).Id);
+    }
+
+    [Fact]
+    public async Task DeveloperPostSearch_MatchesUnicodeRegardlessOfCase()
+    {
+        var user = await AddUser();
+        var post = NewPost(user.Id);
+        post.Title = "Đậu hũ " + Guid.NewGuid().ToString("N");
+        post.PostType = "article";
+        post.Status = "published";
+        _context.Posts.Add(post);
+        await _context.SaveChangesAsync();
+        var result = await _postRepository.SearchPostsAsync(post.Title.ToUpperInvariant(), 1, 10);
+        Assert.Equal(post.Id, Assert.Single(result.Items).Id);
+    }
+
     // Real repository queries and writes, with the fixture owning the outer rollback transaction.
     private PostService RecipeService()
     {
