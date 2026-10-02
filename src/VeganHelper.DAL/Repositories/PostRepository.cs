@@ -25,6 +25,26 @@ public sealed class PostRepository : IPostRepository
         return entry.Entity;
     }
 
+    public Task<Ingredient?> FindIngredientByIdAsync(long ingredientId, CancellationToken cancellationToken = default)
+        => _context.Ingredients.FirstOrDefaultAsync(i => i.Id == ingredientId, cancellationToken);
+
+    public async Task<Ingredient> GetOrCreateIngredientAsync(string name, string unit, CancellationToken cancellationToken = default)
+    {
+        var normalizedName = name.ToLowerInvariant();
+        var existing = await _context.Ingredients.FirstOrDefaultAsync(i => i.Name.ToLower() == normalizedName, cancellationToken);
+        if (existing is not null) return existing;
+
+        // Concurrent requests for the same name share the existing unique ingredient.
+        // This runs in the post transaction, so a failed recipe does not leave orphan ingredients.
+        var inserted = await _context.Ingredients.FromSqlInterpolated($"""
+            INSERT INTO ingredients (name, default_unit)
+            VALUES ({name}, {unit})
+            ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+            RETURNING *
+            """).ToListAsync(cancellationToken);
+        return inserted.Single();
+    }
+
     public async Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> GetFeedAsync(
         int pageIndex,
         int pageSize,
@@ -45,12 +65,14 @@ public sealed class PostRepository : IPostRepository
 
         if (!string.IsNullOrEmpty(difficultyLevel))
         {
-            query = query.Where(p => p.DifficultyLevel == difficultyLevel);
+            var normalizedDifficulty = difficultyLevel.ToLowerInvariant();
+            query = query.Where(p => p.DifficultyLevel != null && p.DifficultyLevel.ToLower() == normalizedDifficulty);
         }
 
         if (!string.IsNullOrEmpty(dietType))
         {
-            query = query.Where(p => p.DietType == dietType);
+            var normalizedDiet = dietType.ToLowerInvariant();
+            query = query.Where(p => p.DietType != null && p.DietType.ToLower() == normalizedDiet);
         }
 
         if (prepTimeMax.HasValue)
@@ -62,6 +84,7 @@ public sealed class PostRepository : IPostRepository
 
         var projectedQuery = query
             .OrderByDescending(p => p.CreatedAt)
+            .ThenByDescending(p => p.Id)
             .Skip((pageIndex - 1) * pageSize)
             .Take(pageSize)
             .Select(p => new PostFeedProjection
@@ -69,7 +92,7 @@ public sealed class PostRepository : IPostRepository
                 Id = p.Id,
                 Title = p.Title,
                 PostType = p.PostType,
-                ThumbnailUrl = p.Media.Where(m => m.IsPrimary).Select(m => m.MediaUrl).FirstOrDefault(),
+                ThumbnailUrl = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaUrl).FirstOrDefault(),
                 AuthorName = _context.UserProfiles.Where(up => up.UserId == p.AuthorId).Select(up => up.DisplayName).FirstOrDefault() 
                              ?? _context.Users.Where(u => u.Id == p.AuthorId).Select(u => u.Username).FirstOrDefault() ?? "Unknown",
                 AvatarUrl = _context.UserProfiles.Where(up => up.UserId == p.AuthorId).Select(up => up.AvatarUrl).FirstOrDefault(),
@@ -118,14 +141,17 @@ public sealed class PostRepository : IPostRepository
 
         if (!string.IsNullOrEmpty(status))
         {
-            query = query.Where(p => p.Status == status);
+            var normalizedStatus = status.ToLowerInvariant();
+            query = query.Where(p => p.Status.ToLower() == normalizedStatus);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
         var posts = await query
             .Include(p => p.Media)
+            .Include(p => p.PostCategories)
             .OrderByDescending(p => p.CreatedAt)
+            .ThenByDescending(p => p.Id)
             .Skip((pageIndex - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);

@@ -25,6 +25,10 @@ using VeganHelper.DAL.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var supabaseConfigPath = DatabaseConnection.FindLocalConfiguration(builder.Environment.ContentRootPath);
+if (supabaseConfigPath is not null)
+    builder.Configuration.AddJsonFile(supabaseConfigPath, optional: false, reloadOnChange: false);
+builder.Configuration.AddEnvironmentVariables();
 var envFilePath = FindEnvironmentFile(builder.Environment.ContentRootPath);
 if (envFilePath is not null)
 {
@@ -78,6 +82,7 @@ builder.Services.AddDal(builder.Configuration);
 builder.Services.AddScoped<IStatusService, StatusService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -129,25 +134,22 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+if (args.Contains("--migrate") || args.Contains("--seed") || args.Contains("--seed-posts"))
 {
+    using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    try
+    if (args.Contains("--migrate"))
+        await dbContext.Database.MigrateAsync();
+    if (args.Contains("--seed") || args.Contains("--seed-posts"))
     {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync();
+        await dbContext.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(3912026)");
         await DataSeeder.SeedDataAsync(dbContext);
-        
-        if (args.Contains("--seed-posts"))
-        {
-            await PostSeeder.SeedPostsAsync(dbContext);
-            Console.WriteLine("Post seeding completed.");
-            return; // Exit after one-time seed
-        }
+        if (args.Contains("--seed-posts")) await PostSeeder.SeedPostsAsync(dbContext);
+        await transaction.CommitAsync();
     }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
-    }
+    Console.WriteLine("Requested database operation completed.");
+    return;
 }
 
 Directory.CreateDirectory(avatarRoot);

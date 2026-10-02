@@ -7,6 +7,8 @@ using VeganHelper.DAL.Entities;
 public interface IPostRepository
 {
     Task<Post> CreatePostAsync(Post post, CancellationToken cancellationToken = default);
+    Task<Ingredient?> FindIngredientByIdAsync(long ingredientId, CancellationToken cancellationToken = default);
+    Task<Ingredient> GetOrCreateIngredientAsync(string name, string unit, CancellationToken cancellationToken = default);
     Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> GetFeedAsync(
         int pageIndex,
         int pageSize,

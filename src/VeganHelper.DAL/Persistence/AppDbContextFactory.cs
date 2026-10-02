@@ -7,10 +7,9 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
 {
     public AppDbContext CreateDbContext(string[] args)
     {
-        var connectionString = Environment.GetEnvironmentVariable("VeganHelper_DefaultConnection")
-            ?? "Server=(localdb)\\MSSQLLocalDB;Database=VeganHelperSystem;Trusted_Connection=True;TrustServerCertificate=True;Connect Timeout=3";
+        var connectionString = DatabaseConnection.ReadPostgresConnection();
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlServer(connectionString)
+            .UseNpgsql(connectionString)
             .Options;
         return new AppDbContext(options);
     }
