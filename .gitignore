@@ -28,3 +28,7 @@ docs/Secrets_Configuration_Management_Skill.md
 docs/Unit_Integration_Testing_Skill.md
 
 docs/Background_Job_Processing_Skill.md
+
+# Database migration credentials and data exports
+supabase.local.json
+.local-data/

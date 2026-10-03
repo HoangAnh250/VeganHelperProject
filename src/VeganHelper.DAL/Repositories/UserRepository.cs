@@ -30,13 +30,14 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
         int pageSize,
         CancellationToken cancellationToken)
     {
+        var normalizedKeyword = keyword.ToLowerInvariant();
         var query = db.Users
             .AsNoTracking()
             .Where(user => user.IsActive
                 && user.DeletedAt == null
-                && (user.Username.Contains(keyword)
+                && (EF.Functions.Collate(user.Username.ToLower(), "C").Contains(normalizedKeyword)
                     || db.UserProfiles.Any(profile =>
-                        profile.UserId == user.Id && profile.DisplayName.Contains(keyword))))
+                        profile.UserId == user.Id && profile.DisplayName.ToLower().Contains(normalizedKeyword))))
             .Select(user => new
             {
                 user.Id,
@@ -53,8 +54,8 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
 
         var totalCount = await query.LongCountAsync(cancellationToken);
         var items = await query
-            .OrderByDescending(user => user.Username.StartsWith(keyword))
-            .ThenByDescending(user => user.DisplayName != null && user.DisplayName.StartsWith(keyword))
+            .OrderByDescending(user => EF.Functions.Collate(user.Username.ToLower(), "C").StartsWith(normalizedKeyword))
+            .ThenByDescending(user => user.DisplayName != null && user.DisplayName.ToLower().StartsWith(normalizedKeyword))
             .ThenBy(user => user.Username)
             .ThenBy(user => user.Id)
             .Skip((pageIndex - 1) * pageSize)

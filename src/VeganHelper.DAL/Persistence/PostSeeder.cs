@@ -17,7 +17,7 @@ public static class PostSeeder
                 Email = "seeder@veganhelper.com",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
-                RoleId = 2 // Assuming 2 is a generic or author role
+                RoleId = await context.Roles.Where(r => r.RoleName == "member").Select(r => r.Id).SingleAsync()
             };
             context.Users.Add(seederUser);
             await context.SaveChangesAsync();
@@ -58,13 +58,6 @@ public static class PostSeeder
             new { Title = "Braised Jackfruit with Spices", Slug = "braised-dishes", Img = "https://images.unsplash.com/photo-1512152272829-e3139592d56f?auto=format&fit=crop&w=800&q=80" }
         };
 
-        // 2. Fetch existing seeded posts
-        var existingPosts = await context.Posts
-            .Include(p => p.Media)
-            .Include(p => p.PostCategories)
-            .Where(p => p.AuthorId == seederUser.Id && p.Title.StartsWith("[Demo]"))
-            .ToListAsync();
-
         // 4. Fetch valid categories for recipes
         var categories = await context.Categories
             .Where(c => c.IsActive && c.CategoryType == "post" && c.PostCategoryKind == "recipe")
@@ -85,31 +78,9 @@ public static class PostSeeder
             var category = categories.FirstOrDefault(c => c.Slug == data.Slug) ?? categories.First();
             string newTitle = $"[Demo] {data.Title}";
 
-            // Update if exists
-            if (i < existingPosts.Count)
+            // Never overwrite imported or previously seeded posts.
+            if (await context.Posts.AnyAsync(p => p.AuthorId == seederUser.Id && p.Title == newTitle)) continue;
             {
-                var post = existingPosts[i];
-                post.Title = newTitle;
-                post.Content = $"This is a beautifully crafted vegan recipe for {data.Title}. It is rich in flavor and completely plant-based. Perfect for family dinners or a healthy meal prep.";
-                
-                // Update media
-                var media = post.Media.FirstOrDefault();
-                if (media != null)
-                {
-                    media.MediaUrl = data.Img;
-                }
-                
-                // Update category
-                var postCat = post.PostCategories.FirstOrDefault();
-                if (postCat != null && postCat.CategoryId != category.Id)
-                {
-                    context.Set<PostCategory>().Remove(postCat);
-                    post.PostCategories.Add(new PostCategory { CategoryId = category.Id });
-                }
-            }
-            else
-            {
-                // Create new if there are not enough existing posts
                 var post = new Post
                 {
                     AuthorId = seederUser.Id,
@@ -154,6 +125,6 @@ public static class PostSeeder
         }
 
         await context.SaveChangesAsync();
-        Console.WriteLine($"Successfully updated/seeded {recipeData.Length} demo posts.");
+        Console.WriteLine($"Added {posts.Count} demo posts; existing posts were preserved.");
     }
 }

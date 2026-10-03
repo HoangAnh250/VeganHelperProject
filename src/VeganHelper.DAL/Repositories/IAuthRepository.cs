@@ -6,6 +6,7 @@ public interface IAuthRepository
 {
     Task<User?> FindUserByEmailAsync(string email, CancellationToken cancellationToken);
     Task<User?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken);
+    Task<User?> FindUserByIdentifierAsync(string identifier, CancellationToken cancellationToken);
     Task<User?> FindUserByIdAsync(long id, CancellationToken cancellationToken);
     Task<UserIdentity?> FindIdentityAsync(string provider, string providerSubject, CancellationToken cancellationToken);
     Task<UserIdentity?> FindIdentityByUserAsync(long userId, string provider, CancellationToken cancellationToken);
@@ -14,7 +15,7 @@ public interface IAuthRepository
     Task AddUserIdentityAsync(UserIdentity identity, CancellationToken cancellationToken);
     void RemoveUserIdentity(UserIdentity identity);
     Task AddEmailVerificationTokenAsync(EmailVerificationToken token, CancellationToken cancellationToken);
-    Task RevokeEmailVerificationTokensAsync(long userId, DateTime revokedAt, CancellationToken cancellationToken);
+    Task RevokeEmailVerificationTokensAsync(long userId, string purpose, DateTime revokedAt, CancellationToken cancellationToken);
     Task<EmailVerificationToken?> FindEmailVerificationTokenAsync(string tokenHash, CancellationToken cancellationToken);
     Task AddPasswordResetTokenAsync(PasswordResetToken token, CancellationToken cancellationToken);
     Task<PasswordResetToken?> FindPasswordResetTokenAsync(string tokenHash, CancellationToken cancellationToken);

@@ -12,6 +12,11 @@ public sealed class AuthRepository(AppDbContext db) : IAuthRepository
     public Task<User?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken) =>
         db.Users.SingleOrDefaultAsync(x => x.Username == username, cancellationToken);
 
+    public Task<User?> FindUserByIdentifierAsync(string identifier, CancellationToken cancellationToken) =>
+        db.Users.SingleOrDefaultAsync(
+            x => x.Username == identifier || x.Email == identifier,
+            cancellationToken);
+
     public Task<User?> FindUserByIdAsync(long id, CancellationToken cancellationToken) =>
         db.Users.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
@@ -39,9 +44,9 @@ public sealed class AuthRepository(AppDbContext db) : IAuthRepository
     public Task AddEmailVerificationTokenAsync(EmailVerificationToken token, CancellationToken cancellationToken) =>
         db.EmailVerificationTokens.AddAsync(token, cancellationToken).AsTask();
 
-    public Task RevokeEmailVerificationTokensAsync(long userId, DateTime revokedAt, CancellationToken cancellationToken) =>
+    public Task RevokeEmailVerificationTokensAsync(long userId, string purpose, DateTime revokedAt, CancellationToken cancellationToken) =>
         db.EmailVerificationTokens
-            .Where(x => x.UserId == userId && x.ConsumedAt == null && x.ExpiresAt > revokedAt)
+            .Where(x => x.UserId == userId && x.Purpose == purpose && x.ConsumedAt == null && x.ExpiresAt > revokedAt)
             .ExecuteUpdateAsync(
                 setters => setters.SetProperty(x => x.ConsumedAt, revokedAt),
                 cancellationToken);

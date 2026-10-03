@@ -42,6 +42,58 @@ public class PostServiceTests
     }
 
     [Fact]
+    public async Task CreatePost_WithNamedIngredientAndSteps_UsesResolvedIngredientId()
+    {
+        _mockPostRepository.Setup(r => r.GetOrCreateIngredientAsync("Đậu hũ", "", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Ingredient { Id = 42, Name = "Đậu hũ" });
+        Post? saved = null;
+        _mockPostRepository.Setup(r => r.CreatePostAsync(It.IsAny<Post>(), It.IsAny<CancellationToken>()))
+            .Callback<Post, CancellationToken>((p, _) => saved = p)
+            .ReturnsAsync((Post p, CancellationToken _) => p);
+
+        await _postService.CreatePostAsync(new CreatePostRequest
+        {
+            Title = "Recipe", PostType = "recipe", CategoryId = 6, Content = "Recipe content",
+            IngredientsJson = "[{\"Name\":\"Đậu hũ\"}]",
+            StepsJson = "[{\"StepNumber\":1,\"Description\":\"Rửa nguyên liệu\"}]"
+        }, 1);
+
+        Assert.NotNull(saved);
+        Assert.Equal(42, Assert.Single(saved.PostIngredients).IngredientId);
+        Assert.Equal("Rửa nguyên liệu", Assert.Single(saved.PostSteps).Description);
+    }
+
+    [Fact]
+    public async Task CreatePost_WithUnknownIngredientId_ReturnsInputError()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => _postService.CreatePostAsync(new CreatePostRequest
+        {
+            IngredientsJson = "[{\"IngredientId\":999}]"
+        }, 1));
+        _mockPostRepository.Verify(r => r.CreatePostAsync(It.IsAny<Post>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockPostRepository.Verify(r => r.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData("[{\"Name\":\"\"}]", "[]")]
+    [InlineData("[{\"Name\":\"Tofu\",\"Quantity\":0}]", "[]")]
+    [InlineData("[{\"Name\":\"Tofu\",\"Quantity\":0.0001}]", "[]")]
+    [InlineData("[]", "[{\"StepNumber\":0,\"Description\":\"Cook\"}]")]
+    [InlineData("[]", "[{\"StepNumber\":1,\"Description\":\"\"}]")]
+    [InlineData("[]", "[{\"StepNumber\":1,\"Description\":\"Cook\"},{\"StepNumber\":1,\"Description\":\"Serve\"}]")]
+    [InlineData("[null]", "[]")]
+    [InlineData("[]", "null")]
+    public async Task CreatePost_WithInvalidRecipeDetails_RejectsBeforeDatabaseOrUpload(string ingredients, string steps)
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => _postService.CreatePostAsync(new CreatePostRequest
+        {
+            IngredientsJson = ingredients, StepsJson = steps
+        }, 1));
+        _mockPostRepository.Verify(r => r.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockMediaStorageService.Verify(m => m.UploadFileAsync(It.IsAny<IFormFile>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CreatePostAsync_WhenRequestIsValid_CreatesPostAndCommitsTransaction()
     {
         // Arrange
@@ -55,6 +107,7 @@ public class PostServiceTests
         };
         long authorId = 100;
         var cancellationToken = CancellationToken.None;
+        _mockPostRepository.Setup(r => r.FindIngredientByIdAsync(1, cancellationToken)).ReturnsAsync(new Ingredient { Id = 1, Name = "Tofu" });
 
         _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<CreatePostRequest>(), cancellationToken))
             .ReturnsAsync(new ValidationResult());
