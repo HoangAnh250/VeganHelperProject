@@ -18,10 +18,6 @@ using VeganHelper.BLL.DTOs;
 using VeganHelper.DAL.DependencyInjection;
 using VeganHelper.DAL.Repositories;
 using VeganHelper.DAL.Storage;
-using VeganHelper.BLL.DTOs;
-using VeganHelper.BLL.DTOs;
-using VeganHelper.DAL.DependencyInjection;
-using VeganHelper.DAL.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
