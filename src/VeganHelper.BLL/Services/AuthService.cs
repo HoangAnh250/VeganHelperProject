@@ -330,6 +330,32 @@ public sealed class AuthService(
         return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("Local password set successfully."));
     }
 
+    public async Task<ServiceResult<MessageResponseDto>> ChangePasswordAsync(long userId, ChangePasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        var user = await repository.FindUserByIdAsync(userId, cancellationToken);
+        if (user is null || user.DeletedAt is not null)
+            return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
+        if (!user.IsActive || user.EmailVerifiedAt is null)
+            return ServiceResult<MessageResponseDto>.Fail("Verify and activate your account before changing your password.", 403);
+        if (user.PasswordHash is null)
+            return ServiceResult<MessageResponseDto>.Fail("Set a local password before changing it.", 409);
+        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+            return ServiceResult<MessageResponseDto>.Fail("The current password is incorrect.", 403);
+        if (BCrypt.Net.BCrypt.Verify(request.NewPassword, user.PasswordHash))
+            return ServiceResult<MessageResponseDto>.Fail("The new password must be different from the current password.", 400);
+
+        var now = DateTime.UtcNow;
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.FailedLoginAttempts = 0;
+        user.LockedUntil = null;
+        user.UpdatedAt = now;
+        await repository.RevokeRefreshTokensAsync(userId, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+
+        return ServiceResult<MessageResponseDto>.Ok(
+            new MessageResponseDto("Password changed successfully. Please log in again."));
+    }
+
     public async Task<ServiceResult<AuthResponseDto>> RefreshAsync(RefreshTokenRequestDto request, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
