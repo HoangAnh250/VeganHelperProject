@@ -59,6 +59,18 @@ public sealed class SetPasswordRequestDto
     public string ConfirmPassword { get; init; } = string.Empty;
 }
 
+public sealed class ChangePasswordRequestDto
+{
+    [Required]
+    public string CurrentPassword { get; init; } = string.Empty;
+
+    [Required, MinLength(8), StringLength(128)]
+    public string NewPassword { get; init; } = string.Empty;
+
+    [Required, Compare(nameof(NewPassword), ErrorMessage = "Password and confirm password must match.")]
+    public string ConfirmPassword { get; init; } = string.Empty;
+}
+
 public sealed class RequestGoogleUnlinkDto
 {
     [Required]
