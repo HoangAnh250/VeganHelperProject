@@ -11,4 +11,6 @@ public class HealthProfileDto
     public decimal? CurrentBmi { get; set; }
     
     public List<long> AllergyIngredientIds { get; set; } = new();
+    public List<string> CustomAllergies { get; set; } = new();
+    public List<AllergyDto> Allergies { get; set; } = new();
 }

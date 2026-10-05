@@ -9,79 +9,56 @@ namespace VeganHelper.API.Controllers;
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
-public class HealthProfileController : ControllerBase
+public sealed class HealthProfileController(IHealthProfileService service) : ControllerBase
 {
-    private readonly IHealthProfileService _healthProfileService;
-
-    public HealthProfileController(IHealthProfileService healthProfileService)
-    {
-        _healthProfileService = healthProfileService;
-    }
-
-    private long GetUserId()
-    {
-        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return long.TryParse(userIdStr, out var userId) ? userId : 0;
-    }
+    private long? UserId => long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) && id > 0 ? id : null;
 
     [HttpGet]
-    public async Task<IActionResult> GetHealthProfile()
+    public async Task<IActionResult> Get(CancellationToken ct)
     {
-        var userId = GetUserId();
-        if (userId == 0) return Unauthorized();
-
-        var profile = await _healthProfileService.GetHealthProfileAsync(userId);
-        return Ok(profile);
+        if (UserId is not long id) return Unauthorized();
+        return Ok(await service.GetHealthProfileAsync(id, ct));
     }
 
     [HttpPut]
-    public async Task<IActionResult> UpdateHealthProfile([FromBody] UpdateHealthProfileRequest request)
+    public async Task<IActionResult> Update([FromBody] UpdateHealthProfileRequest request, CancellationToken ct)
     {
-        var userId = GetUserId();
-        if (userId == 0) return Unauthorized();
-
-        if (request.HeightCm <= 0 || request.WeightKg <= 0)
-        {
-            return BadRequest("Height and Weight must be greater than 0");
-        }
-
-        var response = await _healthProfileService.UpdateHealthProfileAsync(userId, request);
-        return Ok(response);
+        if (UserId is not long id) return Unauthorized();
+        return Ok(await service.UpdateHealthProfileAsync(id, request, ct));
     }
 
     [HttpGet("bmi")]
-    public async Task<IActionResult> GetBmiResult()
+    public async Task<IActionResult> GetBmi(CancellationToken ct)
     {
-        var userId = GetUserId();
-        if (userId == 0) return Unauthorized();
-
-        var result = await _healthProfileService.GetBmiResultAsync(userId);
-        if (result == null)
-        {
-            return BadRequest("Thiếu thông tin để tính BMI. Hãy cập nhật hồ sơ trước.");
-        }
-
-        return Ok(result);
+        if (UserId is not long id) return Unauthorized();
+        return Ok(await service.GetBmiResultAsync(id, ct));
     }
 
     [HttpGet("bmi-history")]
-    public async Task<IActionResult> GetBmiHistory()
+    public async Task<IActionResult> GetHistory([FromQuery] int pageIndex = 1, [FromQuery] int pageSize = 100, CancellationToken ct = default)
     {
-        var userId = GetUserId();
-        if (userId == 0) return Unauthorized();
-
-        var response = await _healthProfileService.GetBmiHistoryAsync(userId);
-        return Ok(response);
+        if (UserId is not long id) return Unauthorized();
+        return Ok(await service.GetBmiHistoryAsync(id, pageIndex, pageSize, ct));
     }
 
     [HttpPut("allergies")]
-    public async Task<IActionResult> DeclareAllergies([FromBody] DeclareAllergiesRequest request)
+    public async Task<IActionResult> DeclareAllergies([FromBody] DeclareAllergiesRequest request, CancellationToken ct)
     {
-        var userId = GetUserId();
-        if (userId == 0) return Unauthorized();
-
-        await _healthProfileService.DeclareAllergiesAsync(userId, request);
-
+        if (UserId is not long id) return Unauthorized();
+        await service.DeclareAllergiesAsync(id, request, ct);
         return Ok(new { message = "Cập nhật danh sách dị ứng thành công" });
+    }
+
+    [HttpGet("ingredients")]
+    public async Task<IActionResult> GetIngredients([FromQuery] string? keyword, [FromQuery] int pageIndex = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+    {
+        return Ok(await service.GetIngredientsAsync(keyword, pageIndex, pageSize, ct));
+    }
+
+    [HttpGet("/api/posts/{postId:long}/allergy-warnings")]
+    public async Task<IActionResult> GetPostWarnings(long postId, CancellationToken ct)
+    {
+        if (UserId is not long id) return Unauthorized();
+        return Ok(await service.GetPostWarningsAsync(id, postId, ct));
     }
 }

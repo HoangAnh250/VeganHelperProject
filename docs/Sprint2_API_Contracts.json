@@ -4,47 +4,58 @@
       "FN22_GetHealthProfile": {
         "method": "GET",
         "endpoint": "/api/HealthProfile",
-        "description": "Lấy thông tin hồ sơ sức khỏe (Height, Weight, Activity Level) và Dị ứng hiện tại để fill vào form",
+        "description": "Hồ sơ/dị ứng tài khoản trong JWT; hồ sơ chưa nhập trả sức khỏe null và danh sách rỗng.",
         "output": {
           "statusCode": 200,
-          "heightCm": "decimal",
-          "weightKg": "decimal",
-          "biologicalSex": "string",
-          "birthDate": "date",
+          "heightCm": "decimal | null",
+          "weightKg": "decimal | null",
+          "biologicalSex": "string | null",
+          "birthDate": "date | null",
           "dietType": "string",
-          "activityLevel": "string",
-          "currentBmi": "decimal",
-          "allergyIngredientIds": ["long"],
-          "customAllergies": ["string"]
+          "activityLevel": "string | null",
+          "currentBmi": "decimal | null",
+          "allergyIngredientIds": [
+            "long: selections by ID"
+          ],
+          "customAllergies": [
+            "string: selections by name"
+          ],
+          "allergies": [
+            {
+              "ingredientId": "long",
+              "name": "string",
+              "isCustom": "bool"
+            }
+          ]
         }
       },
       "FN22_UpdateHealthProfile": {
         "method": "PUT",
         "endpoint": "/api/HealthProfile",
-        "description": "Nhập / Cập nhật hồ sơ sức khỏe cá nhân",
+        "description": "Cập nhật sức khỏe và thêm lịch sử BMI cùng transaction; giữ displayName/avatar; trim/lowercase enum.",
         "input": {
           "heightCm": "decimal (100 - 250)",
           "weightKg": "decimal (30 - 200)",
           "biologicalSex": "string (male, female, other)",
-          "birthDate": "date",
-          "dietType": "string",
+          "birthDate": "YYYY-MM-DD, not future, within past 120 years",
+          "dietType": "vegan | lacto_ovo_vegetarian",
           "activityLevel": "string (sedentary, light, moderate, active, very_active)"
         },
         "output": {
           "statusCode": 200,
           "message": "Cập nhật hồ sơ sức khỏe thành công",
           "currentBmi": "decimal",
-          "bmiCategory": "string",
-          "estimatedTdee": "decimal"
+          "bmiCategory": "Underweight | Normal | Overweight | Obese | null for minors",
+          "estimatedTdee": "decimal | null; adult maintenance estimate"
         }
       },
       "FN23_DeclareAllergies": {
         "method": "PUT",
         "endpoint": "/api/HealthProfile/allergies",
-        "description": "Khai báo dị ứng thực phẩm",
+        "description": "Thay toàn bộ danh sách một cách nguyên tử; ID không tồn tại trả 400 và giữ danh sách cũ; trim/deduplicate tên, tái sử dụng ingredient hiện có. Hai danh sách rỗng xóa lựa chọn.",
         "input": {
-          "allergyIngredientIds": "array of long (các nguyên liệu người dùng bị dị ứng)",
-          "customAllergies": "array of string (nếu muốn nhập tay)"
+          "allergyIngredientIds": "positive long[], default [], max 100 before deduplication; null invalid",
+          "customAllergies": "string[], default [], max 50 before deduplication, trimmed 1–100 characters each; null invalid"
         },
         "output": {
           "statusCode": 200,
@@ -54,32 +65,47 @@
       "FN24_CalculateBMI": {
         "method": "GET",
         "endpoint": "/api/HealthProfile/bmi",
-        "description": "Tính chỉ số BMI, phân loại theo WHO và đề xuất calo. Lấy dữ liệu từ Health Profile hiện tại.",
+        "description": "BMI kg/m², làm tròn 2 số. Ngưỡng tham chiếu người lớn 18.5/25/30. TDEE Mifflin-St Jeor và hệ số vận động, không tự tăng/giảm calo. Thiếu ngày sinh vẫn tính BMI theo tham chiếu người lớn, TDEE null; dưới 18 tuổi không áp dụng phân loại/range người lớn.",
         "output": {
           "statusCode": 200,
           "bmi": "decimal",
-          "category": "string (Underweight, Normal, Overweight, Obese)",
-          "idealWeightRange": {
-            "minKg": "decimal",
-            "maxKg": "decimal"
-          },
-          "dailyCalorieRecommendation": "int"
+          "category": "Underweight | Normal | Overweight | Obese | null",
+          "idealWeightRange": "{minKg: decimal, maxKg: decimal} | null for minors",
+          "dailyCalorieRecommendation": "decimal | null for other/minors/missing or unsupported data",
+          "nutritionSuggestions": [
+            "string: general plant-based nutrition guidance"
+          ],
+          "nutritionSourceUrl": "https://www.nhs.uk/live-well/eat-well/how-to-eat-a-balanced-diet/the-vegan-diet/"
         }
       },
       "FN25_GetBmiHistory": {
         "method": "GET",
-        "endpoint": "/api/HealthProfile/bmi-history",
-        "description": "Xem biểu đồ biến thiên BMI/Cân nặng trong 6 tháng gần nhất",
+        "endpoint": "/api/HealthProfile/bmi-history?pageIndex=1&pageSize=100",
+        "description": "Chỉ tài khoản hiện tại; recordedAt UTC >= hiện tại trừ 6 tháng, sort timestamp rồi ID tăng dần; mỗi cập nhật thành công thêm một điểm.",
         "output": {
           "statusCode": 200,
+          "totalItems": "long",
+          "totalCount": "int (compatibility alias)",
+          "pageIndex": "int",
+          "pageNumber": "int (alias for pageIndex)",
+          "pageSize": "int",
+          "totalPages": "int",
+          "items": [
+            {
+              "timestamp": "UTC datetime",
+              "weightKg": "decimal",
+              "bmi": "decimal"
+            }
+          ],
           "history": [
             {
-              "timestamp": "datetime",
+              "timestamp": "UTC datetime",
               "weightKg": "decimal",
               "bmi": "decimal"
             }
           ]
-        }
+        },
+        "compatibility": "history aliases items"
       },
       "FN26_GenerateWeeklyMealPlan": {
         "method": "POST",
@@ -101,67 +127,171 @@
               "totalCalories": "decimal"
             }
           ]
+        },
+        "status": "DEFERRED: contract is planned; endpoint not implemented in this task"
+      },
+      "FN23_GetIngredientOptions": {
+        "method": "GET",
+        "endpoint": "/api/HealthProfile/ingredients?keyword={keyword}&pageIndex=1&pageSize=20",
+        "input": {
+          "keyword": "optional, trim, max 100; literal case-insensitive substring"
+        },
+        "output": {
+          "statusCode": 200,
+          "totalItems": "long",
+          "totalCount": "int (compatibility alias)",
+          "pageIndex": "int",
+          "pageNumber": "int (alias for pageIndex)",
+          "pageSize": "int",
+          "totalPages": "int",
+          "items": [
+            {
+              "id": "long",
+              "name": "string",
+              "defaultUnit": "string"
+            }
+          ]
+        }
+      },
+      "FN23_GetPostAllergyWarnings": {
+        "method": "GET",
+        "endpoint": "/api/posts/{postId}/allergy-warnings",
+        "description": "Đối chiếu ingredient ID của công thức với dị ứng trong JWT. Không suy luận nhóm/synonym hoặc kết luận món ăn an toàn. Bài published hoặc của chính tác giả, chưa xóa.",
+        "output": {
+          "statusCode": 200,
+          "postId": "long",
+          "hasAllergyWarning": "bool",
+          "allergens": [
+            {
+              "ingredientId": "long",
+              "name": "string",
+              "isCustom": "bool"
+            }
+          ]
         }
       }
     },
     "VeganShops": {
       "FN27_GetNearbyShops": {
         "method": "GET",
-        "endpoint": "/api/Shops/nearby?lat={lat}&lng={lng}&radiusKm={radiusKm}",
-        "description": "Xem danh sách quán chay gần vị trí hiện tại (bán kính 5-10km)",
+        "endpoint": "/api/Shops/nearby?lat={lat}&lng={lng}&radiusKm=5&pageIndex=1&pageSize=20",
+        "description": "FE gửi geolocation. Haversine tính/lọc/phân trang trong PostgreSQL; approved/chưa xóa/có tọa độ. Sort distance asc, rating desc, ID.",
         "output": {
           "statusCode": 200,
-          "shops": [
+          "totalItems": "long",
+          "totalCount": "int (compatibility alias)",
+          "pageIndex": "int",
+          "pageNumber": "int (alias for pageIndex)",
+          "pageSize": "int",
+          "totalPages": "int",
+          "items": [
             {
               "shopId": "long",
               "name": "string",
-              "address": "string",
-              "distanceKm": "decimal",
-              "rating": "decimal",
-              "isOpenNow": "boolean"
+              "address": "string | null",
+              "latitude": "decimal | null",
+              "longitude": "decimal | null",
+              "distanceKm": "double | null, rounded to 3 decimals",
+              "rating": "decimal | null, 0–5",
+              "isOpenNow": "bool | null; Vietnam UTC+7, null when hours unknown"
             }
           ]
+        },
+        "input": {
+          "lat": "required finite double -90..90",
+          "lng": "required finite double -180..180",
+          "radiusKm": "finite double 5–10 inclusive, default 5"
         }
       },
       "FN28_SearchShops": {
         "method": "GET",
-        "endpoint": "/api/Shops/search?keyword={keyword}&lat={lat}&lng={lng}",
-        "description": "Gợi ý quán chay theo từ khóa, ưu tiên rating cao và khoảng cách gần",
+        "endpoint": "/api/Shops/search?keyword={keyword}&lat={lat}&lng={lng}&pageIndex=1&pageSize=20",
+        "description": "Tìm tên/địa chỉ/món trong shop_menu_items, literal substring case-insensitive (%/_ là ký tự thường). Approved/chưa xóa; rating desc, distance asc nếu có, name/ID. Không tọa độ thì distanceKm null.",
         "output": {
           "statusCode": 200,
-          "shops": [
+          "totalItems": "long",
+          "totalCount": "int (compatibility alias)",
+          "pageIndex": "int",
+          "pageNumber": "int (alias for pageIndex)",
+          "pageSize": "int",
+          "totalPages": "int",
+          "items": [
             {
               "shopId": "long",
               "name": "string",
-              "address": "string",
-              "distanceKm": "decimal",
-              "rating": "decimal"
+              "address": "string | null",
+              "latitude": "decimal | null",
+              "longitude": "decimal | null",
+              "distanceKm": "double | null, rounded to 3 decimals",
+              "rating": "decimal | null, 0–5",
+              "isOpenNow": "bool | null; Vietnam UTC+7, null when hours unknown"
             }
-          ],
-          "pagination": {
-            "pageIndex": "int",
-            "pageSize": "int",
-            "totalCount": "long"
-          }
+          ]
+        },
+        "input": {
+          "keyword": "required, trimmed 2–100 characters",
+          "lat": "optional finite double -90..90; must accompany lng",
+          "lng": "optional finite double -180..180; must accompany lat"
         }
       },
       "FN29_GetShopDetail": {
         "method": "GET",
         "endpoint": "/api/Shops/{id}?lat={userLat}&lng={userLng}",
-        "description": "Xem chi tiết quán chay, hình ảnh, giờ mở cửa và link chỉ đường Google Maps",
+        "description": "Giờ UTC+7; closesAt <= opensAt là đóng ngày tiếp theo, bằng nhau là ca 24h; isClosed không mở. Không ca thì isOpenNow null. Metadata chưa có không tạo giả.",
         "output": {
           "statusCode": 200,
           "shopId": "long",
           "name": "string",
-          "description": "string",
-          "address": "string",
-          "openingHours": "string",
-          "contactPhone": "string",
-          "rating": "decimal",
-          "distanceKm": "decimal",
-          "googleMapsDirectionsUrl": "string (ví dụ: https://www.google.com/maps/dir/?api=1&origin=lat,lng&destination=shopLat,shopLng)",
-          "mediaUrls": ["string"]
+          "address": "string | null",
+          "latitude": "decimal | null",
+          "longitude": "decimal | null",
+          "distanceKm": "double | null, rounded to 3 decimals",
+          "rating": "decimal | null, 0–5",
+          "isOpenNow": "bool | null; Vietnam UTC+7, null when hours unknown",
+          "description": "string | null",
+          "openingHours": "string | null, human-readable text",
+          "contactPhone": "string | null",
+          "googleMapsDirectionsUrl": "string | null; destination required, origin only with user coordinates",
+          "mediaUrls": [
+            "string, ordered displayOrder then ID"
+          ],
+          "menuItems": [
+            "string, ordered name then ID"
+          ],
+          "openingPeriods": [
+            {
+              "dayOfWeek": "1 Monday .. 7 Sunday",
+              "opensAt": "HH:mm:ss",
+              "closesAt": "HH:mm:ss",
+              "isClosed": "bool"
+            }
+          ]
+        },
+        "input": {
+          "lat": "optional finite double -90..90, must accompany lng",
+          "lng": "optional finite double -180..180, must accompany lat"
         }
+      }
+    },
+    "scope": "Member 2: FN22–FN25, FN27–FN29. FN26 deferred.",
+    "authentication": "Authorization: Bearer <VeganHelper JWT>, including shops",
+    "errors": {
+      "400": "Invalid body, measurements, enum/date, ingredient IDs, keyword, coordinates or pagination; missing measurements for BMI",
+      "401": "Missing, expired or invalid JWT; personal routes require a positive user ID claim",
+      "404": "Shop/post absent, deleted, or unavailable to this user"
+    },
+    "pagination": {
+      "input": {
+        "pageIndex": "1–1000000, default 1",
+        "pageSize": "1–100; default shops/ingredients 20, history 100"
+      },
+      "output": {
+        "totalItems": "long",
+        "totalCount": "int (compatibility alias)",
+        "pageIndex": "int",
+        "pageNumber": "int (alias for pageIndex)",
+        "pageSize": "int",
+        "totalPages": "int"
       }
     }
   }
