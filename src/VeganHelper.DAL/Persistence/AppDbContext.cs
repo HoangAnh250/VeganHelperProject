@@ -35,6 +35,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<AiUsage> AiUsage => Set<AiUsage>();
     public DbSet<PostEmbedding> PostEmbeddings => Set<PostEmbedding>();
     public DbSet<Shop> Shops => Set<Shop>();
+    public DbSet<ShopOpeningPeriod> ShopOpeningPeriods => Set<ShopOpeningPeriod>();
+    public DbSet<ShopMedia> ShopMedia => Set<ShopMedia>();
+    public DbSet<ShopMenuItem> ShopMenuItems => Set<ShopMenuItem>();
     public DbSet<ShopCategory> ShopCategories => Set<ShopCategory>();
     public DbSet<Flag> Flags => Set<Flag>();
 
@@ -641,6 +644,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasOne<User>().WithMany().HasForeignKey(x => new { x.ResolvedByAdminId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_flags_5");
             entity.HasIndex(x => new { x.Status, x.CreatedAt }).HasDatabaseName("IX_flags_1");
         });
+        Member2ModelConfiguration.Configure(modelBuilder);
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         foreach (var property in entityType.GetProperties())
         {
