@@ -44,9 +44,13 @@ FE chưa được sửa trong nhánh BE này.
 - Bài viết trở về `pending_review` sau cập nhật, theo hành vi FN14 hiện có.
 - Upload hoặc lưu DB lỗi: cố gắng dọn các file mới đã upload; không xóa file cũ.
   Xóa file cũ trên storage chỉ sau khi commit DB thành công.
-- Repository đánh dấu xóa rõ ràng các quan hệ `NoAction` trước khi thay collection.
+- Repository đánh dấu xóa rõ ràng chỉ các quan hệ `NoAction` bị loại bỏ; category,
+  ingredient và step được giữ lại vẫn dùng bản ghi/key cũ của luồng Supabase.
   Nếu media bị xóa là nguồn của `post_summaries`, xóa bản tóm tắt phụ thuộc trong
   cùng transaction để không vi phạm foreign key.
+- Trong transaction cập nhật, repository bỏ cờ bìa trên DB trước khi lưu bìa cuối cùng
+  để tránh unique index `IX_post_media_1` khi EF cập nhật bìa mới trước khi xóa bìa cũ.
+  Thay đổi này rollback cùng toàn bộ bài viết nếu lưu lỗi; không đổi schema/index.
 - Nếu dọn storage lỗi sau commit, giữ kết quả cập nhật thành công và ghi warning
   để xử lý file dư sau; chưa có cơ chế tự động retry dọn file trong bản sửa này.
 
@@ -56,10 +60,13 @@ Unit test kiểm tra thêm/xóa hàng loạt, thay toàn bộ ảnh, sửa nội
 giới hạn số lượng/dung lượng, header sai, upload lỗi giữa batch, lỗi lưu DB/rollback,
 lỗi dọn ảnh sau commit và các trường ID/thứ tự trong response detail.
 Storage được mock; các test này không upload hoặc xóa dữ liệu trên cloud thật.
-Có kiểm tra EF ChangeTracker bằng model SQL Server để xác nhận các quan hệ cũ
-được đánh dấu `Deleted` và quan hệ mới `Added`; chưa chạy test lưu trên DB/storage thật.
+Phiên bản hợp nhất kiểm tra EF ChangeTracker với model PostgreSQL, giữ lại key của
+category/ingredient không đổi và cập nhật media đúng trạng thái. Có kiểm tra HTTP
+multipart trên PostgreSQL thật: giữ/xóa bìa, thay toàn bộ ảnh, thay category/ingredients,
+giữ step cũ hoặc thay step, xóa summary phụ thuộc và rollback khi DB từ chối cập nhật.
+Cloud storage được thay bằng adapter test, không upload/xóa file thật.
 
-Swagger đang chạy từ worktree Sprint 2 không tự nhận thay đổi ở worktree FN14.
-Nền `developer` của nhánh này vẫn cấu hình SQL Server: cần cấu hình runtime phù hợp
-khi chạy riêng, hoặc kết hợp với thay đổi Supabase khi thực hiện merge sau này.
+Nguồn `feature/FN14-update-post` vẫn giữ nền SQL Server cũ để bảo toàn lịch sử;
+phiên bản tích hợp trên `codex/integrate-be-developer` giữ các sửa Supabase và auth mới.
+Sau khi cập nhật checkout developer, khởi động lại BE từ checkout đó để dùng code mới.
 Không sao chép connection string/mật khẩu vào repository.

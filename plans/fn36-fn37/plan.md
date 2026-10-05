@@ -1,7 +1,7 @@
 Status: implemented and verified locally; source integrations and shared deployment pending
 Branch: codex/fn36-fn37-notifications
 Base: feature/sprint2 at cea0c5c, with a copy of its uncommitted Sprint 2 source and tests.
-Original Sprint 2 and FN14 worktrees remain unchanged. No commit, push or merge.
+Implementation originally retained all work without committing. Follow-up explicit local merge request: Sprint 2 de2841a, FN14 d48ef8d and notifications 96b4820 are committed and combined on codex/integrate-be-developer. Original feature code retained; no push or shared database mutation.
 
 Acceptance: authenticated list/count/read-one/read-all with ownership and idempotent read semantics; browser subscription lifecycle and VAPID config; typed event publisher; atomic notification/push outbox; durable Hangfire worker with leases, bounded retries and expiry; PostgreSQL migration with RLS; isolated real database/API tests and FE contract.
 Source feature boundaries: comment CRUD, moderation and FN26 scheduler belong to other modules. They call the publisher after committing their events; this task does not add those APIs.

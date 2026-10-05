@@ -25,7 +25,7 @@ Validation (2026-10-02):
 - git diff --check: passed. Legacy SQL Server snapshot hash matches HEAD.
 - Docker engine was unavailable; used the official portable PostgreSQL binaries in ignored .local-data instead. Test database was isolated from Supabase, and only the task-owned PostgreSQL server is stopped after verification.
 
-Delivery: source remains uncommitted on feature/sprint2. No FE edits or GitHub publication. Real shop metadata still needs to be populated by the team; missing values remain null.
+Delivery: originally uncommitted; follow-up explicit local merge request created feature/sprint2 commit de2841a and combined it with FN14 and notifications on codex/integrate-be-developer. No FE edits or GitHub publication. Real shop metadata still needs to be populated by the team; missing values remain null.
 
 Shared database verification (2026-10-05, explicit user approval):
 - Original error: PostgreSQL 42P01, shop_menu_items absent; migration was pending.

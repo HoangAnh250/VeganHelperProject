@@ -248,6 +248,8 @@ public sealed class PostRepository : IPostRepository
         IReadOnlyCollection<PostCategory> categories, IReadOnlyCollection<PostIngredient> ingredients,
         IReadOnlyCollection<PostStep> steps, CancellationToken cancellationToken = default)
     {
+        if (_context.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("Post update removals require an active transaction.");
         // Required NoAction relationships must be deleted explicitly before collections are replaced.
         if (media.Count > 0)
         {
@@ -262,6 +264,17 @@ public sealed class PostRepository : IPostRepository
         _context.PostCategories.RemoveRange(categories);
         _context.PostIngredients.RemoveRange(ingredients);
         _context.PostSteps.RemoveRange(steps);
+
+        // EF may promote the next cover before deleting the old one. Release the filtered
+        // unique index inside this transaction, then let SaveChanges write the chosen cover.
+        await _context.PostMedia.Where(m => m.PostId == post.Id && m.IsPrimary)
+            .ExecuteUpdateAsync(update => update.SetProperty(m => m.IsPrimary, false), cancellationToken);
+        foreach (var retained in post.Media)
+        {
+            var entry = _context.Entry(retained);
+            if (entry.State is not (EntityState.Added or EntityState.Detached))
+                entry.Property(m => m.IsPrimary).OriginalValue = false;
+        }
     }
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)

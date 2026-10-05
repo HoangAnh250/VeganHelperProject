@@ -1,6 +1,6 @@
 # FN36 / FN37 — Backend thông báo
 
-Nhánh: `codex/fn36-fn37-notifications`. Kiến trúc: Controller → BLL service/DTO/AutoMapper → DAL repository → PostgreSQL. Nhánh này chứa bản sao thay đổi Sprint 2 chưa commit làm nền; không chứa sửa FN14 từ worktree riêng. Chưa commit, push, merge hoặc áp dụng migration lên Supabase chung.
+Nhánh nguồn: `codex/fn36-fn37-notifications` (commit `96b4820`). Kiến trúc: Controller → BLL service/DTO/AutoMapper → DAL repository → PostgreSQL. Đã commit local theo yêu cầu merge; nhánh tích hợp `codex/integrate-be-developer` kết hợp Sprint 2, FN14, thông báo và auth mới từ `origin/developer`. Không push hoặc áp dụng migration thông báo lên Supabase chung.
 
 FN36 có API nhận thông báo trong app, publisher cho comment/duyệt bài/nhắc thực đơn và worker gửi web push. FN37 hỗ trợ đọc từng thông báo, đọc tất cả và đếm badge. Các API tạo comment, duyệt bài và scheduler FN26 chưa có trong nền code này; cần nối các hook bên dưới khi những module đó được triển khai. Chỉ thêm module thông báo không tự phát sinh các sự kiện này.
 
