@@ -1,254 +1,118 @@
-using Microsoft.EntityFrameworkCore;
+using AutoMapper;
+using FluentValidation;
+using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.HealthProfile;
-using VeganHelper.DAL.Persistence;
+using VeganHelper.BLL.Exceptions;
 using VeganHelper.DAL.Entities;
+using VeganHelper.DAL.Repositories;
 
 namespace VeganHelper.BLL.Services;
 
-public class HealthProfileService : IHealthProfileService
+public sealed class HealthProfileService(
+    IHealthProfileRepository repository,
+    IMapper mapper,
+    IValidator<UpdateHealthProfileRequest> profileValidator,
+    IValidator<DeclareAllergiesRequest> allergiesValidator) : IHealthProfileService
 {
-    private readonly AppDbContext _dbContext;
-
-    public HealthProfileService(AppDbContext dbContext)
+    public async Task<HealthProfileDto> GetHealthProfileAsync(long userId, CancellationToken ct = default)
     {
-        _dbContext = dbContext;
+        var result = await repository.GetAsync(userId, ct);
+        var dto = result.Profile is null ? new HealthProfileDto() : mapper.Map<HealthProfileDto>(result.Profile);
+        dto.Allergies = mapper.Map<List<AllergyDto>>(result.Allergies);
+        dto.AllergyIngredientIds = result.Allergies.Where(a => !a.IsCustom).Select(a => a.IngredientId).ToList();
+        dto.CustomAllergies = result.Allergies.Where(a => a.IsCustom).Select(a => a.Name).ToList();
+        return dto;
     }
 
-    public async Task<HealthProfileDto> GetHealthProfileAsync(long userId)
+    public async Task<UpdateHealthProfileResponse> UpdateHealthProfileAsync(long userId, UpdateHealthProfileRequest request, CancellationToken ct = default)
     {
-        var profile = await _dbContext.UserProfiles
-            .FirstOrDefaultAsync(x => x.UserId == userId);
-
-        if (profile == null)
-        {
-            return new HealthProfileDto();
-        }
-
-        var allergyIds = await _dbContext.UserAllergies
-            .Where(x => x.UserId == userId)
-            .Select(x => x.IngredientId)
-            .ToListAsync();
-
-        return new HealthProfileDto
-        {
-            HeightCm = profile.HeightCm,
-            WeightKg = profile.WeightKg,
-            BiologicalSex = profile.BiologicalSex,
-            BirthDate = profile.BirthDate,
-            DietType = profile.DietType,
-            ActivityLevel = profile.ActivityLevel,
-            CurrentBmi = profile.CurrentBmi,
-            AllergyIngredientIds = allergyIds
-        };
-    }
-
-    public async Task<UpdateHealthProfileResponse> UpdateHealthProfileAsync(long userId, UpdateHealthProfileRequest request)
-    {
-        var profile = await _dbContext.UserProfiles.FirstOrDefaultAsync(x => x.UserId == userId);
-        if (profile == null)
-        {
-            profile = new UserProfile 
-            { 
-                UserId = userId,
-                DisplayName = "User" // Typically handled on register
-            };
-            _dbContext.UserProfiles.Add(profile);
-        }
-
-        // 1. Update basic info
-        profile.HeightCm = request.HeightCm;
-        profile.WeightKg = request.WeightKg;
-        profile.BiologicalSex = request.BiologicalSex;
-        profile.BirthDate = request.BirthDate;
-        profile.DietType = request.DietType;
-        profile.ActivityLevel = request.ActivityLevel;
-        profile.UpdatedAt = DateTime.UtcNow;
-
-        // 2. Calculate BMI
+        request.BiologicalSex = request.BiologicalSex?.Trim().ToLowerInvariant() ?? "";
+        request.DietType = request.DietType?.Trim().ToLowerInvariant() ?? "";
+        request.ActivityLevel = request.ActivityLevel?.Trim().ToLowerInvariant() ?? "";
+        await profileValidator.ValidateAndThrowAsync(request, ct);
+        var profile = mapper.Map<UserProfile>(request);
         var bmi = CalculateBmi(request.WeightKg, request.HeightCm);
-        profile.CurrentBmi = bmi;
-
-        // 3. Log History
-        var history = new BmiHistory
-        {
-            UserId = userId,
-            HeightCm = request.HeightCm,
-            WeightKg = request.WeightKg,
-            BmiValue = bmi,
-            RecordedAt = DateTime.UtcNow
-        };
-        _dbContext.BmiHistories.Add(history);
-
-        await _dbContext.SaveChangesAsync();
-
-        // 4. Calculate TDEE
-        var tdee = CalculateTdee(request.WeightKg, request.HeightCm, request.BirthDate, request.BiologicalSex, request.ActivityLevel);
-        
-        return new UpdateHealthProfileResponse
-        {
-            Message = "Cập nhật hồ sơ sức khỏe thành công",
-            CurrentBmi = bmi,
-            BmiCategory = GetBmiCategory(bmi),
-            EstimatedTdee = tdee
-        };
+        await repository.UpdateAsync(userId, profile, bmi, ct);
+        return new UpdateHealthProfileResponse { CurrentBmi = bmi, BmiCategory = HasAdultReference(profile) ? GetBmiCategory(bmi) : null, EstimatedTdee = CalculateTdee(profile) };
     }
 
-    public async Task<BmiCalculationResult?> GetBmiResultAsync(long userId)
+    public async Task<BmiCalculationResult> GetBmiResultAsync(long userId, CancellationToken ct = default)
     {
-        var profile = await _dbContext.UserProfiles.FirstOrDefaultAsync(x => x.UserId == userId);
-        if (profile == null || profile.HeightCm <= 0 || profile.WeightKg <= 0 || string.IsNullOrEmpty(profile.BiologicalSex) || string.IsNullOrEmpty(profile.ActivityLevel))
-        {
-            return null;
-        }
-
-        var bmi = CalculateBmi(profile.WeightKg.Value, profile.HeightCm.Value);
-        var tdee = CalculateTdee(profile.WeightKg.Value, profile.HeightCm.Value, profile.BirthDate.Value, profile.BiologicalSex, profile.ActivityLevel);
-        
+        var profile = (await repository.GetAsync(userId, ct)).Profile;
+        if (profile?.HeightCm is not >= 100m or > 250m || profile.WeightKg is not >= 30m or > 200m)
+            throw new ArgumentException("Please update valid height and weight before calculating BMI.");
         var heightM = profile.HeightCm.Value / 100m;
-        var minKg = 18.5m * heightM * heightM;
-        var maxKg = 24.9m * heightM * heightM;
-
+        var bmi = CalculateBmi(profile.WeightKg!.Value, profile.HeightCm.Value);
         return new BmiCalculationResult
         {
-            Bmi = bmi,
-            Category = GetBmiCategory(bmi),
-            IdealWeightRange = new IdealWeightRange
-            {
-                MinKg = Math.Round(minKg, 2),
-                MaxKg = Math.Round(maxKg, 2)
-            },
-            DailyCalorieRecommendation = tdee
+            Bmi = bmi, Category = HasAdultReference(profile) ? GetBmiCategory(bmi) : null,
+            IdealWeightRange = HasAdultReference(profile)
+                ? new IdealWeightRange { MinKg = Math.Round(18.5m * heightM * heightM, 2), MaxKg = Math.Round(24.9m * heightM * heightM, 2) }
+                : null,
+            DailyCalorieRecommendation = CalculateTdee(profile),
+            NutritionSuggestions =
+            [
+                "Ăn đa dạng rau, trái cây và ngũ cốc nguyên hạt trong chế độ ăn cân bằng.",
+                "Chọn nguồn đạm thực vật và thực phẩm tăng cường vi chất phù hợp với các dị ứng đã khai báo.",
+                "Chú ý nguồn vitamin B12, canxi và sắt khi xây dựng chế độ ăn chay."
+            ],
+            NutritionSourceUrl = "https://www.nhs.uk/live-well/eat-well/how-to-eat-a-balanced-diet/the-vegan-diet/"
         };
     }
 
-    public async Task<GetBmiHistoryResponse> GetBmiHistoryAsync(long userId)
+    public async Task<GetBmiHistoryResponse> GetBmiHistoryAsync(long userId, int pageIndex = 1, int pageSize = 100, CancellationToken ct = default)
     {
-        var sixMonthsAgo = DateTime.UtcNow.AddMonths(-6);
-        
-        var history = await _dbContext.BmiHistories
-            .Where(x => x.UserId == userId && x.RecordedAt >= sixMonthsAgo)
-            .OrderBy(x => x.RecordedAt)
-            .Select(x => new BmiHistoryDto
-            {
-                Timestamp = x.RecordedAt,
-                WeightKg = x.WeightKg,
-                Bmi = x.BmiValue
-            })
-            .ToListAsync();
-
-        return new GetBmiHistoryResponse { History = history };
-    }
-
-    public async Task DeclareAllergiesAsync(long userId, DeclareAllergiesRequest request)
-    {
-        // 1. Delete old allergies
-        var existingAllergies = await _dbContext.UserAllergies.Where(x => x.UserId == userId).ToListAsync();
-        _dbContext.UserAllergies.RemoveRange(existingAllergies);
-
-        var ingredientIdsToAdd = new HashSet<long>();
-
-        // 2. Process existing ingredient IDs
-        if (request.AllergyIngredientIds != null && request.AllergyIngredientIds.Any())
+        Pagination.Validate(pageIndex, pageSize);
+        var page = await repository.GetHistoryAsync(userId, DateTime.UtcNow.AddMonths(-6), pageIndex, pageSize, ct);
+        return new GetBmiHistoryResponse
         {
-            var validIds = await _dbContext.Ingredients
-                .Where(i => request.AllergyIngredientIds.Contains(i.Id))
-                .Select(i => i.Id)
-                .ToListAsync();
-            
-            foreach (var id in validIds)
-            {
-                ingredientIdsToAdd.Add(id);
-            }
-        }
-
-        // 3. Process Custom Allergies
-        if (request.CustomAllergies != null && request.CustomAllergies.Any())
-        {
-            foreach (var custom in request.CustomAllergies)
-            {
-                var trimmed = custom.Trim();
-                if (string.IsNullOrEmpty(trimmed)) continue;
-
-                var existingIngredient = await _dbContext.Ingredients
-                    .FirstOrDefaultAsync(i => i.Name.ToLower() == trimmed.ToLower());
-
-                if (existingIngredient != null)
-                {
-                    ingredientIdsToAdd.Add(existingIngredient.Id);
-                }
-                else
-                {
-                    var newIngredient = new Ingredient
-                    {
-                        Name = trimmed,
-                        DefaultUnit = "custom"
-                    };
-                    _dbContext.Ingredients.Add(newIngredient);
-                    await _dbContext.SaveChangesAsync();
-                    ingredientIdsToAdd.Add(newIngredient.Id);
-                }
-            }
-        }
-
-        // 4. Add new user allergies
-        foreach (var id in ingredientIdsToAdd)
-        {
-            _dbContext.UserAllergies.Add(new UserAllergy
-            {
-                UserId = userId,
-                IngredientId = id,
-                CreatedAt = DateTime.UtcNow
-            });
-        }
-
-        await _dbContext.SaveChangesAsync();
+            Items = mapper.Map<List<BmiHistoryDto>>(page.Items), TotalItems = page.TotalCount,
+            TotalCount = checked((int)page.TotalCount), PageIndex = pageIndex, PageSize = pageSize, TotalPages = Pagination.TotalPages(page.TotalCount, pageSize)
+        };
     }
 
-    private decimal CalculateBmi(decimal weightKg, decimal heightCm)
+    public async Task DeclareAllergiesAsync(long userId, DeclareAllergiesRequest request, CancellationToken ct = default)
     {
-        if (heightCm <= 0) return 0;
-        var heightM = heightCm / 100m;
-        var bmi = weightKg / (heightM * heightM);
-        return Math.Round(bmi, 2);
+        await allergiesValidator.ValidateAndThrowAsync(request, ct);
+        var ids = request.AllergyIngredientIds.Distinct().ToArray();
+        var names = request.CustomAllergies.Select(n => n.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        await repository.ReplaceAllergiesAsync(userId, ids, names, ct);
     }
 
-    private string GetBmiCategory(decimal bmi)
+    public async Task<PagedResult<IngredientOptionDto>> GetIngredientsAsync(string? keyword, int pageIndex = 1, int pageSize = 20, CancellationToken ct = default)
     {
-        if (bmi < 18.5m) return "Underweight";
-        if (bmi < 25m) return "Normal";
-        if (bmi < 30m) return "Overweight";
-        return "Obese";
+        Pagination.Validate(pageIndex, pageSize);
+        keyword = keyword?.Trim();
+        if (keyword?.Length > 100) throw new ArgumentException("Keyword must be at most 100 characters.");
+        var page = await repository.SearchIngredientsAsync(keyword, pageIndex, pageSize, ct);
+        return Pagination.Map<Ingredient, IngredientOptionDto>(page, pageIndex, pageSize, mapper);
     }
 
-    private decimal CalculateTdee(decimal weightKg, decimal heightCm, DateOnly birthDate, string biologicalSex, string activityLevel)
+    public async Task<AllergyWarningsDto> GetPostWarningsAsync(long userId, long postId, CancellationToken ct = default)
     {
+        var warnings = await repository.GetPostWarningsAsync(userId, postId, ct)
+            ?? throw new NotFoundException("Post not found.");
+        return new AllergyWarningsDto { PostId = postId, Allergens = mapper.Map<List<AllergyDto>>(warnings) };
+    }
+
+    private static decimal CalculateBmi(decimal kg, decimal cm) => Math.Round(kg / ((cm / 100m) * (cm / 100m)), 2);
+    private static string GetBmiCategory(decimal bmi) => bmi < 18.5m ? "Underweight" : bmi < 25m ? "Normal" : bmi < 30m ? "Overweight" : "Obese";
+
+    private static bool HasAdultReference(UserProfile profile) => profile.BirthDate is null
+        || profile.BirthDate <= DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-18)
+            && profile.BirthDate >= DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-120);
+
+    private static decimal? CalculateTdee(UserProfile profile)
+    {
+        if (profile.HeightCm is null || profile.WeightKg is null || profile.BirthDate is null || profile.BiologicalSex is not ("male" or "female")) return null;
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var birthDate = profile.BirthDate.Value;
         var age = today.Year - birthDate.Year;
         if (birthDate > today.AddYears(-age)) age--;
-        
-        if(age < 0) age = 0;
-
-        // BMR (Mifflin-St Jeor)
-        decimal bmr = (10m * weightKg) + (6.25m * heightCm) - (5m * age);
-        if (string.Equals(biologicalSex, "male", StringComparison.OrdinalIgnoreCase))
-        {
-            bmr += 5m;
-        }
-        else
-        {
-            bmr -= 161m; // For female and others as fallback
-        }
-
-        decimal multiplier = activityLevel?.ToLower() switch
-        {
-            "sedentary" => 1.2m,
-            "light" => 1.375m,
-            "moderate" => 1.55m,
-            "active" => 1.725m,
-            "very_active" => 1.9m,
-            _ => 1.2m
-        };
-
-        return Math.Round(bmr * multiplier, 2);
+        if (age is < 18 or > 120) return null;
+        var multiplier = profile.ActivityLevel switch { "sedentary" => 1.2m, "light" => 1.375m, "moderate" => 1.55m, "active" => 1.725m, "very_active" => 1.9m, _ => (decimal?)null };
+        if (multiplier is null) return null;
+        var bmr = 10m * profile.WeightKg.Value + 6.25m * profile.HeightCm.Value - 5m * age + (profile.BiologicalSex == "male" ? 5m : -161m);
+        return Math.Round(bmr * multiplier.Value, 2);
     }
 }

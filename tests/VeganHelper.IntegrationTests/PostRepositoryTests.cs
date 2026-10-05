@@ -8,6 +8,7 @@ using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
 using Xunit;
 using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 
 public partial class PostRepositoryTests : IAsyncLifetime
 {
@@ -29,16 +30,25 @@ public partial class PostRepositoryTests : IAsyncLifetime
         var connection = _postgresContainer?.GetConnectionString()
             ?? DatabaseConnection.Validate(Environment.GetEnvironmentVariable("VEGANHELPER_TEST_POSTGRES"));
 
+        if (_postgresContainer is null)
+        {
+            var configuration = new NpgsqlConnectionStringBuilder(connection);
+            if (configuration.Host is not ("localhost" or "127.0.0.1" or "::1")
+                || !(configuration.Database?.StartsWith("member2_test", StringComparison.Ordinal) == true
+                    || configuration.Database?.StartsWith("veganhelper_test", StringComparison.Ordinal) == true))
+                throw new InvalidOperationException("Integration tests require an isolated local test database, never Supabase.");
+        }
+
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(connection)
             .Options;
 
         _context = new AppDbContext(options);
-        if (_postgresContainer is not null) await _context.Database.MigrateAsync();
-        else Assert.Empty(await _context.Database.GetPendingMigrationsAsync());
+        await _context.Database.MigrateAsync();
 
-        // All fixture writes roll back, including when running against a shared test database.
+        // All fixture data writes roll back in the isolated test database.
         _transaction = await _context.Database.BeginTransactionAsync();
+        await DataSeeder.SeedDataAsync(_context);
 
         _postRepository = new PostRepository(_context);
     }

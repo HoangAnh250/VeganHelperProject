@@ -18,10 +18,8 @@ using VeganHelper.BLL.DTOs;
 using VeganHelper.DAL.DependencyInjection;
 using VeganHelper.DAL.Repositories;
 using VeganHelper.DAL.Storage;
-using VeganHelper.BLL.DTOs;
-using VeganHelper.BLL.DTOs;
-using VeganHelper.DAL.DependencyInjection;
-using VeganHelper.DAL.Storage;
+using VeganHelper.BLL.Mapping;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -123,10 +121,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
+builder.Services.AddScoped<IHealthProfileRepository, HealthProfileRepository>();
+builder.Services.AddScoped<IShopRepository, ShopRepository>();
+builder.Services.AddScoped<IShopService, ShopService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddOptions<MappingOptions>().BindConfiguration("AutoMapper");
+builder.Services.AddAutoMapper((services, cfg) =>
+    cfg.LicenseKey = services.GetRequiredService<IOptions<MappingOptions>>().Value.LicenseKey, typeof(MappingProfile));
 builder.Services.AddScoped<CloudflareR2StorageService>();
 builder.Services.AddScoped<IMediaStorageService>(sp => sp.GetRequiredService<CloudflareR2StorageService>());
 builder.Services.AddScoped<IAvatarStorage>(sp => sp.GetRequiredService<CloudflareR2StorageService>());
-builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 
 var app = builder.Build();
 
@@ -148,7 +152,6 @@ if (args.Contains("--migrate") || args.Contains("--seed") || args.Contains("--se
     return;
 }
 
-app.UseExceptionHandler();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment())
 {
@@ -181,3 +184,5 @@ static string? FindEnvironmentFile(string startPath)
 
     return null;
 }
+
+public partial class Program { }

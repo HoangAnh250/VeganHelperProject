@@ -1,8 +1,8 @@
 namespace VeganHelper.BLL.DTOs.HealthProfile;
 
-public class GetBmiHistoryResponse
+public class GetBmiHistoryResponse : VeganHelper.BLL.DTOs.PagedResult<BmiHistoryDto>
 {
-    public List<BmiHistoryDto> History { get; set; } = new();
+    public IEnumerable<BmiHistoryDto> History => Items;
 }
 
 public class BmiHistoryDto
