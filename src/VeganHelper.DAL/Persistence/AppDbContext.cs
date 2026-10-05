@@ -645,6 +645,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasIndex(x => new { x.Status, x.CreatedAt }).HasDatabaseName("IX_flags_1");
         });
         Member2ModelConfiguration.Configure(modelBuilder);
+        NotificationModelConfiguration.Configure(modelBuilder);
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         foreach (var property in entityType.GetProperties())
         {

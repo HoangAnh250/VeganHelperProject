@@ -20,6 +20,22 @@ using VeganHelper.DAL.Repositories;
 using VeganHelper.DAL.Storage;
 using VeganHelper.BLL.Mapping;
 using Microsoft.Extensions.Options;
+using Hangfire;
+using Hangfire.PostgreSql;
+using VeganHelper.API.BackgroundJobs;
+using VeganHelper.API.Infrastructure.Notifications;
+using VeganHelper.DAL.Integrations;
+
+if (args.Contains("--generate-vapid-keys"))
+{
+    using var vapidKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+    var parts = vapidKey.ExportParameters(true);
+    var point = new byte[65]; point[0] = 4;
+    parts.Q.X!.CopyTo(point, 1); parts.Q.Y!.CopyTo(point, 33);
+    static string Encode(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { PublicKey = Encode(point), PrivateKey = Encode(parts.D!) }));
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -121,6 +137,26 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
+builder.Services.AddScoped<INotificationPublisher>(sp => sp.GetRequiredService<NotificationService>());
+builder.Services.AddScoped<NotificationPushDispatcher>();
+builder.Services.AddScoped<NotificationPushJob>();
+builder.Services.AddSingleton<IValidateOptions<WebPushSettings>, WebPushOptionsValidator>();
+builder.Services.AddOptions<WebPushSettings>().BindConfiguration("WebPush").ValidateOnStart();
+builder.Services.AddHttpClient<IWebPushTransport, WebPushTransport>(client => client.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+var pushWorkerConfigured = builder.Configuration.GetValue<bool>("WebPush:Enabled");
+if (pushWorkerConfigured)
+{
+    var jobConnection = DatabaseConnection.Validate(builder.Configuration.GetConnectionString("HangfireConnection")
+        ?? builder.Configuration.GetConnectionString("DefaultConnection"));
+    builder.Services.AddHangfire(config => config.UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings()
+        .UsePostgreSqlStorage(storage => storage.UseNpgsqlConnection(jobConnection),
+            new PostgreSqlStorageOptions { PrepareSchemaIfNecessary = args.Contains("--prepare-push-jobs") }));
+    builder.Services.AddHangfireServer(options => options.WorkerCount = 1);
+}
 builder.Services.AddScoped<IHealthProfileRepository, HealthProfileRepository>();
 builder.Services.AddScoped<IShopRepository, ShopRepository>();
 builder.Services.AddScoped<IShopService, ShopService>();
@@ -133,6 +169,31 @@ builder.Services.AddScoped<IMediaStorageService>(sp => sp.GetRequiredService<Clo
 builder.Services.AddScoped<IAvatarStorage>(sp => sp.GetRequiredService<CloudflareR2StorageService>());
 
 var app = builder.Build();
+
+if (args.Contains("--prepare-push-jobs"))
+{
+    if (!app.Services.GetRequiredService<IOptions<WebPushSettings>>().Value.Enabled)
+        throw new InvalidOperationException("Configure WebPush and enable it before preparing Hangfire storage.");
+    _ = app.Services.GetRequiredService<JobStorage>();
+    // Hangfire uses a private schema; never expose its serialized job data through Data API roles.
+    await using var jobDatabase = new Npgsql.NpgsqlConnection(DatabaseConnection.Validate(
+        builder.Configuration.GetConnectionString("HangfireConnection") ?? builder.Configuration.GetConnectionString("DefaultConnection")));
+    await jobDatabase.OpenAsync();
+    await using var revoke = new Npgsql.NpgsqlCommand("""
+        REVOKE ALL ON SCHEMA hangfire FROM PUBLIC;
+        DO $$ DECLARE role_name text;
+        BEGIN
+            FOREACH role_name IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+                IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
+                    EXECUTE format('REVOKE ALL ON SCHEMA hangfire FROM %I', role_name);
+                END IF;
+            END LOOP;
+        END $$;
+        """, jobDatabase);
+    await revoke.ExecuteNonQueryAsync();
+    Console.WriteLine("Hangfire PostgreSQL storage prepared.");
+    return;
+}
 
 if (args.Contains("--migrate") || args.Contains("--seed") || args.Contains("--seed-posts"))
 {
@@ -165,6 +226,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapControllers();
+if (pushWorkerConfigured &&
+    !args.Any(a => a is "--migrate" or "--seed" or "--seed-posts"))
+{
+    app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<NotificationPushJob>(
+        "notifications-web-push", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
+}
 app.Run();
 
 static string? FindEnvironmentFile(string startPath)

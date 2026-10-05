@@ -10,6 +10,7 @@ public sealed class MappingProfile : Profile
 {
     public MappingProfile()
     {
+        CreateMap<Notification, VeganHelper.BLL.DTOs.Notifications.NotificationDto>();
         CreateMap<UpdateHealthProfileRequest, UserProfile>(MemberList.None);
         CreateMap<UserProfile, HealthProfileDto>(MemberList.None);
         CreateMap<AllergyProjection, AllergyDto>();
