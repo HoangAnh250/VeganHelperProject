@@ -244,6 +244,26 @@ public sealed class PostRepository : IPostRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task StagePostUpdateRemovalsAsync(Post post, IReadOnlyCollection<PostMedia> media,
+        IReadOnlyCollection<PostCategory> categories, IReadOnlyCollection<PostIngredient> ingredients,
+        IReadOnlyCollection<PostStep> steps, CancellationToken cancellationToken = default)
+    {
+        // Required NoAction relationships must be deleted explicitly before collections are replaced.
+        if (media.Count > 0)
+        {
+            var ids = media.Select(m => m.Id).ToArray();
+            var summaries = await _context.PostSummaries
+                .Where(s => s.PostId == post.Id && ids.Contains(s.SourceMediaId))
+                .ToListAsync(cancellationToken);
+            _context.PostSummaries.RemoveRange(summaries);
+            _context.PostMedia.RemoveRange(media);
+        }
+        // Preserve joins retained by the Supabase update path; delete only removed entities.
+        _context.PostCategories.RemoveRange(categories);
+        _context.PostIngredients.RemoveRange(ingredients);
+        _context.PostSteps.RemoveRange(steps);
+    }
+
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
         if (_currentTransaction != null)

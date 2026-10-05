@@ -11,6 +11,8 @@ using VeganHelper.BLL.DTOs.Posts;
 using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
 using VeganHelper.BLL.Services.Media;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 public sealed class PostService : IPostService
 {
@@ -19,19 +21,22 @@ public sealed class PostService : IPostService
     private readonly IValidator<GetMyPostsRequest> _getMyPostsValidator;
     private readonly IValidator<UpdatePostRequest> _updateValidator;
     private readonly IMediaStorageService _mediaStorageService;
+    private readonly ILogger<PostService> _logger;
 
     public PostService(
         IPostRepository postRepository, 
         IValidator<CreatePostRequest> validator, 
         IValidator<GetMyPostsRequest> getMyPostsValidator,
         IValidator<UpdatePostRequest> updateValidator,
-        IMediaStorageService mediaStorageService)
+        IMediaStorageService mediaStorageService,
+        ILogger<PostService>? logger = null)
     {
         _postRepository = postRepository;
         _validator = validator;
         _getMyPostsValidator = getMyPostsValidator;
         _updateValidator = updateValidator;
         _mediaStorageService = mediaStorageService;
+        _logger = logger ?? NullLogger<PostService>.Instance;
     }
 
     public async Task<long> CreatePostAsync(CreatePostRequest request, long authorId, CancellationToken cancellationToken = default)
@@ -212,8 +217,10 @@ public sealed class PostService : IPostService
             Status = post.Status,
             ViewCount = post.ViewCount,
             CreatedAt = post.CreatedAt,
-            Media = post.Media.Select(m => new PostMediaDto
+            Media = post.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => new PostMediaDto
             {
+                Id = m.Id,
+                DisplayOrder = m.DisplayOrder,
                 MediaUrl = m.MediaUrl,
                 MediaType = m.MediaType,
                 IsPrimary = m.IsPrimary
@@ -318,6 +325,19 @@ public sealed class PostService : IPostService
 
         var ingredients = ParseIngredients(request.IngredientsJson);
         var steps = ParseSteps(request.StepsJson);
+        var removeIds = (request.MediaIdsToRemove ?? []).Distinct().ToHashSet();
+        if (removeIds.Any(id => id <= 0 || !post.Media.Any(m => m.Id == id)))
+            throw new ArgumentException("Every media ID to remove must belong to this post.");
+        var files = request.MediaFilesToAdd ?? [];
+        var finalCount = post.Media.Count - removeIds.Count + files.Count;
+        if (finalCount < 1) throw new ArgumentException("At least 1 media file is required for thumbnail.");
+        if (finalCount > 10) throw new ArgumentException("A post can contain at most 10 media files.");
+        foreach (var file in files) await PostMediaUploadValidation.ValidateAsync(file, cancellationToken);
+
+        var removed = post.Media.Where(m => removeIds.Contains(m.Id)).ToList();
+        var originalCategories = post.PostCategories.ToArray();
+        var originalIngredients = post.PostIngredients.ToArray();
+        var originalSteps = post.PostSteps.ToArray();
 
         // Update basic fields
         post.Title = request.Title;
@@ -335,79 +355,79 @@ public sealed class PostService : IPostService
         if (!post.PostCategories.Any(c => c.CategoryId == request.CategoryId))
             post.PostCategories.Add(new PostCategory { CategoryId = request.CategoryId });
 
-        // Update Media (simulate)
-        var filesToDeleteFromCloud = new List<string>();
-        if (request.MediaIdsToRemove != null && request.MediaIdsToRemove.Count > 0)
-        {
-            var mediaToRemove = post.Media.Where(m => request.MediaIdsToRemove.Contains(m.Id)).ToList();
-            foreach (var m in mediaToRemove)
-            {
-                filesToDeleteFromCloud.Add(m.MediaUrl);
-                post.Media.Remove(m);
-            }
-        }
-
         var uploadedFileUrls = new List<string>();
-        if (request.MediaFilesToAdd != null && request.MediaFilesToAdd.Count > 0)
+        var transactionStarted = false;
+        try
         {
-            int newOrder = post.Media.Count > 0 ? post.Media.Max(m => m.DisplayOrder) + 1 : 0;
-            foreach (var file in request.MediaFilesToAdd)
+            // Complete uploads before DB writes, and compensate partial batches on failure.
+            var additions = new List<PostMedia>();
+            foreach (var file in files)
             {
-                var uploadedUrl = await _mediaStorageService.UploadFileAsync(file, "posts");
-                uploadedFileUrls.Add(uploadedUrl);
-                
-                post.Media.Add(new PostMedia
+                var url = await _mediaStorageService.UploadFileAsync(file, "posts");
+                uploadedFileUrls.Add(url);
+                additions.Add(new PostMedia
                 {
-                    MediaUrl = uploadedUrl,
-                    MediaType = file.ContentType.StartsWith("video") ? "video" : "image",
-                    IsPrimary = post.Media.Count == 0 && newOrder == 0,
-                    DisplayOrder = newOrder++,
+                    MediaUrl = url,
+                    MediaType = file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ? "video" : "image",
                     ProcessingStatus = "ready",
                     CreatedAt = DateTime.UtcNow
                 });
             }
-        }
-
-        // Check if there is still at least 1 media for thumbnail (if required)
-        if (post.Media.Count == 0)
-        {
-            foreach (var url in uploadedFileUrls)
+            foreach (var media in removed) post.Media.Remove(media);
+            var ordered = post.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).ToList();
+            var primary = ordered.FirstOrDefault(m => m.IsPrimary);
+            if (primary is not null)
             {
-                await _mediaStorageService.DeleteFileAsync(url);
+                ordered.Remove(primary);
+                ordered.Insert(0, primary);
             }
-            throw new ArgumentException("At least 1 media file is required for thumbnail.");
-        }
+            ordered.AddRange(additions);
+            for (var index = 0; index < ordered.Count; index++)
+            {
+                ordered[index].DisplayOrder = index;
+                ordered[index].IsPrimary = index == 0;
+            }
+            foreach (var media in additions) post.Media.Add(media);
 
-        // Ensure exactly one primary media exists
-        if (post.Media.Count > 0 && !post.Media.Any(m => m.IsPrimary))
-        {
-            post.Media.OrderBy(m => m.DisplayOrder).First().IsPrimary = true;
-        }
-
-        await _postRepository.BeginTransactionAsync(cancellationToken);
-        try
-        {
+            await _postRepository.BeginTransactionAsync(cancellationToken);
+            transactionStarted = true;
             if (!string.IsNullOrWhiteSpace(request.IngredientsJson))
                 await ApplyIngredientsAsync(post, ingredients, cancellationToken);
             if (!string.IsNullOrWhiteSpace(request.StepsJson)) ApplySteps(post, steps);
+            await _postRepository.StagePostUpdateRemovalsAsync(post, removed,
+                originalCategories.Where(c => !post.PostCategories.Contains(c)).ToArray(),
+                originalIngredients.Where(i => !post.PostIngredients.Contains(i)).ToArray(),
+                originalSteps.Where(s => !post.PostSteps.Contains(s)).ToArray(), cancellationToken);
             await _postRepository.SaveChangesAsync(cancellationToken);
             await _postRepository.CommitTransactionAsync(cancellationToken);
-            
-            // Clean up removed files from cloud after successful commit
-            foreach (var url in filesToDeleteFromCloud)
-            {
-                await _mediaStorageService.DeleteFileAsync(url);
-            }
         }
         catch
         {
-            await _postRepository.RollbackTransactionAsync(cancellationToken);
-            // Clean up newly uploaded files since transaction failed
-            foreach (var url in uploadedFileUrls)
+            if (transactionStarted)
             {
-                await _mediaStorageService.DeleteFileAsync(url);
+                try { await _postRepository.RollbackTransactionAsync(CancellationToken.None); }
+                catch (Exception rollbackError) { _logger.LogError(rollbackError, "Failed to roll back post {PostId} update.", postId); }
             }
+            await CleanupMediaAsync(uploadedFileUrls, postId);
             throw;
+        }
+
+        // Storage cleanup is outside the DB failure handler: never delete committed additions.
+        var obsoleteUrls = removed.Select(m => m.MediaUrl).Distinct()
+            .Where(url => !post.Media.Any(m => m.MediaUrl == url));
+        await CleanupMediaAsync(obsoleteUrls, postId);
+    }
+
+    private async Task CleanupMediaAsync(IEnumerable<string> urls, long postId)
+    {
+        foreach (var url in urls)
+        {
+            try { await _mediaStorageService.DeleteFileAsync(url); }
+            catch (Exception error)
+            {
+                // Keep the successful DB update intact. This orphan requires later cleanup.
+                _logger.LogWarning(error, "Post {PostId} media cleanup failed for {MediaUrl}.", postId, url);
+            }
         }
     }
 

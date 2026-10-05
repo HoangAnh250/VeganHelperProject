@@ -47,6 +47,12 @@ public partial class PostRepositoryTests
             .Returns((Post post, CancellationToken ct) => _postRepository.CreatePostAsync(post, ct));
         repository.Setup(r => r.GetPostForUpdateAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()))
             .Returns((long id, CancellationToken ct) => _postRepository.GetPostForUpdateAsync(id, ct));
+        repository.Setup(r => r.StagePostUpdateRemovalsAsync(It.IsAny<Post>(), It.IsAny<IReadOnlyCollection<PostMedia>>(),
+            It.IsAny<IReadOnlyCollection<PostCategory>>(), It.IsAny<IReadOnlyCollection<PostIngredient>>(),
+            It.IsAny<IReadOnlyCollection<PostStep>>(), It.IsAny<CancellationToken>()))
+            .Returns((Post post, IReadOnlyCollection<PostMedia> media, IReadOnlyCollection<PostCategory> categories,
+                IReadOnlyCollection<PostIngredient> ingredients, IReadOnlyCollection<PostStep> steps, CancellationToken ct) =>
+                _postRepository.StagePostUpdateRemovalsAsync(post, media, categories, ingredients, steps, ct));
         repository.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns((CancellationToken ct) => _postRepository.SaveChangesAsync(ct));
         repository.Setup(r => r.CommitTransactionAsync(It.IsAny<CancellationToken>()))
