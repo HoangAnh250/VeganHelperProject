@@ -168,6 +168,23 @@ public sealed class PostRepository : IPostRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task StagePostUpdateRemovalsAsync(Post post, IReadOnlyCollection<PostMedia> media,
+        bool replaceIngredients, CancellationToken cancellationToken = default)
+    {
+        // Required NoAction relationships must be deleted explicitly before collections are replaced.
+        if (media.Count > 0)
+        {
+            var ids = media.Select(m => m.Id).ToArray();
+            var summaries = await _context.PostSummaries
+                .Where(s => s.PostId == post.Id && ids.Contains(s.SourceMediaId))
+                .ToListAsync(cancellationToken);
+            _context.PostSummaries.RemoveRange(summaries);
+            _context.PostMedia.RemoveRange(media);
+        }
+        _context.PostCategories.RemoveRange(post.PostCategories.ToArray());
+        if (replaceIngredients) _context.PostIngredients.RemoveRange(post.PostIngredients.ToArray());
+    }
+
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
         if (_currentTransaction != null)

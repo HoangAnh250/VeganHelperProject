@@ -25,6 +25,8 @@ public interface IPostRepository
     Task<bool> DeletePostAsync(long postId, CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
+    Task StagePostUpdateRemovalsAsync(Post post, IReadOnlyCollection<PostMedia> media,
+        bool replaceIngredients, CancellationToken cancellationToken = default);
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);
     Task CommitTransactionAsync(CancellationToken cancellationToken = default);
     Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
