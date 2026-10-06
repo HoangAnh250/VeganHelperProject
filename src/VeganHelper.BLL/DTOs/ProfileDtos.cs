@@ -7,6 +7,7 @@ public sealed record UserProfileDto(
     string Username,
     string Email,
     bool IsEmailVerified,
+    bool IsGoogleLinked,
     string? PhoneNumber,
     string DisplayName,
     string? AvatarUrl,

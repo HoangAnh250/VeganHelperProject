@@ -6,6 +6,8 @@ namespace VeganHelper.DAL.Repositories;
 
 public sealed class UserRepository(AppDbContext db) : IUserRepository
 {
+    private const string GoogleProvider = "google";
+
     public async Task<(User User, UserProfile Profile)?> FindProfileAsync(long userId, CancellationToken cancellationToken)
     {
         var user = await db.Users.SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
@@ -20,6 +22,11 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
 
     public Task<UserProfile?> FindUserProfileAsync(long userId, CancellationToken cancellationToken) =>
         db.UserProfiles.SingleOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+
+    public Task<bool> IsGoogleLinkedAsync(long userId, CancellationToken cancellationToken) =>
+        db.UserIdentities.AnyAsync(
+            x => x.UserId == userId && x.Provider == GoogleProvider,
+            cancellationToken);
 
     public Task AddUserProfileAsync(UserProfile profile, CancellationToken cancellationToken) =>
         db.UserProfiles.AddAsync(profile, cancellationToken).AsTask();
