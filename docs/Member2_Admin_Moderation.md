@@ -1,6 +1,6 @@
 # FN41–FN43 — Kiểm duyệt bài đăng (BE)
 
-Nhánh `feature/admin`, worktree `C:\Users\ADMIN\.codex\worktrees\admin-foundation\VeganHelperProject`. Kế thừa FN44, FN38–FN40. Chưa commit/push, chưa triển khai migration lên Supabase chung. FE cần tích hợp các API dưới đây.
+Triển khai trên nhánh `feature/admin`, tích hợp vào `developer`. Kế thừa FN44, FN38–FN40. Migration chưa được triển khai lên Supabase chung; FE Admin cần tích hợp các API dưới đây.
 
 ## Luồng
 
@@ -50,7 +50,7 @@ Toggle có hiệu lực khi worker hoàn tất lần quét tiếp theo. Bật to
 
 ## Cấu hình và chạy
 
-1. Dùng đúng worktree `feature/admin`. Sao lưu database và kiểm tra migration trước khi triển khai lên database chung. FN41–FN43 thêm migration `20261007085728_AddPostModeration`, nối sau các migration FN44/FN38–FN39. Lệnh triển khai (chưa chạy lên Supabase trong tác vụ này):
+1. Dùng bản BE `developer` đã tích hợp Admin. Sao lưu database và kiểm tra migration trước khi triển khai lên database chung. FN41–FN43 thêm migration `20261007085728_AddPostModeration`, nối sau các migration FN44/FN38–FN39. Lệnh triển khai (chưa chạy lên Supabase trong tác vụ này):
 
 ```powershell
 Set-Location 'C:\Users\ADMIN\.codex\worktrees\admin-foundation\VeganHelperProject'

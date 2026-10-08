@@ -544,6 +544,7 @@ public sealed class AuthService(
             return ServiceResult<MessageResponseDto>.Fail("The new password must be different from the current password.", 400);
 
         var now = DateTime.UtcNow;
+        user.TokenVersion++;
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.FailedLoginAttempts = 0;
         user.LockedUntil = null;

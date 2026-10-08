@@ -216,6 +216,31 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         Assert.False(string.IsNullOrWhiteSpace(result.GetProperty("accessToken").GetString()));
     }
 
+    [Fact]
+    public async Task ChangePassword_WhenSuccessful_RevokesOldAccessAndRefreshTokens()
+    {
+        const string password = "Merge-old-391!";
+        const string newPassword = "Merge-new-391!";
+        var owner = await UserAsync();
+        await using var db = fixture.Context();
+        var user = await db.Users.SingleAsync(u => u.Id == owner);
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password, 4);
+        user.EmailVerifiedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        using var guest = fixture.Factory.Client();
+        var login = await guest.PostAsJsonAsync("/api/auth/login", new { identifier = user.Email, password });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var tokens = await login.Content.ReadFromJsonAsync<JsonElement>();
+        using var session = fixture.Factory.Client();
+        session.DefaultRequestHeaders.Authorization = new("Bearer", tokens.GetProperty("accessToken").GetString());
+        var change = await session.PostAsJsonAsync("/api/auth/change-password", new { currentPassword = password, newPassword, confirmPassword = newPassword });
+        Assert.Equal(HttpStatusCode.OK, change.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await session.GetAsync("/api/Posts/my-posts")).StatusCode);
+        var refresh = await guest.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = tokens.GetProperty("refreshToken").GetString() });
+        Assert.Equal(HttpStatusCode.Unauthorized, refresh.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await guest.PostAsJsonAsync("/api/auth/login", new { identifier = user.Email, password })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await guest.PostAsJsonAsync("/api/auth/login", new { identifier = user.Email, password = newPassword })).StatusCode);
+    }
     private sealed class RecordingStorage : IMediaStorageService
     {
         public List<string> Errors { get; } = [];
