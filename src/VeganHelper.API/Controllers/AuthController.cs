@@ -105,6 +105,16 @@ public sealed class AuthController(IAuthService service) : ControllerBase
             : ToActionResult(await service.SetPasswordAsync(userId.Value, request, cancellationToken));
     }
 
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        return userId is null
+            ? Unauthorized()
+            : ToActionResult(await service.ChangePasswordAsync(userId.Value, request, cancellationToken));
+    }
+
     [AllowAnonymous]
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(RefreshTokenRequestDto request, CancellationToken cancellationToken) =>
