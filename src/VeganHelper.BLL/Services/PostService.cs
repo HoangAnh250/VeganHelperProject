@@ -19,19 +19,22 @@ public sealed class PostService : IPostService
     private readonly IValidator<GetMyPostsRequest> _getMyPostsValidator;
     private readonly IValidator<UpdatePostRequest> _updateValidator;
     private readonly IMediaStorageService _mediaStorageService;
+    private readonly IPostInteractionRepository _postInteractionRepository;
 
     public PostService(
         IPostRepository postRepository, 
         IValidator<CreatePostRequest> validator, 
         IValidator<GetMyPostsRequest> getMyPostsValidator,
         IValidator<UpdatePostRequest> updateValidator,
-        IMediaStorageService mediaStorageService)
+        IMediaStorageService mediaStorageService,
+        IPostInteractionRepository postInteractionRepository)
     {
         _postRepository = postRepository;
         _validator = validator;
         _getMyPostsValidator = getMyPostsValidator;
         _updateValidator = updateValidator;
         _mediaStorageService = mediaStorageService;
+        _postInteractionRepository = postInteractionRepository;
     }
 
     public async Task<long> CreatePostAsync(CreatePostRequest request, long authorId, CancellationToken cancellationToken = default)
@@ -183,7 +186,10 @@ public sealed class PostService : IPostService
         };
     }
 
-    public async Task<PostDetailDto> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default)
+    public async Task<PostDetailDto> GetPostDetailAsync(
+        long postId,
+        long? viewerUserId = null,
+        CancellationToken cancellationToken = default)
     {
         var (post, authorName) = await _postRepository.GetPostDetailAsync(postId, cancellationToken);
         
@@ -195,6 +201,21 @@ public sealed class PostService : IPostService
         // Increment view count in DB and locally for the return object
         await _postRepository.IncrementViewCountAsync(postId, cancellationToken);
         post.ViewCount++;
+
+        var likeCount = await _postInteractionRepository.CountLikesAsync(postId, cancellationToken);
+        var isLiked = false;
+        var isSaved = false;
+        if (viewerUserId.HasValue)
+        {
+            isLiked = await _postInteractionRepository.FindLikeAsync(
+                viewerUserId.Value,
+                postId,
+                cancellationToken) is not null;
+            isSaved = await _postInteractionRepository.FindSavedPostAsync(
+                viewerUserId.Value,
+                postId,
+                cancellationToken) is not null;
+        }
 
         return new PostDetailDto
         {
@@ -211,6 +232,9 @@ public sealed class PostService : IPostService
             DietType = post.DietType,
             Status = post.Status,
             ViewCount = post.ViewCount,
+            LikeCount = likeCount,
+            IsLiked = isLiked,
+            IsSaved = isSaved,
             CreatedAt = post.CreatedAt,
             Media = post.Media.Select(m => new PostMediaDto
             {
@@ -273,7 +297,10 @@ public sealed class PostService : IPostService
 
     public async Task DeletePostAsync(long postId, long authorId, CancellationToken cancellationToken = default)
     {
-        var (post, _) = await _postRepository.GetPostDetailAsync(postId, cancellationToken);
+        // Owner operations must also work for pending/rejected posts. The public
+        // detail query intentionally returns only published posts, so use the
+        // owner/update query for authorization and soft deletion instead.
+        var post = await _postRepository.GetPostForUpdateAsync(postId, cancellationToken);
         if (post == null)
         {
             throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} not found.");

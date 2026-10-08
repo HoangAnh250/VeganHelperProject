@@ -207,5 +207,6 @@ public sealed class Sprint2ContentInteractionTests
         new Mock<IValidator<CreatePostRequest>>().Object,
         new Mock<IValidator<GetMyPostsRequest>>().Object,
         new Mock<IValidator<UpdatePostRequest>>().Object,
-        new Mock<IMediaStorageService>().Object);
+        new Mock<IMediaStorageService>().Object,
+        new Mock<IPostInteractionRepository>().Object);
 }
