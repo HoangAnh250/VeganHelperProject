@@ -6,6 +6,15 @@ namespace VeganHelper.DAL.Repositories;
 
 public sealed class AuthRepository(AppDbContext db) : IAuthRepository
 {
+    public Task<bool> HasActiveBanAsync(long userId, DateTime now, CancellationToken ct) =>
+        db.UserBans.AnyAsync(b => b.UserId == userId && b.UnbannedAt == null && (b.ExpiresAt == null || b.ExpiresAt > now), ct);
+
+    public Task<string?> FindSessionRoleAsync(long userId, int tokenVersion, DateTime now, CancellationToken ct) =>
+        (from user in db.Users.AsNoTracking()
+         join role in db.Roles on user.RoleId equals role.Id
+         where user.Id == userId && user.TokenVersion == tokenVersion && user.IsActive && user.DeletedAt == null
+            && !db.UserBans.Any(b => b.UserId == user.Id && b.UnbannedAt == null && (b.ExpiresAt == null || b.ExpiresAt > now))
+         select role.RoleName).SingleOrDefaultAsync(ct);
     public Task<User?> FindUserByEmailAsync(string email, CancellationToken cancellationToken) =>
         db.Users.SingleOrDefaultAsync(x => x.Email == email, cancellationToken);
 

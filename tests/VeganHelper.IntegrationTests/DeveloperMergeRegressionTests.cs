@@ -143,6 +143,9 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         Assert.Equal(recipe.FirstStepId, saved.PostSteps.Single(s => s.StepNumber == 1).Id);
         Assert.Equal(changeRelations ? new[] { 1, 3 } : new[] { 1, 2 }, saved.PostSteps.Select(s => s.StepNumber).Order());
         Assert.Equal("pending_review", saved.Status);
+        Assert.Equal(2, saved.ContentRevision);
+        var scan = await db.Set<PostModerationScan>().SingleAsync(s => s.PostId == recipe.Id);
+        Assert.Equal(saved.ContentRevision, scan.Revision); Assert.Equal("queued", scan.State);
     }
 
     [Fact]

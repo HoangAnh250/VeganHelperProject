@@ -22,6 +22,7 @@ public sealed class PostRepository : IPostRepository
     public async Task<Post> CreatePostAsync(Post post, CancellationToken cancellationToken = default)
     {
         var entry = await _context.Posts.AddAsync(post, cancellationToken);
+        _context.Set<PostModerationScan>().Add(new PostModerationScan { Post = post, Revision = post.ContentRevision });
         return entry.Entity;
     }
 
@@ -233,6 +234,7 @@ public sealed class PostRepository : IPostRepository
             .Where(p => p.Id == postId && !p.IsDeleted)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.IsDeleted, true)
+                .SetProperty(p => p.ContentRevision, p => p.ContentRevision + 1)
                 .SetProperty(p => p.DeletedAt, DateTime.UtcNow),
             cancellationToken);
 
@@ -250,6 +252,7 @@ public sealed class PostRepository : IPostRepository
     {
         if (_context.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Post update removals require an active transaction.");
+        _context.Set<PostModerationScan>().Add(new PostModerationScan { PostId = post.Id, Revision = post.ContentRevision });
         // Required NoAction relationships must be deleted explicitly before collections are replaced.
         if (media.Count > 0)
         {

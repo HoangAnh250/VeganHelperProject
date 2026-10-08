@@ -188,11 +188,11 @@ public sealed class PostService : IPostService
         };
     }
 
-    public async Task<PostDetailDto> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default)
+    public async Task<PostDetailDto> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default, long? viewerId = null)
     {
         var (post, authorName) = await _postRepository.GetPostDetailAsync(postId, cancellationToken);
         
-        if (post == null)
+        if (post == null || post.IsDeleted || post.Status != "published" && post.AuthorId != viewerId)
         {
             throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} not found.");
         }
@@ -340,6 +340,7 @@ public sealed class PostService : IPostService
         var originalSteps = post.PostSteps.ToArray();
 
         // Update basic fields
+        post.ContentRevision = checked(post.ContentRevision + 1);
         post.Title = request.Title;
         post.Content = request.Content;
         post.DifficultyLevel = string.IsNullOrEmpty(request.DifficultyLevel) ? null : request.DifficultyLevel;

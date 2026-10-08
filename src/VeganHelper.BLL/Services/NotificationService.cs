@@ -72,6 +72,15 @@ public sealed class NotificationService(INotificationRepository repository, IMap
          post.Status == "published" ? "Your post has been approved." : "Your post was rejected. Please review it before resubmitting.",
          $"/posts/{post.Id}", ct);
     }
+    public async Task<long?> NotifyModerationDecisionAsync(long decisionId, CancellationToken ct = default)
+    {
+        var source = await repository.ModerationDecisionSourceAsync(decisionId, ct);
+        if (source is null) return null;
+        var keep = source.Action is "approve" or "keep";
+        return await Publish(source.AuthorId, $"moderation:{decisionId}", "post_review",
+            keep ? "Post approved" : source.Action == "reject" ? "Post rejected" : "Post removed",
+            source.Reason, keep ? $"/posts/{source.PostId}" : $"/posts/edit/{source.PostId}", ct);
+    }
     public async Task<long?> NotifyMealReminderAsync(long scheduleId, DateOnly date, CancellationToken ct = default)
     {
         var source = await repository.MealSourceAsync(scheduleId, ct);

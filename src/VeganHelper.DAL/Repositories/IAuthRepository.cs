@@ -4,6 +4,8 @@ namespace VeganHelper.DAL.Repositories;
 
 public interface IAuthRepository
 {
+    Task<bool> HasActiveBanAsync(long userId, DateTime now, CancellationToken ct);
+    Task<string?> FindSessionRoleAsync(long userId, int tokenVersion, DateTime now, CancellationToken ct);
     Task<User?> FindUserByEmailAsync(string email, CancellationToken cancellationToken);
     Task<User?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken);
     Task<User?> FindUserByIdentifierAsync(string identifier, CancellationToken cancellationToken);

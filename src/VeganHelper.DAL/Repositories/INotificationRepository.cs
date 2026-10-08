@@ -3,6 +3,7 @@ namespace VeganHelper.DAL.Repositories;
 
 public interface INotificationRepository
 {
+    Task<ModerationNotificationSource?> ModerationDecisionSourceAsync(long id, CancellationToken ct);
     Task<(int Count, List<Notification> Items)> ListAsync(long userId, int page, int size, bool unreadOnly, CancellationToken ct);
     Task<int> UnreadCountAsync(long userId, CancellationToken ct);
     Task<(bool Exists, int Updated)> MarkReadAsync(long userId, long id, DateTime now, CancellationToken ct);
@@ -17,4 +18,5 @@ public interface INotificationRepository
     Task FinishPushAsync(NotificationPushDelivery delivery, string state, string? error, DateTime nextAttempt, CancellationToken ct);
 }
 public sealed record CommentNotificationSource(long AuthorId, long CommenterId, long PostId);
+public sealed record ModerationNotificationSource(long AuthorId, long PostId, string Action, string Reason);
 public sealed record MealReminderSource(long UserId, byte DayOfWeek, DateOnly? StartDate, DateOnly? EndDate, string Status);

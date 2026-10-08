@@ -72,6 +72,18 @@ public class ExceptionHandlingMiddleware
             var result = JsonSerializer.Serialize(new { message = ex.Message });
             await context.Response.WriteAsync(result);
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { message = "Content changed. Reload before trying again." }));
+        }
+        catch (VeganHelper.BLL.Exceptions.ConflictException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { message = ex.Message }));
+        }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogWarning(ex, "Unauthorized access error occurred.");

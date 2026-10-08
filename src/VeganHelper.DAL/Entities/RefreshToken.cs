@@ -2,6 +2,7 @@ namespace VeganHelper.DAL.Entities;
 
 public sealed class RefreshToken
 {
+    public int TokenVersion { get; set; }
     public long Id { get; set; }
     public long UserId { get; set; }
     public string TokenHash { get; set; } = string.Empty;

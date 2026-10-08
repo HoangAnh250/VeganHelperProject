@@ -85,6 +85,8 @@ public partial class PostRepositoryTests
         Assert.Equal(ingredientName, Assert.Single(saved.PostIngredients).Ingredient!.Name);
         Assert.True(saved.PostIngredients.Single().IngredientId > 0);
         Assert.Equal(2, saved.PostSteps.Count);
+        Assert.Equal(1, saved.ContentRevision);
+        Assert.Equal(1, (await _context.Set<PostModerationScan>().SingleAsync(s => s.PostId == id)).Revision);
         var stepId = saved.PostSteps.Single(s => s.StepNumber == 1).Id;
 
         var update = new UpdatePostRequest
@@ -102,6 +104,8 @@ public partial class PostRepositoryTests
         Assert.Equal(stepId, Assert.Single(saved.PostSteps).Id);
         Assert.Equal("Rửa kỹ nguyên liệu", saved.PostSteps.Single().Description);
         Assert.Equal(1, await _context.Ingredients.CountAsync(i => i.Name == ingredientName));
+        Assert.Equal(2, saved.ContentRevision);
+        Assert.Equal(new[] { 1, 2 }, await _context.Set<PostModerationScan>().Where(s => s.PostId == id).OrderBy(s => s.Revision).Select(s => s.Revision).ToArrayAsync());
 
         _context.Posts.Add(NewPost(otherAuthor.Id));
         await _context.SaveChangesAsync();

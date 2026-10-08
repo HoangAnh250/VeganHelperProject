@@ -18,6 +18,8 @@ using Testcontainers.PostgreSql;
 using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Persistence;
 using VeganHelper.DAL.Repositories;
+using VeganHelper.BLL.Services.Media;
+using Microsoft.AspNetCore.Http;
 
 namespace VeganHelper.IntegrationTests;
 
@@ -48,6 +50,22 @@ public sealed class Member2ApiFixture : IAsyncLifetime
                 throw new InvalidOperationException("Member2 integration tests require an isolated local test database, never Supabase.");
         }
         await using var db = Context();
+        // Model Supabase's browser roles and default grants before running migrations.
+        // Otherwise a conditional REVOKE test can pass vacuously on a fresh container.
+        await db.Database.ExecuteSqlRawAsync("""
+            DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+                    CREATE ROLE anon NOLOGIN;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+                    CREATE ROLE authenticated NOLOGIN;
+                END IF;
+            END $$;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public
+                GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO anon, authenticated;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public
+                GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated;
+            """);
         await db.Database.MigrateAsync();
         previousSigningKey = Environment.GetEnvironmentVariable("Jwt__SigningKey");
         previousConnection = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
@@ -75,10 +93,18 @@ public sealed class Member2ApiFactory(string connection) : WebApplicationFactory
         builder.UseEnvironment("Testing");
         builder.ConfigureServices(services =>
         {
+            // Read-only post tests must not require cloud credentials or accidentally call R2.
+            services.RemoveAll<IMediaStorageService>();
+            services.AddSingleton<IMediaStorageService, NoCloudMediaStorage>();
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
             services.RemoveAll<AppDbContext>();
             services.AddDbContext<AppDbContext>(o => o.UseNpgsql(connection));
+            services.PostConfigure<VeganHelper.BLL.DTOs.JwtOptions>(options =>
+            {
+                options.Issuer = "member2-test";
+                options.Audience = "member2-test";
+            });
             services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
@@ -96,12 +122,17 @@ public sealed class Member2ApiFactory(string connection) : WebApplicationFactory
         var client = CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
         if (userId is not null)
         {
-            var token = new JwtSecurityToken("member2-test", "member2-test", [new Claim("sub", userId.Value.ToString()), new Claim(ClaimTypes.Role, "member")],
+            var token = new JwtSecurityToken("member2-test", "member2-test", [new Claim("sub", userId.Value.ToString()), new Claim(ClaimTypes.Role, "member"), new Claim("token_version", "0")],
                 notBefore: DateTime.UtcNow.AddHours(-2), expires: expired ? DateTime.UtcNow.AddHours(-1) : DateTime.UtcNow.AddHours(1),
                 signingCredentials: new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)), SecurityAlgorithms.HmacSha256));
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
         }
         return client;
+    }
+    private sealed class NoCloudMediaStorage : IMediaStorageService
+    {
+        public Task<string> UploadFileAsync(IFormFile file, string folder) => throw new InvalidOperationException("Use an explicit recording storage in upload tests.");
+        public Task DeleteFileAsync(string url) => throw new InvalidOperationException("Use an explicit recording storage in delete tests.");
     }
 }
 

@@ -63,7 +63,8 @@ public sealed class NotificationRepository(AppDbContext db) : INotificationRepos
     }
     public async Task<long> PublishAsync(Notification n, CancellationToken ct)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        // Join the moderation/audit transaction when present, including its push outbox writes.
+        await using var tx = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(ct) : null;
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({n.UserId})", ct);
         var existing = await db.Set<Notification>().Where(x => x.UserId == n.UserId && x.EventKey == n.EventKey)
          .Select(x => (long?)x.Id).SingleOrDefaultAsync(ct);
@@ -75,9 +76,14 @@ public sealed class NotificationRepository(AppDbContext db) : INotificationRepos
         db.AddRange(subscriptions.Select(id => new NotificationPushDelivery
         { NotificationId = n.Id, SubscriptionId = id, NextAttemptAt = n.CreatedAt }));
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
         return n.Id;
     }
+    public Task<ModerationNotificationSource?> ModerationDecisionSourceAsync(long id, CancellationToken ct) =>
+        (from decision in db.Set<PostModerationDecision>().AsNoTracking()
+         join post in db.Posts on decision.PostId equals post.Id
+         where decision.Id == id
+         select new ModerationNotificationSource(post.AuthorId, post.Id, decision.Action, decision.Reason)).SingleOrDefaultAsync(ct);
     public Task<CommentNotificationSource?> CommentSourceAsync(long id, CancellationToken ct) =>
      (from comment in db.Comments.AsNoTracking()
       join post in db.Posts on comment.PostId equals post.Id

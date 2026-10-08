@@ -4,6 +4,7 @@
     <UserSecretsId>VeganHelper-API-Development</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <Content Update="Prompts/*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
     <PackageReference Include="Google.Apis.Auth" Version="1.76.0" />

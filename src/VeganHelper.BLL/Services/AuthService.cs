@@ -536,7 +536,8 @@ public sealed class AuthService(
         if (storedToken is null || storedToken.RevokedAt is not null || storedToken.ExpiresAt <= now)
             return ServiceResult<AuthResponseDto>.Fail("Refresh token is invalid or expired.", 401);
         var user = await repository.FindUserByIdAsync(storedToken.UserId, cancellationToken);
-        if (user is null || !user.IsActive || user.DeletedAt is not null)
+        if (user is null || !user.IsActive || user.DeletedAt is not null || storedToken.TokenVersion != user.TokenVersion
+            || await repository.HasActiveBanAsync(user.Id, now, cancellationToken))
             return ServiceResult<AuthResponseDto>.Fail("Account is inactive.", 401);
 
         storedToken.RevokedAt = now;
@@ -608,12 +609,16 @@ public sealed class AuthService(
 
     private async Task<ServiceResult<AuthResponseDto>> IssueTokensAsync(User user, DateTime now, CancellationToken cancellationToken)
     {
+        // Shared by password login, Google login and refresh: no route may issue a usable session to a banned account.
+        if (!user.IsActive || user.DeletedAt is not null || await repository.HasActiveBanAsync(user.Id, now, cancellationToken))
+            return ServiceResult<AuthResponseDto>.Fail("Account is banned or inactive.", 403);
         var roleName = await repository.FindRoleNameAsync(user.RoleId, cancellationToken) ?? "member";
         var access = jwtTokenService.CreateAccessToken(user, roleName, now);
         var rawRefreshToken = TokenSecurity.GenerateOpaqueToken();
         var refreshExpiresAt = now.AddDays(_jwtOptions.RefreshTokenDays);
         await repository.AddRefreshTokenAsync(new RefreshToken
         {
+            TokenVersion = user.TokenVersion,
             UserId = user.Id,
             TokenHash = TokenSecurity.Hash(rawRefreshToken),
             ExpiresAt = refreshExpiresAt,

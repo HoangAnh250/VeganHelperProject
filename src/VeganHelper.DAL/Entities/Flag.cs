@@ -2,6 +2,8 @@ namespace VeganHelper.DAL.Entities;
 
 public sealed class Flag
 {
+    public int? PostRevision { get; set; }
+    public long? ModerationScanId { get; set; }
     public long Id { get; set; }
     public long? ReporterId { get; set; }
     public long? PostId { get; set; }

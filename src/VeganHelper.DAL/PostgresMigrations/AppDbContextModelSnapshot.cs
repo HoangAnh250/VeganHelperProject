@@ -23,6 +23,67 @@ namespace VeganHelper.DAL.PostgresMigrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.AdminAuditLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("action");
+
+                    b.Property<long>("AdminId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("admin_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<string>("TargetId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("target_type");
+
+                    b.Property<string>("TraceId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("trace_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminId", "CreatedAt");
+
+                    b.HasIndex("CreatedAt", "Id");
+
+                    b.HasIndex("TargetType", "TargetId");
+
+                    b.ToTable("admin_audit_logs", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_admin_audit_logs_required", "length(trim(action)) > 0 AND length(trim(target_type)) > 0 AND length(trim(trace_id)) > 0");
+                        });
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.AiUsage", b =>
                 {
                     b.Property<long>("Id")
@@ -512,9 +573,17 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<long?>("ModerationScanId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("moderation_scan_id");
+
                     b.Property<long?>("PostId")
                         .HasColumnType("bigint")
                         .HasColumnName("post_id");
+
+                    b.Property<int?>("PostRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("post_revision");
 
                     b.Property<string>("Reason")
                         .IsRequired()
@@ -559,6 +628,8 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasName("PK_flags");
 
                     b.HasIndex("CommentId");
+
+                    b.HasIndex("ModerationScanId");
 
                     b.HasIndex("PostId");
 
@@ -1080,6 +1151,13 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnType("text")
                         .HasColumnName("content");
 
+                    b.Property<int>("ContentRevision")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("content_revision");
+
                     b.Property<int?>("CookingTimeMins")
                         .HasColumnType("integer")
                         .HasColumnName("cooking_time_mins");
@@ -1401,6 +1479,220 @@ namespace VeganHelper.DAL.PostgresMigrations
                         });
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostModerationDecision", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("action");
+
+                    b.Property<string>("ActorType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("actor_type");
+
+                    b.Property<long?>("AdminId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("admin_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long?>("FlagId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("flag_id");
+
+                    b.Property<long>("PostId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("post_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<long?>("ScanId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("scan_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminId");
+
+                    b.HasIndex("FlagId");
+
+                    b.HasIndex("ScanId");
+
+                    b.HasIndex("PostId", "Revision", "CreatedAt");
+
+                    b.ToTable("post_moderation_decisions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_moderation_decision_action", "action IN ('approve','reject','keep','remove') AND revision > 0 AND length(trim(reason)) > 0");
+
+                            t.HasCheckConstraint("CK_moderation_decision_actor", "(actor_type = 'admin' AND admin_id IS NOT NULL) OR (actor_type = 'ai' AND admin_id IS NULL AND scan_id IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostModerationScan", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<double?>("Confidence")
+                        .HasColumnType("double precision")
+                        .HasColumnName("confidence");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("error_code");
+
+                    b.Property<string>("FindingsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("findings_json");
+
+                    b.Property<int?>("InputTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("input_tokens");
+
+                    b.Property<int?>("LatencyMs")
+                        .HasColumnType("integer")
+                        .HasColumnName("latency_ms");
+
+                    b.Property<Guid?>("LeaseToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lease_token");
+
+                    b.Property<DateTime?>("LeaseUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lease_until");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("model");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<int?>("OutputTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("output_tokens");
+
+                    b.Property<long>("PostId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("post_id");
+
+                    b.Property<string>("PromptVersion")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("prompt_version");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("state");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("summary");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PostId", "Revision")
+                        .IsUnique();
+
+                    b.HasIndex("State", "NextAttemptAt");
+
+                    b.ToTable("post_moderation_scans", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_moderation_scan_attempts", "attempts BETWEEN 0 AND 5 AND revision > 0");
+
+                            t.HasCheckConstraint("CK_moderation_scan_confidence", "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)");
+
+                            t.HasCheckConstraint("CK_moderation_scan_state", "state IN ('queued','processing','safe','flagged','manual_required','failed','obsolete')");
+                        });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostModerationSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AutoPublishEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("auto_publish_enabled");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<long?>("UpdatedByAdminId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_admin_id");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedByAdminId");
+
+                    b.ToTable("post_moderation_settings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_moderation_settings_singleton", "id = 1 AND version > 0");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            AutoPublishEnabled = false,
+                            Version = 1
+                        });
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.PostStep", b =>
                 {
                     b.Property<long>("Id")
@@ -1522,6 +1814,12 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .IsRequired()
                         .HasColumnType("character varying(128)")
                         .HasColumnName("token_hash");
+
+                    b.Property<int>("TokenVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("token_version");
 
                     b.Property<long>("UserId")
                         .HasColumnType("bigint")
@@ -1840,11 +2138,6 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnName("email")
                         .UseCollation("veganhelper_ci");
 
-                    b.Property<string>("PendingEmail")
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("pending_email")
-                        .UseCollation("veganhelper_ci");
-
                     b.Property<DateTime?>("EmailVerifiedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("email_verified_at");
@@ -1873,6 +2166,11 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("password_hash");
 
+                    b.Property<string>("PendingEmail")
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("pending_email")
+                        .UseCollation("veganhelper_ci");
+
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("character varying(20)")
                         .HasColumnName("phone_number");
@@ -1880,6 +2178,12 @@ namespace VeganHelper.DAL.PostgresMigrations
                     b.Property<int>("RoleId")
                         .HasColumnType("integer")
                         .HasColumnName("role_id");
+
+                    b.Property<int>("TokenVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("token_version");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1971,6 +2275,68 @@ namespace VeganHelper.DAL.PostgresMigrations
                     b.ToTable("user_available_ingredients", null, t =>
                         {
                             t.HasCheckConstraint("CK_user_available_ingredients_1", "quantity >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserBan", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("BannedByAdminId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("banned_by_admin_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("UnbanReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("unban_reason");
+
+                    b.Property<DateTime?>("UnbannedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("unbanned_at");
+
+                    b.Property<long?>("UnbannedByAdminId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("unbanned_by_admin_id");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BannedByAdminId");
+
+                    b.HasIndex("UnbannedByAdminId");
+
+                    b.HasIndex("UserId", "UnbannedAt", "ExpiresAt");
+
+                    b.ToTable("user_bans", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_user_bans_expiry", "expires_at IS NULL OR expires_at > created_at");
+
+                            t.HasCheckConstraint("CK_user_bans_reason", "length(trim(reason)) > 0");
+
+                            t.HasCheckConstraint("CK_user_bans_unban", "(unbanned_at IS NULL AND unbanned_by_admin_id IS NULL AND unban_reason IS NULL) OR (unbanned_at IS NOT NULL AND unbanned_at >= created_at AND unbanned_by_admin_id IS NOT NULL AND unban_reason IS NOT NULL AND length(trim(unban_reason)) > 0)");
                         });
                 });
 
@@ -2088,6 +2454,15 @@ namespace VeganHelper.DAL.PostgresMigrations
                         });
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.AdminAuditLog", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AdminId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.AiUsage", b =>
                 {
                     b.HasOne("VeganHelper.DAL.Entities.User", null)
@@ -2178,6 +2553,11 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasForeignKey("CommentId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_flags_3");
+
+                    b.HasOne("VeganHelper.DAL.Entities.PostModerationScan", null)
+                        .WithMany()
+                        .HasForeignKey("ModerationScanId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("VeganHelper.DAL.Entities.Post", null)
                         .WithMany()
@@ -2377,6 +2757,49 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasConstraintName("FK_post_media_1");
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostModerationDecision", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AdminId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("VeganHelper.DAL.Entities.Flag", null)
+                        .WithMany()
+                        .HasForeignKey("FlagId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("VeganHelper.DAL.Entities.Post", null)
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("VeganHelper.DAL.Entities.PostModerationScan", null)
+                        .WithMany()
+                        .HasForeignKey("ScanId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostModerationScan", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.Post", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.PostModerationSettings", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByAdminId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.PostStep", b =>
                 {
                     b.HasOne("VeganHelper.DAL.Entities.Post", null)
@@ -2527,6 +2950,26 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_user_available_ingredients_1");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserBan", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("BannedByAdminId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UnbannedByAdminId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.UserIdentity", b =>

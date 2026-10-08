@@ -25,6 +25,10 @@ using Hangfire.PostgreSql;
 using VeganHelper.API.BackgroundJobs;
 using VeganHelper.API.Infrastructure.Notifications;
 using VeganHelper.DAL.Integrations;
+using VeganHelper.API.Authorization;
+using Microsoft.AspNetCore.Authorization;
+using System.Text.Json;
+using VeganHelper.DAL.Integrations.Moderation;
 
 if (args.Contains("--generate-vapid-keys"))
 {
@@ -122,6 +126,7 @@ builder.Services.PostConfigure<JwtOptions>(options => options.SigningKey = signi
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.Events = new JwtBearerEvents { OnTokenValidated = AccountTokenValidation.ValidateAsync };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
@@ -134,7 +139,34 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddScoped<IAdminAuditRepository, AdminAuditRepository>();
+builder.Services.AddScoped<IAdminAuditService, AdminAuditService>();
+builder.Services.AddScoped<IAdminMemberRepository, AdminMemberRepository>();
+builder.Services.AddScoped<IAdminMemberService, AdminMemberService>();
+builder.Services.AddScoped<IAdminCategoryRepository, AdminCategoryRepository>();
+builder.Services.AddScoped<IAdminCategoryService, AdminCategoryService>();
+builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
+builder.Services.AddScoped<IAdminModerationService, AdminModerationService>();
+builder.Services.AddScoped<PostModerationProcessor>();
+builder.Services.AddScoped<PostModerationJob>();
+builder.Services.AddOptions<ModerationAiOptions>().BindConfiguration("ModerationAi")
+    .Validate(o => !o.Enabled || !string.IsNullOrWhiteSpace(o.ApiKey) && o.ApiKey.Length <= 256 && !o.ApiKey.Any(char.IsControl)
+        && o.Model is not null && System.Text.RegularExpressions.Regex.IsMatch(o.Model, @"\Agemini-[a-z0-9][a-z0-9.-]{0,79}\z")
+        && o.TimeoutSeconds is >= 1 and <= 120 && double.IsFinite(o.MinAutoPublishConfidence) && o.MinAutoPublishConfidence is >= .9 and <= 1
+        && o.AllowedMediaHosts is not null, "Configure a valid ModerationAi key, model, timeout and confidence threshold.").ValidateOnStart();
+var moderationPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "PostModeration.v1.json");
+var moderationPrompt = JsonSerializer.Deserialize<ModerationPromptDefinition>(File.ReadAllText(moderationPromptPath), JsonSerializerOptions.Web)
+    ?? throw new InvalidOperationException("Moderation prompt is missing.");
+if (string.IsNullOrWhiteSpace(moderationPrompt.Version) || moderationPrompt.Version.Length > 30 || string.IsNullOrWhiteSpace(moderationPrompt.SystemInstruction)
+    || moderationPrompt.ResponseSchema.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Moderation prompt is invalid.");
+builder.Services.AddSingleton(moderationPrompt);
+builder.Services.AddHttpClient<IPostModerationAiClient, GeminiPostModerationClient>(client => client.Timeout = Timeout.InfiniteTimeSpan)
+    .ConfigurePrimaryHttpMessageHandler(GeminiModerationHttpHandlerFactory.Create)
+    .RedactLoggedHeaders(["x-goog-api-key"]);
+builder.Services.AddScoped<IAccountAccessService, AccountAccessService>();
+builder.Services.AddScoped<IAuthorizationHandler, ActiveAdminHandler>();
+builder.Services.AddAuthorization(options => options.AddPolicy(AdminPolicies.AdminOnly,
+    policy => policy.RequireAuthenticatedUser().AddRequirements(new ActiveAdminRequirement())));
 
 builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
@@ -148,14 +180,16 @@ builder.Services.AddOptions<WebPushSettings>().BindConfiguration("WebPush").Vali
 builder.Services.AddHttpClient<IWebPushTransport, WebPushTransport>(client => client.Timeout = TimeSpan.FromSeconds(15))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 var pushWorkerConfigured = builder.Configuration.GetValue<bool>("WebPush:Enabled");
-if (pushWorkerConfigured)
+var moderationWorkerConfigured = builder.Configuration.GetValue<bool>("ModerationAi:Enabled");
+var prepareJobs = args.Contains("--prepare-push-jobs") || args.Contains("--prepare-background-jobs");
+if (pushWorkerConfigured || moderationWorkerConfigured)
 {
     var jobConnection = DatabaseConnection.Validate(builder.Configuration.GetConnectionString("HangfireConnection")
         ?? builder.Configuration.GetConnectionString("DefaultConnection"));
     builder.Services.AddHangfire(config => config.UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings()
         .UsePostgreSqlStorage(storage => storage.UseNpgsqlConnection(jobConnection),
-            new PostgreSqlStorageOptions { PrepareSchemaIfNecessary = args.Contains("--prepare-push-jobs") }));
-    builder.Services.AddHangfireServer(options => options.WorkerCount = 1);
+            new PostgreSqlStorageOptions { PrepareSchemaIfNecessary = prepareJobs }));
+    builder.Services.AddHangfireServer(options => options.WorkerCount = 2);
 }
 builder.Services.AddScoped<IHealthProfileRepository, HealthProfileRepository>();
 builder.Services.AddScoped<IShopRepository, ShopRepository>();
@@ -170,10 +204,10 @@ builder.Services.AddScoped<IAvatarStorage>(sp => sp.GetRequiredService<Cloudflar
 
 var app = builder.Build();
 
-if (args.Contains("--prepare-push-jobs"))
+if (prepareJobs)
 {
-    if (!app.Services.GetRequiredService<IOptions<WebPushSettings>>().Value.Enabled)
-        throw new InvalidOperationException("Configure WebPush and enable it before preparing Hangfire storage.");
+    if (!pushWorkerConfigured && !moderationWorkerConfigured)
+        throw new InvalidOperationException("Enable WebPush or ModerationAi before preparing Hangfire storage.");
     _ = app.Services.GetRequiredService<JobStorage>();
     // Hangfire uses a private schema; never expose its serialized job data through Data API roles.
     await using var jobDatabase = new Npgsql.NpgsqlConnection(DatabaseConnection.Validate(
@@ -232,6 +266,9 @@ if (pushWorkerConfigured &&
     app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<NotificationPushJob>(
         "notifications-web-push", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
 }
+if (moderationWorkerConfigured)
+    app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<PostModerationJob>(
+        "posts-ai-moderation", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
 app.Run();
 
 static string? FindEnvironmentFile(string startPath)

@@ -228,6 +228,7 @@ public class PostServiceTests
             Id = postId,
             AuthorId = 10,
             Title = "Test Recipe",
+            Status = "published",
             ViewCount = 5,
             PostCategories = new List<PostCategory> { new PostCategory { CategoryId = 2 } }
         };

@@ -10,6 +10,23 @@ public sealed class MappingProfile : Profile
 {
     public MappingProfile()
     {
+        CreateMap<AdminAuditLog, VeganHelper.BLL.DTOs.Admin.AdminAuditLogDto>();
+        CreateMap<AdminMemberProjection, VeganHelper.BLL.DTOs.Admin.AdminMemberDto>();
+        CreateMap<AdminCategoryProjection, VeganHelper.BLL.DTOs.Admin.AdminCategoryDto>();
+        CreateMap<ModerationPostProjection, VeganHelper.BLL.DTOs.Admin.ModerationPostDto>();
+        CreateMap<ModerationFlagProjection, VeganHelper.BLL.DTOs.Admin.ModerationFlagDto>()
+            .ForMember(d => d.Findings, o => o.MapFrom(s => ModerationMapping.Findings(s.FindingsJson)));
+        CreateMap<PostModerationDecision, VeganHelper.BLL.DTOs.Admin.ModerationDecisionDto>();
+        CreateMap<PostModerationSettings, VeganHelper.BLL.DTOs.Admin.ModerationSettingsDto>();
+        CreateMap<PostMedia, VeganHelper.BLL.DTOs.Posts.PostMediaDto>();
+        CreateMap<PostStep, VeganHelper.BLL.DTOs.Posts.PostStepDto>().ForMember(d => d.Instruction, o => o.MapFrom(s => s.Description));
+        CreateMap<PostIngredient, VeganHelper.BLL.DTOs.Posts.PostIngredientDto>()
+            .ForMember(d => d.Name, o => o.MapFrom(s => s.Ingredient == null ? "Unknown" : s.Ingredient.Name))
+            .ForMember(d => d.Quantity, o => o.MapFrom(s => s.Quantity ?? 0));
+        CreateMap<Post, VeganHelper.BLL.DTOs.Admin.ModerationPostDetailDto>(MemberList.None)
+            .ForMember(d => d.Ingredients, o => o.MapFrom(s => s.PostIngredients))
+            .ForMember(d => d.Steps, o => o.MapFrom(s => s.PostSteps.OrderBy(x => x.StepNumber)))
+            .ForMember(d => d.Media, o => o.MapFrom(s => s.Media.OrderBy(x => x.DisplayOrder).ThenBy(x => x.Id)));
         CreateMap<Notification, VeganHelper.BLL.DTOs.Notifications.NotificationDto>();
         CreateMap<UpdateHealthProfileRequest, UserProfile>(MemberList.None);
         CreateMap<UserProfile, HealthProfileDto>(MemberList.None);

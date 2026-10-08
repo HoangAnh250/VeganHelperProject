@@ -180,6 +180,7 @@ public class FN14MediaTests
     [Fact]
     public async Task DetailResponse_ExposesPersistedMediaIdsAndOrder()
     {
+        post.Status = "published";
         repository.Setup(r => r.GetPostDetailAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync((post, "Author"));
         var detail = await service.GetPostDetailAsync(10);
         Assert.Equal(new long[] { 1, 2, 3, 4 }, detail.Media.Select(m => m.Id));

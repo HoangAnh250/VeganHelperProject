@@ -40,6 +40,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ShopMenuItem> ShopMenuItems => Set<ShopMenuItem>();
     public DbSet<ShopCategory> ShopCategories => Set<ShopCategory>();
     public DbSet<Flag> Flags => Set<Flag>();
+    public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
+    public DbSet<UserBan> UserBans => Set<UserBan>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,6 +70,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.FailedLoginAttempts).HasColumnName("failed_login_attempts").HasColumnType("integer").IsRequired(true).HasDefaultValueSql("0");
             entity.Property(x => x.LockedUntil).HasColumnName("locked_until").HasColumnType("timestamp with time zone").IsRequired(false);
             entity.Property(x => x.RoleId).HasColumnName("role_id").HasColumnType("integer").IsRequired(true);
+            entity.Property(x => x.TokenVersion).HasColumnName("token_version").HasDefaultValue(0);
             entity.HasOne<Role>().WithMany().HasForeignKey(x => new { x.RoleId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_users_1");
         });
         modelBuilder.Entity<EmailVerificationToken>(entity =>
@@ -102,6 +105,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         });
         modelBuilder.Entity<RefreshToken>(entity =>
         {
+            entity.Property(x => x.TokenVersion).HasColumnName("token_version").HasDefaultValue(0);
             entity.ToTable("refresh_tokens");
             entity.HasKey(x => x.Id).HasName("PK_refresh_tokens");
             entity.Property(x => x.Id).HasColumnName("id").HasColumnType("bigint").UseIdentityByDefaultColumn();
@@ -646,6 +650,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         });
         Member2ModelConfiguration.Configure(modelBuilder);
         NotificationModelConfiguration.Configure(modelBuilder);
+        AdminAuditModelConfiguration.Configure(modelBuilder);
+        AdminMemberModelConfiguration.Configure(modelBuilder);
+        PostModerationModelConfiguration.Configure(modelBuilder);
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         foreach (var property in entityType.GetProperties())
         {
