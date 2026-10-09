@@ -647,6 +647,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasOne<Shop>().WithMany().HasForeignKey(x => new { x.ShopId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_flags_4");
             entity.HasOne<User>().WithMany().HasForeignKey(x => new { x.ResolvedByAdminId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_flags_5");
             entity.HasIndex(x => new { x.Status, x.CreatedAt }).HasDatabaseName("IX_flags_1");
+            entity.HasIndex(x => new { x.CommentId, x.ReporterId })
+                .IsUnique()
+                .HasDatabaseName("UX_flags_user_comment_report")
+                .HasFilter("source_type = 'user' AND comment_id IS NOT NULL AND reporter_id IS NOT NULL");
         });
         Member2ModelConfiguration.Configure(modelBuilder);
         NotificationModelConfiguration.Configure(modelBuilder);

@@ -1,6 +1,8 @@
 using FluentValidation;
+using Microsoft.EntityFrameworkCore.Storage;
 using Moq;
 using VeganHelper.BLL.DTOs.Comments;
+using VeganHelper.BLL.Exceptions;
 using VeganHelper.BLL.Services;
 using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
@@ -142,6 +144,194 @@ public sealed class CommentServiceTests
     }
 
     [Fact]
+    public async Task UpdateCommentAsync_AllowsOwnerAndReevaluatesModeration()
+    {
+        var repository = CreateRepository();
+        var comment = new Comment
+        {
+            Id = 100,
+            PostId = 10,
+            UserId = 7,
+            Content = "Old comment",
+            Status = "visible"
+        };
+        repository.Setup(x => x.IsPublishedPostAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(comment);
+        repository.Setup(x => x.GetCommentProjectionAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new CommentProjection
+            {
+                Id = comment.Id,
+                PostId = comment.PostId,
+                UserId = comment.UserId,
+                Content = comment.Content,
+                Status = comment.Status,
+                AuthorName = "Member"
+            });
+
+        var result = await CreateService(repository).UpdateCommentAsync(10, 100, 7, new UpdateCommentRequest
+        {
+            Content = "  Updated comment  "
+        });
+
+        Assert.Equal("Updated comment", comment.Content);
+        Assert.Equal("visible", comment.Status);
+        Assert.Equal("Updated comment", result.Content);
+        Assert.NotNull(comment.UpdatedAt);
+        repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateCommentAsync_RejectsAnotherMember()
+    {
+        var repository = CreateRepository();
+        repository.Setup(x => x.IsPublishedPostAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Comment { Id = 100, PostId = 10, UserId = 7, Status = "visible" });
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => CreateService(repository).UpdateCommentAsync(
+            10,
+            100,
+            8,
+            new UpdateCommentRequest { Content = "Attempted edit" }));
+
+        repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateCommentAsync_AdminCannotEditAnotherMemberComment()
+    {
+        var repository = CreateRepository();
+        repository.Setup(x => x.IsPublishedPostAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Comment { Id = 100, PostId = 10, UserId = 7, Status = "visible" });
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => CreateService(repository).UpdateCommentAsync(
+            10,
+            100,
+            8,
+            new UpdateCommentRequest { Content = "Attempted admin edit" }));
+
+        repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_SoftDeletesCommentAndPreservesRow()
+    {
+        var repository = CreateRepository();
+        var comment = new Comment
+        {
+            Id = 100,
+            PostId = 10,
+            UserId = 7,
+            Content = "Comment",
+            Status = "visible"
+        };
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(comment);
+
+        await CreateService(repository).DeleteCommentAsync(10, 100, 7, false);
+
+        Assert.True(comment.IsDeleted);
+        Assert.NotNull(comment.DeletedAt);
+        Assert.Equal("hidden", comment.Status);
+        repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_AllowsAdministratorToHideComment()
+    {
+        var repository = CreateRepository();
+        var comment = new Comment
+        {
+            Id = 100,
+            PostId = 10,
+            UserId = 7,
+            Content = "Comment",
+            Status = "visible"
+        };
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(comment);
+
+        await CreateService(repository).DeleteCommentAsync(10, 100, 8, true);
+
+        Assert.True(comment.IsDeleted);
+        Assert.Equal("hidden", comment.Status);
+        repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ReportCommentAsync_FirstReportKeepsCommentVisible()
+    {
+        var repository = CreateRepository();
+        var comment = new Comment { Id = 100, PostId = 10, UserId = 7, Status = "visible" };
+        var transaction = CreateTransaction();
+        repository.Setup(x => x.IsPublishedPostAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        repository.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(transaction.Object);
+        repository.Setup(x => x.GetCommentForReportAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(comment);
+        repository.Setup(x => x.HasPendingUserReportAsync(100, 8, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        repository.Setup(x => x.AddCommentReportAsync(It.IsAny<Flag>(), It.IsAny<CancellationToken>()))
+            .Callback<Flag, CancellationToken>((report, _) => report.Id = 500)
+            .Returns(Task.CompletedTask);
+        repository.Setup(x => x.CountPendingUserReportsAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var result = await CreateService(repository).ReportCommentAsync(10, 100, 8, new ReportCommentRequest
+        {
+            Reason = "Off-topic content"
+        });
+
+        Assert.Equal(500, result.ReportId);
+        Assert.Equal(1, result.PendingReportCount);
+        Assert.False(result.CommentHidden);
+        Assert.Equal("visible", comment.Status);
+        transaction.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ReportCommentAsync_ThirdUniqueReportHidesComment()
+    {
+        var repository = CreateRepository();
+        var comment = new Comment { Id = 100, PostId = 10, UserId = 7, Status = "visible" };
+        var transaction = CreateTransaction();
+        repository.Setup(x => x.IsPublishedPostAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        repository.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(transaction.Object);
+        repository.Setup(x => x.GetCommentForReportAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(comment);
+        repository.Setup(x => x.HasPendingUserReportAsync(100, 9, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        repository.Setup(x => x.AddCommentReportAsync(It.IsAny<Flag>(), It.IsAny<CancellationToken>()))
+            .Callback<Flag, CancellationToken>((report, _) => report.Id = 501)
+            .Returns(Task.CompletedTask);
+        repository.Setup(x => x.CountPendingUserReportsAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(3);
+
+        var result = await CreateService(repository).ReportCommentAsync(10, 100, 9, new ReportCommentRequest
+        {
+            Reason = "Inappropriate content"
+        });
+
+        Assert.True(result.CommentHidden);
+        Assert.Equal(3, result.PendingReportCount);
+        Assert.Equal("hidden", comment.Status);
+        Assert.NotNull(comment.UpdatedAt);
+        repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task ReportCommentAsync_RejectsDuplicateReportFromSameUser()
+    {
+        var repository = CreateRepository();
+        var transaction = CreateTransaction();
+        repository.Setup(x => x.IsPublishedPostAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        repository.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(transaction.Object);
+        repository.Setup(x => x.GetCommentForReportAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Comment { Id = 100, PostId = 10, UserId = 7, Status = "visible" });
+        repository.Setup(x => x.HasPendingUserReportAsync(100, 8, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        await Assert.ThrowsAsync<ConflictException>(() => CreateService(repository).ReportCommentAsync(
+            10,
+            100,
+            8,
+            new ReportCommentRequest { Reason = "Duplicate report" }));
+
+        repository.Verify(x => x.AddCommentReportAsync(It.IsAny<Flag>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetCommentsAsync_DefaultsToTwoLevelsAndCanReturnFourLevels()
     {
         var repository = CreateRepository();
@@ -168,6 +358,14 @@ public sealed class CommentServiceTests
 
     private static Mock<ICommentRepository> CreateRepository() => new();
 
+    private static Mock<IDbContextTransaction> CreateTransaction()
+    {
+        var transaction = new Mock<IDbContextTransaction>();
+        transaction.Setup(x => x.CommitAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        transaction.Setup(x => x.RollbackAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        return transaction;
+    }
+
     private static CommentService CreateService(Mock<ICommentRepository> repository) =>
-        new(repository.Object, new CreateCommentRequestValidator(), new CommentKeywordFilter());
+        new(repository.Object, new CreateCommentRequestValidator(), new UpdateCommentRequestValidator(), new ReportCommentRequestValidator(), new CommentKeywordFilter());
 }
