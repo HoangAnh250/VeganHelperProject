@@ -18,6 +18,9 @@ public class PostDetailDto
     public string? DietType { get; set; }
     public string Status { get; set; } = string.Empty;
     public long ViewCount { get; set; }
+    public long LikeCount { get; set; }
+    public bool IsLiked { get; set; }
+    public bool IsSaved { get; set; }
     public DateTime CreatedAt { get; set; }
 
     public List<PostMediaDto> Media { get; set; } = new();

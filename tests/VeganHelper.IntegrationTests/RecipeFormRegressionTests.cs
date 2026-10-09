@@ -59,7 +59,13 @@ public partial class PostRepositoryTests
             .Returns((CancellationToken ct) => _postRepository.SaveChangesAsync(ct));
         var media = new Mock<IMediaStorageService>();
         media.Setup(m => m.UploadFileAsync(It.IsAny<IFormFile>(), "posts")).ReturnsAsync("https://example.invalid/recipe-probe.jpg");
-        return new PostService(repository.Object, new CreatePostRequestValidator(), new GetMyPostsRequestValidator(), new UpdatePostRequestValidator(), media.Object);
+        return new PostService(
+            repository.Object,
+            new CreatePostRequestValidator(),
+            new GetMyPostsRequestValidator(),
+            new UpdatePostRequestValidator(),
+            media.Object,
+            new Mock<IPostInteractionRepository>().Object);
     }
 
     [Fact]

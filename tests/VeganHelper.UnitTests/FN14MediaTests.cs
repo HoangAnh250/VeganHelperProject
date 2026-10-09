@@ -26,7 +26,8 @@ public class FN14MediaTests
         storage.Setup(s => s.UploadFileAsync(It.IsAny<IFormFile>(), "posts"))
             .ReturnsAsync((IFormFile file, string _) => $"new-{file.FileName}");
         service = new PostService(repository.Object, Mock.Of<IValidator<CreatePostRequest>>(),
-            Mock.Of<IValidator<GetMyPostsRequest>>(), new UpdatePostRequestValidator(), storage.Object);
+            Mock.Of<IValidator<GetMyPostsRequest>>(), new UpdatePostRequestValidator(), storage.Object,
+            Mock.Of<IPostInteractionRepository>());
     }
 
     private static UpdatePostRequest Request(List<long>? remove = null, List<IFormFile>? add = null) =>

@@ -23,6 +23,7 @@ public class PostServiceTests
 
     private readonly Mock<IValidator<UpdatePostRequest>> _mockUpdateValidator;
     private readonly Mock<VeganHelper.BLL.Services.Media.IMediaStorageService> _mockMediaStorageService;
+    private readonly Mock<IPostInteractionRepository> _mockPostInteractionRepository;
     private readonly PostService _postService;
 
     public PostServiceTests()
@@ -33,12 +34,14 @@ public class PostServiceTests
         _mockGetMyPostsValidator = new Mock<IValidator<GetMyPostsRequest>>();
         _mockUpdateValidator = new Mock<IValidator<UpdatePostRequest>>();
         _mockMediaStorageService = new Mock<VeganHelper.BLL.Services.Media.IMediaStorageService>();
+        _mockPostInteractionRepository = new Mock<IPostInteractionRepository>();
         _postService = new PostService(
             _mockPostRepository.Object, 
             _mockValidator.Object, 
             _mockGetMyPostsValidator.Object, 
             _mockUpdateValidator.Object,
-            _mockMediaStorageService.Object);
+            _mockMediaStorageService.Object,
+            _mockPostInteractionRepository.Object);
     }
 
     [Fact]
@@ -253,6 +256,36 @@ public class PostServiceTests
     }
 
     [Fact]
+    public async Task GetPostDetailAsync_WithViewer_ReturnsInitialLikeAndSaveState()
+    {
+        var postId = 1L;
+        var viewerId = 7L;
+        var mockPost = new Post
+        {
+            Id = postId,
+            AuthorId = 10,
+            Title = "Test Recipe",
+            Status = "published",
+            PostCategories = new List<PostCategory> { new() { CategoryId = 2 } }
+        };
+
+        _mockPostRepository.Setup(r => r.GetPostDetailAsync(postId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((mockPost, "Chef John"));
+        _mockPostInteractionRepository.Setup(r => r.CountLikesAsync(postId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(12);
+        _mockPostInteractionRepository.Setup(r => r.FindLikeAsync(viewerId, postId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PostLike { UserId = viewerId, PostId = postId });
+        _mockPostInteractionRepository.Setup(r => r.FindSavedPostAsync(viewerId, postId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SavedPost { UserId = viewerId, PostId = postId });
+
+        var result = await _postService.GetPostDetailAsync(postId, viewerId);
+
+        Assert.Equal(12, result.LikeCount);
+        Assert.True(result.IsLiked);
+        Assert.True(result.IsSaved);
+    }
+
+    [Fact]
     public async Task GetPostDetailAsync_WhenPostDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
@@ -312,8 +345,8 @@ public class PostServiceTests
         var post = new Post { Id = 1, AuthorId = 10 };
         long wrongAuthorId = 99;
 
-        _mockPostRepository.Setup(r => r.GetPostDetailAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((post, "Author"));
+        _mockPostRepository.Setup(r => r.GetPostForUpdateAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(post);
 
         // Act & Assert
         var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _postService.DeletePostAsync(1, wrongAuthorId));
@@ -326,8 +359,8 @@ public class PostServiceTests
     public async Task DeletePostAsync_WhenPostDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
-        _mockPostRepository.Setup(r => r.GetPostDetailAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(((Post?)null, ""));
+        _mockPostRepository.Setup(r => r.GetPostForUpdateAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Post?)null);
 
         // Act & Assert
         await Assert.ThrowsAsync<VeganHelper.BLL.Exceptions.NotFoundException>(() => _postService.DeletePostAsync(1, 10));
@@ -340,8 +373,8 @@ public class PostServiceTests
         var post = new Post { Id = 1, AuthorId = 10 };
         long authorId = 10;
 
-        _mockPostRepository.Setup(r => r.GetPostDetailAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((post, "Author"));
+        _mockPostRepository.Setup(r => r.GetPostForUpdateAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(post);
             
         _mockPostRepository.Setup(r => r.DeletePostAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
