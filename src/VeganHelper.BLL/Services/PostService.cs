@@ -154,9 +154,9 @@ public sealed class PostService : IPostService
         CancellationToken cancellationToken = default)
     {
         var keyword = request.Keyword?.Trim();
-        if (string.IsNullOrWhiteSpace(keyword) || keyword.Length < 2)
+        if (string.IsNullOrWhiteSpace(keyword))
         {
-            throw new ArgumentException("Keyword must contain at least 2 characters.");
+            throw new ArgumentException("Keyword must contain at least 1 character.");
         }
 
         var pageIndex = request.PageIndex < 1 ? 1 : request.PageIndex;
