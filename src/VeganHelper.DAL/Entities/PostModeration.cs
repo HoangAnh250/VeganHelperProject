@@ -2,6 +2,8 @@ namespace VeganHelper.DAL.Entities;
 
 public sealed class PostModerationScan
 {
+    public int Priority { get; set; }
+    public bool ReportRecheckRequested { get; set; }
     public long Id { get; set; }
     public long PostId { get; set; }
     public Post Post { get; set; } = null!;
@@ -38,9 +40,20 @@ public sealed class PostModerationDecision
 }
 public sealed class PostModerationSettings
 {
+    public DateTime? ProviderRetryAfter { get; set; }
     public int Id { get; set; } = 1;
     public bool AutoPublishEnabled { get; set; }
     public int Version { get; set; } = 1;
     public long? UpdatedByAdminId { get; set; }
     public DateTime? UpdatedAt { get; set; }
+}
+
+public sealed class PostModerationAssessment
+{
+    public long Id { get; set; }
+    public long PostId { get; set; }
+    public int Revision { get; set; }
+    public Guid RequestId { get; set; }
+    public string ResultJson { get; set; } = "{}";
+    public DateTime CreatedAt { get; set; }
 }

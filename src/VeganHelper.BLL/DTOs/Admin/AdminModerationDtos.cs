@@ -31,6 +31,8 @@ public sealed class ModerationSettingsRequest
 }
 public sealed class ModerationSettingsDto
 {
+    public string PublicationMode { get; } = "immediate";
+    public bool AutoPublishSupported { get; } = false;
     public bool AutoPublishEnabled { get; set; }
     public int Version { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -49,6 +51,7 @@ public class ModerationPostDto
 }
 public sealed class ModerationPostDetailDto : ModerationPostDto
 {
+    public bool IsDeleted { get; set; }
     public string? Content { get; set; }
     public List<PostMediaDto> Media { get; set; } = [];
     public List<PostIngredientDto> Ingredients { get; set; } = [];
@@ -61,6 +64,8 @@ public sealed class ModerationPostDetailDto : ModerationPostDto
 }
 public sealed class ModerationFlagDto
 {
+    public int? ReportedRevision { get; set; }
+    public string? ReportedSnapshotJson { get; set; }
     public long Id { get; set; }
     public long PostId { get; set; }
     public string Title { get; set; } = "";

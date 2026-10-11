@@ -28,6 +28,8 @@ public class PostServiceTests
     public PostServiceTests()
     {
         _mockPostRepository = new Mock<IPostRepository>();
+        _mockPostRepository.Setup(r => r.LockPublicationAsync(It.IsAny<long>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PostPublicationState { Status = "published" });
         _mockValidator = new Mock<IValidator<CreatePostRequest>>();
 
         _mockGetMyPostsValidator = new Mock<IValidator<GetMyPostsRequest>>();
@@ -59,6 +61,7 @@ public class PostServiceTests
         }, 1);
 
         Assert.NotNull(saved);
+        Assert.Equal("published", saved.Status);
         Assert.Equal(42, Assert.Single(saved.PostIngredients).IngredientId);
         Assert.Equal("Rửa nguyên liệu", Assert.Single(saved.PostSteps).Description);
     }
@@ -414,7 +417,7 @@ public class PostServiceTests
         // Assert
         Assert.Equal("Updated Title", post.Title);
         Assert.Equal("Updated Content", post.Content);
-        Assert.Equal("pending_review", post.Status);
+        Assert.Equal("published", post.Status);
         Assert.Single(post.PostCategories);
         Assert.Equal(2, post.PostCategories.First().CategoryId);
 

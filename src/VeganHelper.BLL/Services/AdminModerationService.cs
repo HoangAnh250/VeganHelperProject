@@ -72,13 +72,14 @@ public sealed class AdminModerationService(IModerationRepository repository, IAd
             {
                 var flag = await repository.FindFlagAsync(flagId.Value, token);
                 if (flag is null || flag.PostId != postId || flag.SourceType != "ai" || flag.Status != "pending" ||
-                    flag.PostRevision.HasValue && flag.PostRevision != post.ContentRevision || post.Status is not ("pending_review" or "published"))
+                    flag.PostRevision.HasValue && flag.PostRevision != post.ContentRevision && !post.ModerationHold || post.Status is not ("pending_review" or "published"))
                     throw new ConflictException("This flag is no longer available for review.");
             }
             else if (post.Status != "pending_review") throw new ConflictException("This post has already been reviewed.");
             var now = clock.GetUtcNow().UtcDateTime;
             var keep = action is "approve" or "keep";
             post.Status = keep ? "published" : action == "reject" ? "rejected" : "hidden";
+            post.ModerationHold = !keep;
             post.UpdatedAt = now;
             await repository.ResolveFlagsAsync(postId, post.ContentRevision, actor.UserId, reason, keep, now, token);
             await repository.ObsoleteScansAsync(postId, post.ContentRevision, now, token);

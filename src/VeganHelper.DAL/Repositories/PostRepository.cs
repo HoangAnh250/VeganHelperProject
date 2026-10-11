@@ -118,7 +118,7 @@ public sealed class PostRepository : IPostRepository
             .AsNoTracking()
             .Where(p => !p.IsDeleted
                 && p.Status == "published"
-                && (p.PostType == "article" || p.PostType == "video")
+                && (p.PostType == "article" || p.PostType == "video" || p.PostType == "recipe")
                 && (EF.Functions.ILike(p.Title, pattern)
                     || (p.Content != null && EF.Functions.ILike(p.Content, pattern))));
 
@@ -240,6 +240,16 @@ public sealed class PostRepository : IPostRepository
 
         return rowsAffected > 0;
     }
+
+    public Task<PostPublicationState?> LockPublicationAsync(long id, int revision, CancellationToken ct) =>
+        _context.Database.SqlQuery<PostPublicationState>($"""
+            SELECT status AS "Status", moderation_hold AS "ModerationHold" FROM posts
+            WHERE id = {id} AND content_revision = {revision} AND is_deleted = false FOR UPDATE
+            """).SingleOrDefaultAsync(ct);
+
+    public Task<bool> IsEvidenceMediaAsync(string url, CancellationToken ct) => _context.Flags.AnyAsync(f =>
+        f.ReportedSnapshotJson != null && EF.Functions.JsonContains(f.ReportedSnapshotJson,
+            System.Text.Json.JsonSerializer.Serialize(new { media = new[] { new { mediaUrl = url } } })), ct);
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {

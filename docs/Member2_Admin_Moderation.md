@@ -1,97 +1,114 @@
-# FN41–FN43 — Kiểm duyệt bài đăng (BE)
+# FN13/FN14, FN41–FN43 — Công khai trước, kiểm tra AI sau và report
 
-Triển khai trên nhánh `feature/admin`, tích hợp vào `developer`. Kế thừa FN44, FN38–FN40. Migration chưa được triển khai lên Supabase chung; FE Admin cần tích hợp các API dưới đây.
+Cập nhật 10/10/2026. Code BE ở nhánh `feature/reports`, chưa commit/push/merge. Thay đổi FE trong đợt này đã revert theo yêu cầu; giao diện do thành viên khác thực hiện. Migration mới chưa áp dụng vào Supabase chung.
 
-## Luồng
+## Luồng đã triển khai
 
-Tạo hoặc sửa bài → `pending_review` và hàng chờ AI được lưu cùng transaction. Mỗi lần sửa tăng `contentRevision`; kết quả AI và quyết định Admin chỉ áp dụng đúng phiên bản đó. Worker Hangfire quét tiêu đề, nội dung, nguyên liệu, bước nấu và toàn bộ ảnh bằng Gemini.
+- FN13 lưu bài `published` cùng hàng chờ AI trong một transaction. Feed và chi tiết public đọc được ngay.
+- FN14 tăng `contentRevision`, lưu bản sửa và hàng chờ cùng transaction. Bài công khai vẫn công khai; bài bị AI/Admin giữ, ẩn hoặc từ chối vẫn `pending_review` với `moderationHold=true`.
+- Khi lưu FN14, khóa và đọc lại trạng thái DB sau upload. AI/Admin vừa giữ bài trong lúc tác giả sửa không thể bị trạng thái cũ của FE ghi đè.
+- AI kiểm tra văn bản, nguyên liệu, bước nấu và toàn bộ ảnh ngoài transaction. Kết quả chỉ được ghi khi lease và revision vẫn đúng, bài chưa xóa và job chưa bị Admin vô hiệu hóa.
+- `safe`: lưu kết quả và usage; không đổi trạng thái bài, không gửi thông báo duyệt bài vốn đã public, không tự gỡ hold.
+- `flagged`/`uncertain`: lưu cờ, bằng chứng, giữ bài thành `pending_review`. Nếu vừa rời trạng thái public, lưu thông báo tác giả và push outbox trong cùng transaction.
+- Lỗi quota, timeout, ảnh/video không thể kiểm tra, phản hồi sai schema không chứng minh vi phạm. Bài đang public tiếp tục public; lỗi kiểm tra được ghi riêng để Admin theo dõi.
+- Admin quyết định cuối cùng. `approve`/`keep` công khai và bỏ hold; `reject`/`remove` giữ không công khai. Quyết định, flags, audit và thông báo commit/rollback cùng nhau.
 
-- AI đánh dấu vi phạm hoặc không chắc chắn: tạo flag với lý do, confidence và các đoạn/ảnh cần xem; Admin quyết định.
-- AI đánh giá an toàn, confidence từ 0.9 trở lên: chỉ tự công khai nếu Admin đã bật toggle. Toggle mặc định **tắt**. Có thể cấu hình ngưỡng cao hơn.
-- Flag AI hiện tại chưa được giải quyết: vẫn cần Admin, dù lần quét mới an toàn.
-- Video, ảnh không tải được, host ảnh chưa được cho phép, ảnh/input quá lớn, phản hồi sai schema hoặc lỗi provider: giữ chờ duyệt. Không dùng thumbnail thay việc kiểm tra video.
-- Timeout/429/5xx được thử lại tối đa 5 lần, có backoff và lease phục hồi khi worker dừng. Các lỗi không thể thử lại chuyển `manual_required`; hết lượt chuyển `failed`, bài vẫn chờ Admin.
+Khách/người khác không đọc được bài bị giữ qua feed/search/detail. Tác giả xem bài của mình; Admin xem qua API Admin. Tab đã tải dữ liệu cập nhật khi gọi lại API/tải lại trang; feed không có cơ chế tự xóa nội dung realtime.
 
-AI không xóa bài hoặc media. `remove` chuyển bài thành `hidden`. Tác giả có thể sửa và gửi duyệt lại. Mọi quyết định có lịch sử; quyết định thủ công có audit FN44. Quyết định, trạng thái, audit, thông báo cho tác giả và push outbox commit/rollback cùng nhau. Browser push thực tế cần cấu hình WebPush riêng; thông báo trong website hoạt động độc lập.
+Sửa tìm kiếm ngày 11/10/2026: `GET /api/Posts/search` tìm tiêu đề/nội dung của cả `article`, `video` và `recipe`, không còn bỏ qua công thức seed. Vẫn chỉ trả bài `published`, chưa xóa, giữ tìm không phân biệt hoa/thường và phân trang. Riêng sửa bộ lọc này không cần migration; migration publication/report nói bên dưới vẫn là thay đổi riêng chưa áp lên Supabase.
 
-Khách/người khác chỉ xem chi tiết bài `published`; tác giả được xem bài chưa công khai của mình. Admin xem nội dung cần duyệt qua API Admin. Bài bị xóa không thể đọc. Feed/search vẫn chỉ trả bài published.
+## Report
+
+Member đã đăng nhập report bài public của người khác; reporter lấy từ JWT. Gửi `expectedRevision` của bài đang xem, loại lý do và mô tả. Report không tự ẩn bài và không gửi thông báo vi phạm cho tác giả.
+
+Giới hạn 10 report/giờ/tài khoản, kiểm tra dưới khóa user. Report pending cùng người/bài/revision được trả lại cùng ID, có unique index hỗ trợ. Nhiều người vẫn có thể report cùng bài.
+
+Report lưu snapshot nội dung, nguyên liệu, bước nấu và URL media. Mỗi revision được ưu tiên/coalesce một lượt kiểm tra do report; report tiếp theo không reset vô hạn retry. Khi một lượt đã hoàn tất, lần recheck có ngân sách riêng tối đa 5 lỗi transient. Lịch sử assessment cũ giữ nguyên, có revision/thời gian/request ID. AI safe không tự dismiss report.
+
+Admin xem bản bị report cạnh bản hiện tại và bằng chứng AI. `dismiss` chỉ đóng report đó, không bỏ hold khác. `keep` công khai phiên bản hiện tại và giải quyết flags/report liên quan; `remove` ẩn phiên bản hiện tại. Mọi quyết định yêu cầu revision mới nhất và lý do. Report của bài đã soft-delete vẫn xem và dismiss được; không thể khôi phục bài đã xóa qua quyết định report.
+
+Media được snapshot report/AI flag tham chiếu không bị cleanup khi tác giả sửa/xóa bài, để bằng chứng còn xem được. Chưa có chính sách hết hạn/purge riêng cho các ảnh bằng chứng này. Bằng chứng các ảnh đã bị xóa trước migration không thể khôi phục tự động.
 
 ## API
 
-Tất cả route này yêu cầu JWT hợp lệ và quyền Admin hiện tại trong database, có kiểm tra token thu hồi/khóa tài khoản.
-
-| Method | Route | Công dụng |
+| Method | Route | Nội dung |
 |---|---|---|
-| GET | `/api/admin/moderation/posts` | Hàng chờ/phân trang bài |
-| GET | `/api/admin/moderation/posts/{id}` | Nội dung, ảnh, ingredients/steps, kết quả AI, flag, 20 quyết định gần nhất |
-| POST | `/api/admin/moderation/posts/{id}/decision` | `approve` hoặc `reject` bài đang chờ |
-| GET | `/api/admin/moderation/ai-flags` | Flag AI đang chờ của phiên bản hiện tại |
-| POST | `/api/admin/moderation/ai-flags/{id}/decision` | `keep` hoặc `remove` |
-| GET | `/api/admin/moderation/settings` | Đọc toggle và version |
-| PUT | `/api/admin/moderation/settings` | Cập nhật toggle theo version |
+| POST | `/api/posts/{id}/reports` | Member gửi report |
+| GET | `/api/admin/moderation/reports` | Admin phân trang report; mặc định pending |
+| GET | `/api/admin/moderation/reports/{id}` | Snapshot gốc, bản hiện tại, AI history |
+| POST | `/api/admin/moderation/reports/{id}/decision` | `dismiss`, `keep`, `remove` |
+| GET | `/api/admin/moderation/posts` | Bài theo status; dùng `Status=all` để xem cả lỗi scan trên bài public |
+| GET | `/api/admin/moderation/posts/{id}` | Nội dung, kết quả scan, flags và quyết định |
+| POST | `/api/admin/moderation/posts/{id}/decision` | `approve`, `reject` bài pending |
+| GET | `/api/admin/moderation/ai-flags` | Cờ pending, gồm bằng chứng cũ của bài đang giữ |
+| POST | `/api/admin/moderation/ai-flags/{id}/decision` | `keep`, `remove` với revision hiện tại |
+| GET | `/api/admin/moderation/settings` | `publicationMode=immediate`, `autoPublishSupported=false` |
+| PUT | `/api/admin/moderation/settings` | Trả 410; toggle duyệt tự động cũ đã ngừng sử dụng |
 
-Danh sách bài: `PageIndex=1`, `PageSize=20` (tối đa 100), `Keyword` tối đa 100 ký tự, `Status=pending_review` mặc định. Các status: `pending_review`, `published`, `rejected`, `hidden`, `draft`, `all`. Keyword tìm title không phân biệt hoa thường; `%`, `_`, `\` là ký tự thường. Sắp xếp bài cũ trước, sau đó Id. Danh sách flag: cùng pagination, `PostId` và `MinConfidence` (0–1, có thể bỏ trống). Confidence là đánh giá của AI, không phải bảo đảm nội dung đúng.
-
-Body quyết định lấy `expectedRevision` từ chi tiết bài/flag mới nhất:
-
-```json
-{ "action": "reject", "reason": "Ảnh chứa thịt động vật; vui lòng thay ảnh phù hợp.", "expectedRevision": 1 }
-```
-
-`approve`/`keep` → published; `reject` → rejected; `remove` → hidden. Reason bắt buộc, trim không rỗng, tối đa 1000 ký tự. Trả 400 khi input sai; 401/403 khi thiếu phiên/quyền; 404 nếu không có bài/flag; 409 khi revision/version cũ hoặc quyết định đã được xử lý. Hai Admin duyệt đồng thời chỉ một quyết định được ghi. Actor/IP/trace lấy phía server.
-
-PUT settings lấy `expectedVersion` từ GET gần nhất:
+Body report:
 
 ```json
-{ "autoPublishEnabled": true, "expectedVersion": 1 }
+{ "reasonCategory": "non_vegan", "reason": "Ảnh nghi có thịt động vật", "expectedRevision": 1 }
 ```
 
-Toggle có hiệu lực khi worker hoàn tất lần quét tiếp theo. Bật toggle không tự công khai lại các bài đã quét xong khi toggle tắt; các bài đó vẫn có thể duyệt thủ công. `ModerationAi:Enabled` là cấu hình bật worker, khác toggle quyền tự công khai của Admin.
+Các loại: `non_vegan`, `violence`, `harassment`, `spam`, `other`; mô tả bắt buộc, tối đa 1000 ký tự. Receipt chỉ có id/status, không lộ reporter. Danh sách Admin dùng `PageIndex`, `PageSize` tối đa 100, `Status=pending|dismissed|resolved|all`, `PostId` tùy chọn.
 
-## Cấu hình và chạy
+Body quyết định:
 
-1. Dùng bản BE `developer` đã tích hợp Admin. Sao lưu database và kiểm tra migration trước khi triển khai lên database chung. FN41–FN43 thêm migration `20261007085728_AddPostModeration`, nối sau các migration FN44/FN38–FN39. Lệnh triển khai (chưa chạy lên Supabase trong tác vụ này):
-
-```powershell
-Set-Location 'C:\Users\ADMIN\.codex\worktrees\admin-foundation\VeganHelperProject'
-dotnet run --project src/VeganHelper.API/VeganHelper.API.csproj -- --migrate
+```json
+{ "action": "remove", "reason": "Nội dung hiện tại không phù hợp", "expectedRevision": 2 }
 ```
 
-Migration giữ bảng/dữ liệu cũ; thêm `posts.content_revision`, hai cột liên kết flag và ba bảng `post_moderation_scans`, `post_moderation_decisions`, `post_moderation_settings`. Bài pending cũ được xếp hàng; bài published cũ giữ nguyên. Flag AI cũ được gắn revision ban đầu để không áp dụng vào lần sửa mới. Bảng mới bật RLS, thu hồi quyền PUBLIC/anon/authenticated; lịch sử quyết định chặn UPDATE/DELETE/TRUNCATE. BE dùng kết nối server có quyền cần thiết, FE không đọc trực tiếp các bảng này bằng Supabase anon key.
+400 input sai; 401 chưa đăng nhập; 403 thiếu quyền/tự report; 404 bài không public hoặc đối tượng không có; 409 revision cũ/quyết định đã xử lý; 429 quá giới hạn report. API Admin kiểm tra quyền trong database và trạng thái token/tài khoản; FE không đọc trực tiếp bảng bằng Supabase anon key.
 
-2. Tạo Gemini API key trong Google AI Studio, lưu trên **BE** bằng user-secrets hoặc biến môi trường. Không đưa key vào FE, git hoặc chat. Dùng key riêng cho kiểm duyệt để quản lý quota độc lập với AI Genie. Ví dụ cấu hình (thay placeholder trên máy riêng):
+## Worker và Gemini
+
+Giữ cấu hình BE hiện có: `ModerationAi:Enabled`, `ApiKey`, `Model`, `AllowedMediaHosts`, `TimeoutSeconds`. Key chỉ lưu user-secrets/biến môi trường, không đưa vào FE/Git. `MinAutoPublishConfidence` giữ cho tương thích kết quả có score kiểu cũ; không áp dụng contract PASS/FAIL và không cho AI công khai bài bị giữ.
+
+Harness kiểm tra đầu ra bằng schema và parser nghiêm ngặt. Prompt `PostModeration.v2.json` chỉ yêu cầu hai trường:
+
+```json
+{"result":"FAIL","reason":"Ảnh #11 chứa thịt sống; cần Admin kiểm tra."}
+```
+
+`result` chỉ nhận `PASS`/`FAIL`; `reason` bắt buộc, tối đa 200 ký tự, một câu ngắn tiếng Việt. PASS chỉ khi tất cả văn bản/ảnh phù hợp; FAIL bao gồm vi phạm hoặc nội dung còn nghi vấn, cần nêu rõ sự không chắc chắn. Không yêu cầu score, danh sách findings hay suy luận dài từ AI. BE ánh xạ sang trạng thái scan cũ (`safe`/`flagged`), lưu lý do và snapshot có sẵn. Confidence mới là null, finding chung ở cấp bài (`field=post`), không bịa score, trích dẫn hoặc ID ảnh từ lý do tự do. Lịch sử có score/chi tiết kiểu cũ vẫn đọc được.
+
+Gemini dùng `thinking_level=low`, `thinking_summaries=none`, `max_output_tokens=2048`. Giới hạn này gồm cả suy luận nội bộ nên không đặt quá nhỏ; schema/parser giới hạn riêng câu trả lời cuối. Xem [tài liệu Gemini về thinking và giới hạn token](https://ai.google.dev/gemini-api/docs/thinking). Phản hồi bị cắt, sai schema, thiếu lý do hoặc lỗi API được ghi lỗi kiểm tra, không trở thành PASS/vi phạm. Giảm token đầu ra không làm tăng giới hạn request/ngày hay loại bỏ token đầu vào ảnh.
 
 ```powershell
 dotnet user-secrets set --project src/VeganHelper.API 'ModerationAi:ApiKey' '<PRIVATE_GEMINI_KEY>'
-dotnet user-secrets set --project src/VeganHelper.API 'ModerationAi:Model' 'gemini-3.8-flash'
 dotnet user-secrets set --project src/VeganHelper.API 'ModerationAi:AllowedMediaHosts:0' '<YOUR_R2_PUBLIC_HOST>'
 dotnet user-secrets set --project src/VeganHelper.API 'ModerationAi:Enabled' 'true'
 ```
 
-Host chỉ là tên DNS, ví dụ `pub-xxx.r2.dev`, không có `https://` hoặc đường dẫn. Chỉ cho phép host storage tin cậy của nhóm. Ảnh seed ở host khác vẫn có thể được Admin duyệt thủ công. Key môi trường tương ứng `ModerationAi__ApiKey`. Timeout mặc định 60 giây (cấu hình 1–120), ngưỡng mặc định 0.9 (cấu hình 0.9–1). Cấu hình mẫu nằm trong `src/VeganHelper.API/appsettings.example.json`; mặc định worker tắt để BE chạy được khi chưa có key.
+Host là tên DNS storage tin cậy, không chứa scheme/path. Job `posts-ai-moderation` chạy mỗi phút, tối đa 2 scan/batch, chia sẻ claim/lease trên PostgreSQL. Một máy hoặc nhiều máy chạy BE đều dùng hàng chờ chung. Có thể chỉ bật worker trên một máy. Push trình duyệt cần WebPush riêng; thông báo trong website không phụ thuộc WebPush.
 
-3. Chuẩn bị Hangfire một lần bằng kết nối PostgreSQL session pooler/direct, không dùng transaction pooler. Có thể cấu hình `ConnectionStrings:HangfireConnection`; mặc định dùng DefaultConnection:
+HTTP 429 lưu cooldown chung `provider_retry_after`: dùng Retry-After khi có, giới hạn 1 phút–24 giờ; thiếu header chờ 15 phút. Quota không tiêu retry budget của bài, không đổi trạng thái public. Sau cooldown, worker thử lại; nếu provider tiếp tục trả 429, tiếp tục hoãn. Timeout/5xx vẫn backoff tối đa 5 lần; không tự ghi safe. Scan report được ưu tiên, scan cũ trên 1 giờ được nâng ưu tiên để tránh bỏ quên bài thông thường. Xem [hướng dẫn retry của Gemini](https://ai.google.dev/gemini-api/docs/troubleshooting).
+
+## Contract bàn giao cho người làm FE
+
+- Create cần báo công khai thành công; Edit đọc `status`/`moderationHold` từ BE để phân biệt đã cập nhật với bản sửa vẫn chờ Admin.
+- My Posts có thể hiển thị Public / Temporarily hidden / Hidden / Rejected / Draft theo `status`.
+- Gửi report qua API với lý do và `expectedRevision`; chỉ cho người đăng nhập report bài public của người khác.
+- Kết nối API notification để lấy badge/danh sách và đánh dấu đọc. Thông báo tác giả đã được BE lưu cùng transaction giữ bài.
+- Kết nối API Admin report để xem snapshot/bản hiện tại/lịch sử AI và quyết định theo revision mới nhất. Role có trong profile BE; quyền thực tế luôn được BE kiểm tra.
+
+Các component, route, services và tests FE từng thêm cho luồng này đã được gỡ. Không có màn hình report/notification mới được bàn giao dưới dạng code FE trong đợt này.
+
+## Migration và chạy thử
+
+Migration `20261010084021_PublishFirstAndPostReports` nối sau `20261007085728_AddPostModeration`. Thêm hold, cooldown, recheck/priority, snapshot report và bảng assessment; không bỏ bảng cũ. Bài legacy pending/hidden/rejected được backfill hold, không bulk publish. Bảng assessment bật RLS/thu hồi quyền browser; lịch sử chặn UPDATE/DELETE/TRUNCATE, snapshot report chặn sửa bằng chứng.
+
+Script xem trước: `docs/database/2026-10-10-publish-first-reports.sql`. Script chỉ nâng bản AddPostModeration lên migration mới; database chung cần có đầy đủ các migration trước đó. Trong tác vụ này **chưa chạy lên Supabase**. Kiểm tra backup/schema rồi chỉ cần một người áp dụng trước khi các máy chạy code mới:
 
 ```powershell
-dotnet run --project src/VeganHelper.API/VeganHelper.API.csproj -- --prepare-background-jobs
+Set-Location 'C:\Users\ADMIN\.codex\worktrees\4ae8\VeganHelperProject'
+dotnet run --project src/VeganHelper.API/VeganHelper.API.csproj -- --migrate
 dotnet run --project src/VeganHelper.API/VeganHelper.API.csproj
 ```
 
-Hangfire dùng schema riêng, thu hồi quyền browser roles, job `posts-ai-moderation` chạy mỗi phút, mỗi batch tối đa 2 bài. Các máy BE dùng cùng DB chia sẻ claim/lease để không xử lý trùng. Muốn chỉ một máy xử lý AI, chỉ bật worker trên máy đó; những máy khác vẫn tạo hàng chờ và dùng Admin API được.
+Lệnh migrate tác động database trong connection string đang cấu hình. Không chạy nhầm connection test hoặc migration trước khi sẵn sàng triển khai chung. Với worker mới chưa chuẩn bị Hangfire, chạy `--prepare-background-jobs` như cấu hình hiện có trước khi khởi động worker.
 
-Prompt/schema được load một lần từ `src/VeganHelper.API/Prompts/PostModeration.v1.json` và copy khi build/publish. Client dùng Interactions REST, structured JSON, không gửi key trong URL, không tự theo redirect, kiểm tra DNS/IP và giới hạn kích thước tải ảnh. Lưu model/prompt version/confidence/findings/tokens/latency và usage; không ghi raw request/key vào log.
+FE hiện dùng lại code trước đợt thay đổi này. Thành viên làm FE cần tích hợp các contract mới ở trên trước khi test đầy đủ giao diện report/notification/hold.
 
-## Test nhanh trong Swagger
-
-1. Đăng nhập Admin, GET settings xác nhận toggle false.
-2. Tạo bài bằng tài khoản Member, GET danh sách Admin/chi tiết để lấy revision. Với worker tắt, bài vẫn pending và Admin duyệt được.
-3. POST approve/reject kèm reason → kiểm tra status, notification của tác giả và audit. Gửi lại cùng quyết định → 409.
-4. Bật worker bằng key thật, tạo bài có nội dung/ảnh phù hợp; chờ job và đọc `scanState`. Toggle false vẫn pending. Bật toggle rồi tạo bài mới an toàn → có thể published khi đủ confidence.
-5. Tạo bài chứa nội dung/ảnh cần xem lại → GET ai-flags thấy lý do, đoạn văn/MediaId và confidence. `keep` hoặc `remove` kèm reason, revision. Kiểm tra thông báo và lịch sử.
-6. Sửa bài trước khi gửi quyết định cũ → 409; kiểm tra revision tăng, ảnh FN14 vẫn được thêm/xóa đúng. Guest/Member gọi Admin → 401/403.
-
-Kiểm chứng tự động dùng PostgreSQL local riêng và HTTP/AI giả, không gọi Gemini trả phí hoặc Supabase chung. Chưa xác minh phản hồi thực tế bằng API key thật; bước smoke test Gemini thực tế cần cấu hình riêng như trên.
-
-Kết quả ngày 08/10/2026: **181 unit + 232 integration passed**, không failed/skipped. Trong đó 73 case cho boundary Gemini, 34 case worker, 32 case Admin moderation và một migration regression tạo DB tạm để kiểm tra dữ liệu cũ rồi dọn DB. Các test FN14/recipe hiện có kiểm tra thêm revision và scan được lưu cùng bài. Review độc lập đã được xử lý; kiểm tra EF không có model change thiếu migration. Lệnh chuẩn bị Hangfire chạy thành công trên DB local khi chỉ bật moderation (WebPush tắt). TRX cuối ở `.local-data/test-results/phase4-final/`.
-
-Tài liệu provider đã đối chiếu: [Gemini models](https://ai.google.dev/gemini-api/docs/models), [Interactions API](https://ai.google.dev/api/interactions-api), [Gemini 3.8 migration](https://ai.google.dev/gemini-api/docs/latest-model), [structured output](https://ai.google.dev/gemini-api/docs/structured-output), [image understanding](https://ai.google.dev/gemini-api/docs/image-understanding).
+Kiểm thử BE ngày 10/10: 181 unit + 256 integration qua trên PostgreSQL local, EF không thiếu migration. Có kiểm thử migration từ schema cũ, hold trong lúc upload, report đồng thời/rate limit, Admin stale/concurrent decisions, quota/cooldown hồi phục và giữ ảnh bằng chứng. Review độc lập đã xác nhận các phát hiện được sửa. Trước khi revert, FE mới đã qua 14 tests/build; kết quả đó là lịch sử của bản FE đã gỡ, không xác nhận việc tích hợp giao diện hiện tại. Chưa gọi Gemini thật hoặc áp migration vào Supabase; cần smoke test với key/storage thật sau khi triển khai.

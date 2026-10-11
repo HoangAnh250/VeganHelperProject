@@ -6,6 +6,8 @@ namespace VeganHelper.DAL.Repositories;
 
 public sealed class UserRepository(AppDbContext db) : IUserRepository
 {
+    public Task<string?> RoleNameAsync(int roleId, CancellationToken ct) =>
+        db.Roles.Where(r => r.Id == roleId).Select(r => r.RoleName).SingleOrDefaultAsync(ct);
     private const string GoogleProvider = "google";
 
     public async Task<(User User, UserProfile Profile)?> FindProfileAsync(long userId, CancellationToken cancellationToken)

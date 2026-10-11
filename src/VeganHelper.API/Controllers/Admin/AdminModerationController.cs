@@ -27,5 +27,6 @@ public sealed class AdminModerationController(IAdminModerationService service) :
     [HttpGet("settings")]
     public Task<ModerationSettingsDto> Settings(CancellationToken ct) => service.SettingsAsync(Actor, ct);
     [HttpPut("settings")]
-    public Task<ModerationSettingsDto> Settings(ModerationSettingsRequest request, CancellationToken ct) => service.UpdateSettingsAsync(Actor, request, ct);
+    public IActionResult Settings(ModerationSettingsRequest request) => StatusCode(410,
+        new { message = "Auto-publication toggle is retired. New posts publish immediately; only Admin can release held posts." });
 }

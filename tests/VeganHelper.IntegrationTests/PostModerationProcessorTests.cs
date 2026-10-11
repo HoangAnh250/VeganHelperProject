@@ -27,6 +27,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     public async Task InitializeAsync()
     {
         await using var db = fixture.Context();
+        await db.Set<PostModerationSettings>().ExecuteUpdateAsync(s => s.SetProperty(x => x.ProviderRetryAfter, (DateTime?)null));
         // The shared collection database also contains posts created by API tests. Make their
         // unfinished jobs ineligible before exercising this processor's global claim queue.
         await db.Set<PostModerationScan>().Where(s => s.State == "queued" || s.State == "processing")
@@ -45,6 +46,75 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         await db.Posts.Where(p => postIds.Contains(p.Id)).ExecuteUpdateAsync(p =>
             p.SetProperty(x => x.IsDeleted, true).SetProperty(x => x.DeletedAt, Now.UtcDateTime));
         await SetAutoPublishAsync(false);
+    }
+
+    [Fact]
+    public async Task PublishedFlaggedPost_IsHeldAndAuthorNotified()
+    {
+        var job = await SeedAsync();
+        await using (var db = fixture.Context())
+            await db.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, "published"));
+        await RunAsync(new FakeClient((_, _) => Task.FromResult(Result() with { Verdict = "flagged" })));
+        await using var verify = fixture.Context();
+        Assert.Equal("pending_review", (await verify.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
+        Assert.True(await verify.Flags.AnyAsync(f => f.PostId == job.PostId && f.Status == "pending"));
+        Assert.True(await verify.Set<Notification>().AnyAsync(n => n.UserId == job.AuthorId));
+    }
+
+    [Theory]
+    [InlineData("PASS", false, "published", false)]
+    [InlineData("FAIL", false, "pending_review", true)]
+    [InlineData("PASS", true, "pending_review", false)]
+    [InlineData("FAIL", true, "pending_review", false)]
+    public async Task CompactGeminiContract_PreservesPublicationHoldAndNotification(string result, bool held, string expectedStatus, bool notify)
+    {
+        var job = await SeedAsync();
+        await using (var setup = fixture.Context())
+            await setup.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s =>
+                s.SetProperty(p => p.Status, held ? "pending_review" : "published").SetProperty(p => p.ModerationHold, held));
+        var reason = result == "PASS" ? "Nội dung phù hợp." : "Nguyên liệu thịt; cần Admin kiểm tra.";
+        using var http = new HttpClient(new CompactResponseHandler(result, reason));
+        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "fake-test-key" }),
+            new ModerationPromptDefinition { Version = "post-moderation.v2", SystemInstruction = "Test policy", ResponseSchema = JsonSerializer.SerializeToElement(new { type = "object" }) });
+        await RunAsync(client);
+        await using var db = fixture.Context();
+        var post = await db.Posts.SingleAsync(p => p.Id == job.PostId);
+        var scan = await db.Set<PostModerationScan>().SingleAsync(s => s.Id == job.ScanId);
+        Assert.Equal(expectedStatus, post.Status);
+        Assert.Equal(held || result == "FAIL", post.ModerationHold);
+        Assert.Equal(result == "PASS" ? "safe" : "flagged", scan.State);
+        Assert.Null(scan.Confidence);
+        Assert.Equal(reason, scan.Summary);
+        Assert.Equal("post-moderation.v2", scan.PromptVersion);
+        Assert.Equal(notify, await db.Set<Notification>().AnyAsync(n => n.UserId == job.AuthorId));
+        Assert.Equal(result == "FAIL", await db.Flags.AnyAsync(f => f.PostId == job.PostId));
+        var history = await db.Set<PostModerationAssessment>().SingleAsync(a => a.PostId == job.PostId);
+        Assert.Contains(reason, JsonDocument.Parse(history.ResultJson).RootElement.GetProperty("result").GetProperty("summary").GetString());
+    }
+
+    [Fact]
+    public async Task QuotaFailure_DefersAllScansWithoutSpendingRetryBudget()
+    {
+        var job = await SeedAsync();
+        var second = await SeedAsync();
+        var client = new FakeClient((_, _) => throw new ModerationAiException("provider_quota", true));
+        await using (var state = fixture.Context())
+            await state.Posts.Where(p => p.Id == job.PostId || p.Id == second.PostId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, "published"));
+        await RunAsync(client);
+        await RunAsync(client);
+        Assert.Single(client.Inputs);
+        await using var db = fixture.Context();
+        var scans = await db.Set<PostModerationScan>().Where(s => s.Id == job.ScanId || s.Id == second.ScanId).ToListAsync();
+        Assert.All(scans, s => Assert.Equal(0, s.Attempts));
+        Assert.All(scans, s => Assert.Equal("queued", s.State));
+        Assert.True((await db.Set<PostModerationSettings>().SingleAsync()).ProviderRetryAfter > Now.UtcDateTime);
+        Assert.All(await db.Posts.Where(p => p.Id == job.PostId || p.Id == second.PostId).ToListAsync(), p => Assert.Equal("published", p.Status));
+        await db.Set<PostModerationSettings>().ExecuteUpdateAsync(s => s.SetProperty(x => x.ProviderRetryAfter, Now.UtcDateTime.AddSeconds(-1)));
+        await db.Set<PostModerationScan>().Where(s => s.Id == job.ScanId || s.Id == second.ScanId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.NextAttemptAt, Now.UtcDateTime));
+        var recovered = new FakeClient((_, _) => Task.FromResult(Result())); await RunAsync(recovered);
+        Assert.Equal(2, recovered.Inputs.Count);
     }
 
     [Fact]
@@ -96,38 +166,32 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     }
 
     [Fact]
-    public async Task SafeResult_WithAutoPublishOn_PublishesOnceWithDecisionNotificationAndPushOutbox()
+    public async Task SafeResult_WithLegacyToggleOn_NeverReleasesHeldPost()
+    {
+        var job = await SeedAsync(); await SetAutoPublishAsync(true);
+        await using (var db = fixture.Context())
+            await db.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s => s.SetProperty(p => p.ModerationHold, true));
+        await RunAsync(new FakeClient((_, _) => Task.FromResult(Result())));
+        await using var verify = fixture.Context();
+        var post = await verify.Posts.SingleAsync(p => p.Id == job.PostId);
+        Assert.Equal("pending_review", post.Status); Assert.True(post.ModerationHold);
+        Assert.Equal("safe", (await verify.Set<PostModerationScan>().SingleAsync(s => s.Id == job.ScanId)).State);
+        await AssertNoDecisionOrNotificationAsync(verify, job);
+    }
+    [Fact]
+    public async Task SafePublicPost_StaysPublicWithoutApprovalNotification()
     {
         var job = await SeedAsync();
-        await SetAutoPublishAsync(true);
-        var subscriptionId = await SubscribeAsync(job.AuthorId);
+        await using (var db = fixture.Context())
+            await db.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, "published"));
         var client = new FakeClient((_, _) => Task.FromResult(Result()));
-
-        await RunAsync(client);
-        await RunAsync(client);
-
-        await using var db = fixture.Context();
-        var post = await db.Posts.SingleAsync(p => p.Id == job.PostId);
-        Assert.Equal("published", post.Status);
-        Assert.Equal(1, post.ContentRevision);
-        Assert.Equal("safe", (await db.Set<PostModerationScan>().SingleAsync(s => s.Id == job.ScanId)).State);
-        var decision = await db.Set<PostModerationDecision>().SingleAsync(d => d.PostId == job.PostId);
-        Assert.Equal("approve", decision.Action);
-        Assert.Equal("ai", decision.ActorType);
-        Assert.Equal(1, decision.Revision);
-        Assert.Equal(job.ScanId, decision.ScanId);
-        Assert.Null(decision.AdminId);
-        var notification = await db.Set<Notification>().SingleAsync(n => n.UserId == job.AuthorId);
-        Assert.Equal($"moderation:{decision.Id}", notification.EventKey);
-        Assert.Equal("post_review", notification.Type);
-        Assert.Equal($"/posts/{job.PostId}", notification.TargetUrl);
-        Assert.Equal(decision.Reason, notification.Message);
-        var delivery = await db.Set<NotificationPushDelivery>().SingleAsync(d => d.NotificationId == notification.Id);
-        Assert.Equal(subscriptionId, delivery.SubscriptionId);
-        Assert.Equal("pending", delivery.State);
+        await RunAsync(client); await RunAsync(client);
+        await using var verify = fixture.Context();
+        Assert.Equal("published", (await verify.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
+        await AssertNoDecisionOrNotificationAsync(verify, job);
         Assert.Single(client.Inputs);
+        Assert.Single(await verify.Set<PostModerationAssessment>().Where(a => a.PostId == job.PostId).ToListAsync());
     }
-
     [Theory]
     [InlineData(.89)]
     [InlineData(.0)]
@@ -175,7 +239,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     }
 
     [Fact]
-    public async Task SafeResult_AtConfidenceThreshold_CanPublish()
+    public async Task SafeResult_AtConfidenceThreshold_DoesNotReleasePendingPost()
     {
         var job = await SeedAsync();
         await SetAutoPublishAsync(true);
@@ -183,7 +247,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         await RunAsync(new FakeClient((_, _) => Task.FromResult(Result(confidence: .9))));
 
         await using var db = fixture.Context();
-        Assert.Equal("published", (await db.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
+        Assert.Equal("pending_review", (await db.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
     }
 
     [Theory]
@@ -212,7 +276,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         var job = await SeedAsync(); await SetAutoPublishAsync(true);
         await using (var db = fixture.Context())
         {
-            await db.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s => s.SetProperty(p => p.ContentRevision, 2));
+            await db.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s => s.SetProperty(p => p.ContentRevision, 2).SetProperty(p => p.Status, "published"));
             await db.Set<PostModerationScan>().Where(s => s.Id == job.ScanId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Revision, 2));
             db.Flags.Add(new Flag { PostId = job.PostId, PostRevision = 1, SourceType = "ai", AiModelName = "legacy-model",
                 Reason = "Old revision evidence", Status = "pending", CreatedAt = Now.UtcDateTime });
@@ -527,16 +591,18 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     public async Task NotificationInsertFailure_RollsBackPublicationDecisionAssessmentAndPushOutbox()
     {
         var job = await SeedAsync();
+        await using (var state = fixture.Context())
+            await state.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, "published"));
         await SetAutoPublishAsync(true);
         var subscriptionId = await SubscribeAsync(job.AuthorId);
         var failure = new FailNotificationInsert();
 
         // Either propagation or worker recovery is allowed; durable state must stay atomic.
-        await Record.ExceptionAsync(() => RunAsync(new FakeClient((_, _) => Task.FromResult(Result())), interceptor: failure));
+        await Record.ExceptionAsync(() => RunAsync(new FakeClient((_, _) => Task.FromResult(Result("flagged"))), interceptor: failure));
 
         Assert.True(failure.Triggered, "The test must reach the real notification INSERT before injecting its failure.");
         await using var db = fixture.Context();
-        Assert.Equal("pending_review", (await db.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
+        Assert.Equal("published", (await db.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
         var scan = await db.Set<PostModerationScan>().SingleAsync(s => s.Id == job.ScanId);
         Assert.NotEqual("safe", scan.State);
         Assert.Null(scan.CompletedAt);
@@ -545,7 +611,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         await AssertNoDecisionOrNotificationAsync(db, job);
     }
 
-    private async Task RunAsync(FakeClient client, bool enabled = true, DbCommandInterceptor? interceptor = null, CancellationToken ct = default)
+    private async Task RunAsync(IPostModerationAiClient client, bool enabled = true, DbCommandInterceptor? interceptor = null, CancellationToken ct = default)
     {
         await using var db = interceptor is null ? fixture.Context() : new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(fixture.Connection).AddInterceptors(interceptor).Options);
@@ -625,6 +691,18 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         "gemini-3.8-flash", "post-moderation.v1", 100, 35, 42);
 
     private sealed record Job(long PostId, long ScanId, long AuthorId);
+
+    private sealed class CompactResponseHandler(string result, string reason) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Assert.Equal(HttpMethod.Post, request.Method); // No actual network or key is used by this harness.
+            var body = JsonSerializer.Serialize(new { status = "completed", steps = new[] {
+                new { type = "model_output", content = new[] { new { type = "text", text = JsonSerializer.Serialize(new { result, reason }) } } }
+            } });
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
+        }
+    }
     private sealed class FixedClock : TimeProvider { public override DateTimeOffset GetUtcNow() => Now; }
 
     private sealed class FakeClient(Func<ModerationAiInput, CancellationToken, Task<ModerationAiResult>> review) : IPostModerationAiClient

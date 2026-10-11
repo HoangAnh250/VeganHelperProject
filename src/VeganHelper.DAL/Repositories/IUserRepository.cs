@@ -4,6 +4,7 @@ namespace VeganHelper.DAL.Repositories;
 
 public interface IUserRepository
 {
+    Task<string?> RoleNameAsync(int roleId, CancellationToken ct);
     Task<(User User, UserProfile Profile)?> FindProfileAsync(long userId, CancellationToken cancellationToken);
     Task<User?> FindUserAsync(long userId, CancellationToken cancellationToken);
     Task<UserProfile?> FindUserProfileAsync(long userId, CancellationToken cancellationToken);

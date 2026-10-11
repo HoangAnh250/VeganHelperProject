@@ -45,6 +45,12 @@ public class ExceptionHandlingMiddleware
             var result = JsonSerializer.Serialize(new { message = ex.Message });
             await context.Response.WriteAsync(result);
         }
+        catch (VeganHelper.BLL.Exceptions.ReportRateLimitException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.Response.Headers.RetryAfter = "3600";
+            await context.Response.WriteAsJsonAsync(new { message = ex.Message });
+        }
         catch (Microsoft.AspNetCore.Http.BadHttpRequestException ex)
         {
             _logger.LogWarning(ex, "Bad HTTP request error occurred.");

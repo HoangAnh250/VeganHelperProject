@@ -29,10 +29,10 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                 catch (ModerationAiException ex) { failure = ex; }
                 catch (Exception) { failure = new("provider_error", false); }
             }
-            await FinishAsync(scan, input is null, result, failure, ct);
+            await FinishAsync(scan, input, result, failure, ct);
         }
     }
-    private async Task FinishAsync(PostModerationScan claimed, bool missingInput, ModerationAiResult? result, ModerationAiException? failure, CancellationToken ct)
+    private async Task FinishAsync(PostModerationScan claimed, ModerationAiInput? input, ModerationAiResult? result, ModerationAiException? failure, CancellationToken ct)
     {
         await using var transaction = await repository.BeginAsync(ct);
         // Same order as human decisions: post then scan. Never hold either lock during network calls.
@@ -41,25 +41,37 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
         if (scan is null || scan.State != "processing" || scan.LeaseToken != claimed.LeaseToken) return;
         var now = clock.GetUtcNow().UtcDateTime;
         scan.LeaseToken = null; scan.LeaseUntil = null;
-        if (missingInput || post is null || post.IsDeleted || post.ContentRevision != scan.Revision || post.Status != "pending_review")
+        if (input is null || post is null || post.IsDeleted || post.ContentRevision != scan.Revision || post.Status is not ("pending_review" or "published"))
         {
             scan.State = "obsolete"; scan.CompletedAt = now;
             await repository.SaveAsync(ct); await transaction.CommitAsync(ct); return;
         }
         // The HTTP boundary validates the full response. Defend publication independently as well.
-        if (result is not null && (!double.IsFinite(result.Confidence) || result.Confidence is < 0 or > 1 ||
+        if (result is not null && (result.Confidence is double score && (!double.IsFinite(score) || score is < 0 or > 1) ||
             result.Verdict is not ("safe" or "flagged" or "uncertain") || string.IsNullOrWhiteSpace(result.Summary) || result.Summary.Length > 500 ||
             string.IsNullOrWhiteSpace(result.Model) || result.Model.Length > 100 || string.IsNullOrWhiteSpace(result.PromptVersion) || result.PromptVersion.Length > 30 ||
             result.Findings is null || result.Verdict == "safe" && result.Findings.Count != 0 || result.InputTokens < 0 || result.OutputTokens < 0 || result.LatencyMs < 0))
         { result = null; failure = new("invalid_response", false); }
         if (result is null)
         {
-            var retry = failure?.Retryable == true && scan.Attempts < 5;
-            scan.State = retry ? "queued" : failure?.Retryable == true ? "failed" : "manual_required";
-            scan.ErrorCode = SafeCode(failure?.Code);
-            scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v1";
-            scan.NextAttemptAt = now.AddSeconds(30 * Math.Pow(3, Math.Max(0, scan.Attempts - 1)));
-            scan.CompletedAt = retry ? null : now;
+            if (failure?.Code == "provider_quota")
+            {
+                var seconds = failure.RetryAfterSeconds is double requested && double.IsFinite(requested)
+                    ? Math.Clamp(requested, 60, 86400) : 900;
+                scan.State = "queued"; scan.Attempts = Math.Max(0, scan.Attempts - 1);
+                scan.ErrorCode = "provider_quota"; scan.NextAttemptAt = now.AddSeconds(seconds);
+                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2"; scan.CompletedAt = null;
+                await repository.DeferProviderAsync(scan.NextAttemptAt, ct);
+            }
+            else
+            {
+                var retry = failure?.Retryable == true && scan.Attempts < 5;
+                scan.State = retry ? "queued" : failure?.Retryable == true ? "failed" : "manual_required";
+                scan.ErrorCode = SafeCode(failure?.Code);
+                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2";
+                scan.NextAttemptAt = now.AddSeconds(30 * Math.Pow(3, Math.Max(0, scan.Attempts - 1)));
+                scan.CompletedAt = retry ? null : now;
+            }
         }
         else
         {
@@ -70,33 +82,34 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
             if (result.Verdict is "flagged" or "uncertain")
             {
                 scan.State = "flagged";
+                var wasPublic = post.Status == "published";
+                post.Status = "pending_review"; post.ModerationHold = true; post.UpdatedAt = now;
                 repository.AddFlag(new Flag { PostId = post.Id, PostRevision = scan.Revision, ModerationScanId = scan.Id, SourceType = "ai",
-                    AiModelName = result.Model, Reason = result.Summary, Status = "pending", CreatedAt = now });
+                    AiModelName = result.Model, Reason = result.Summary, Status = "pending", CreatedAt = now,
+                    ReportedSnapshotJson = JsonSerializer.Serialize(new { input.Title, input.Content,
+                        media = input.Media.Select(m => new { m.Id, mediaUrl = m.Url, m.MediaType }),
+                        input.Ingredients, input.Steps, findings = result.Findings, confidence = result.Confidence }, JsonSerializerOptions.Web) });
+                if (wasPublic)
+                    await notifications.NotifyModerationHoldAsync(post.Id, post.AuthorId, scan.Revision, result.Summary, ct);
             }
-            else if (!double.IsFinite(options.Value.MinAutoPublishConfidence) || result.Confidence < Math.Max(.9, options.Value.MinAutoPublishConfidence))
+            else if (result.Confidence is double legacyScore && (!double.IsFinite(options.Value.MinAutoPublishConfidence) || legacyScore < Math.Max(.9, options.Value.MinAutoPublishConfidence)))
             { scan.State = "manual_required"; scan.ErrorCode = "low_confidence"; }
             else if ((await repository.CurrentFlagsAsync(post.Id, ct)).Count > 0)
             { scan.State = "manual_required"; scan.ErrorCode = "pending_ai_flag"; }
             else
             {
                 scan.State = "safe";
-                // Share lock makes a toggle update and a publication take effect in a defined order.
-                var settings = await repository.SettingsAsync("share", ct);
-                if (settings.AutoPublishEnabled)
-                {
-                    post.Status = "published"; post.UpdatedAt = now;
-                    var decision = new PostModerationDecision { PostId = post.Id, Revision = scan.Revision, ScanId = scan.Id,
-                        Action = "approve", ActorType = "ai", Reason = result.Summary, CreatedAt = now };
-                    repository.AddDecision(decision); await repository.SaveAsync(ct);
-                    await notifications.NotifyModerationDecisionAsync(decision.Id, ct);
-                }
+                // Assessment never releases a hold. Only a human decision can restore publication.
             }
         }
+        repository.AddAssessment(new PostModerationAssessment { PostId = post.Id, Revision = scan.Revision,
+            RequestId = claimed.LeaseToken!.Value, CreatedAt = now,
+            ResultJson = JsonSerializer.Serialize(new { scan.State, scan.ErrorCode, Result = result }, JsonSerializerOptions.Web) });
         repository.AddUsage(new AiUsage { RequestId = claimed.LeaseToken!.Value, UserId = post.AuthorId, FeatureType = "content_moderation", Provider = "gemini",
             ModelName = scan.Model!, Status = result is null ? "failed" : "completed", InputTokens = result?.InputTokens, OutputTokens = result?.OutputTokens, CreatedAt = now });
         await repository.SaveAsync(ct); await transaction.CommitAsync(ct);
     }
-    private static string SafeCode(string? code) => code is "provider_timeout" or "provider_error" or "provider_unavailable" or "invalid_response" or
+    private static string SafeCode(string? code) => code is "provider_quota" or "provider_timeout" or "provider_error" or "provider_unavailable" or "invalid_response" or
         "unsupported_media" or "media_unavailable" or "invalid_media" or "invalid_image" or "unsafe_media_url" or "provider_blocked" or
         "invalid_configuration" or "invalid_input" or "media_too_large" or "input_too_large" or "request_too_large" or "ai_disabled"
         ? code : "review_unavailable";

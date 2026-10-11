@@ -6,6 +6,8 @@ using VeganHelper.DAL.Entities;
 
 public interface IPostRepository
 {
+    Task<PostPublicationState?> LockPublicationAsync(long id, int revision, CancellationToken ct);
+    Task<bool> IsEvidenceMediaAsync(string url, CancellationToken ct);
     Task<Post> CreatePostAsync(Post post, CancellationToken cancellationToken = default);
     Task<Ingredient?> FindIngredientByIdAsync(long ingredientId, CancellationToken cancellationToken = default);
     Task<Ingredient> GetOrCreateIngredientAsync(string name, string unit, CancellationToken cancellationToken = default);
@@ -38,4 +40,10 @@ public interface IPostRepository
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);
     Task CommitTransactionAsync(CancellationToken cancellationToken = default);
     Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
+}
+
+public sealed class PostPublicationState
+{
+    public string Status { get; set; } = "";
+    public bool ModerationHold { get; set; }
 }

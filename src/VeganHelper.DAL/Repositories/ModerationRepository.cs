@@ -8,6 +8,10 @@ namespace VeganHelper.DAL.Repositories;
 
 public sealed class ModerationRepository(AppDbContext db) : IModerationRepository
 {
+    public Task DeferProviderAsync(DateTime retryAfter, CancellationToken ct) => db.Set<PostModerationSettings>()
+        .Where(s => s.Id == 1 && (s.ProviderRetryAfter == null || s.ProviderRetryAfter < retryAfter))
+        .ExecuteUpdateAsync(s => s.SetProperty(x => x.ProviderRetryAfter, retryAfter), ct);
+    public void AddAssessment(PostModerationAssessment assessment) => db.Add(assessment);
     public async Task<DatabasePage<ModerationPostProjection>> ListPostsAsync(string? keyword, string? status, int page, int size, CancellationToken ct)
     {
         var query = db.Posts.AsNoTracking().Where(p => !p.IsDeleted);
@@ -30,8 +34,9 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
         join p in db.Posts on f.PostId equals p.Id
         join s in db.Set<PostModerationScan>() on f.ModerationScanId equals (long?)s.Id into scans
         from s in scans.DefaultIfEmpty()
-        where f.SourceType == "ai" && f.Status == "pending" && !p.IsDeleted && (f.PostRevision == null || f.PostRevision == p.ContentRevision)
+        where f.SourceType == "ai" && f.Status == "pending" && !p.IsDeleted && (p.ModerationHold || f.PostRevision == null || f.PostRevision == p.ContentRevision)
         select new ModerationFlagProjection { Id = f.Id, PostId = p.Id, Title = p.Title, ContentRevision = p.ContentRevision,
+            ReportedRevision = f.PostRevision, ReportedSnapshotJson = f.ReportedSnapshotJson,
             Reason = f.Reason, AiModelName = f.AiModelName, ConfidenceScore = s == null ? null : s.Confidence,
             FindingsJson = s == null ? "[]" : s.FindingsJson, CreatedAt = f.CreatedAt };
     public async Task<DatabasePage<ModerationFlagProjection>> ListFlagsAsync(long? postId, double? minConfidence, int page, int size, CancellationToken ct)
@@ -53,7 +58,7 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
     public Task<PostModerationScan?> CurrentScanAsync(long postId, int revision, CancellationToken ct) => db.Set<PostModerationScan>().AsNoTracking()
         .SingleOrDefaultAsync(s => s.PostId == postId && s.Revision == revision, ct);
     public Task ResolveFlagsAsync(long postId, int revision, long adminId, string note, bool keep, DateTime now, CancellationToken ct) =>
-        db.Flags.Where(f => f.PostId == postId && f.SourceType == "ai" && f.Status == "pending" && (f.PostRevision == null || f.PostRevision == revision))
+        db.Flags.Where(f => f.PostId == postId && f.Status == "pending")
             .ExecuteUpdateAsync(s => s.SetProperty(f => f.Status, keep ? "dismissed" : "resolved").SetProperty(f => f.ResolvedByAdminId, adminId)
                 .SetProperty(f => f.ResolutionNote, note).SetProperty(f => f.ResolvedAt, now), ct);
     public Task<PostModerationSettings> SettingsAsync(string? lockMode, CancellationToken ct) => lockMode switch
@@ -76,6 +81,7 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
     {
         // A recurring job can process multiple posts; locks must refresh rows rather than reuse prior tracked snapshots.
         db.ChangeTracker.Clear();
+        if (await db.Set<PostModerationSettings>().AnyAsync(s => s.ProviderRetryAfter > now, ct)) return null;
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.Set<PostModerationScan>().Where(s => s.State == "processing" && s.LeaseUntil <= now && s.Attempts >= 5)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.State, "failed").SetProperty(x => x.ErrorCode, "lease_exhausted")
@@ -83,9 +89,10 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
         var rows = await db.Set<PostModerationScan>().FromSqlInterpolated($"""
             SELECT s.* FROM post_moderation_scans s
             JOIN posts p ON p.id = s.post_id
-            WHERE s.attempts < 5 AND p.is_deleted = false AND p.status = 'pending_review' AND p.content_revision = s.revision
+            WHERE s.attempts < 5 AND p.is_deleted = false AND p.status IN ('pending_review','published') AND p.content_revision = s.revision
               AND ((s.state = 'queued' AND s.next_attempt_at <= {now}) OR (s.state = 'processing' AND s.lease_until <= {now}))
-            ORDER BY s.next_attempt_at, s.id LIMIT 1 FOR UPDATE OF s SKIP LOCKED
+            ORDER BY CASE WHEN s.created_at < {now.AddHours(-1)} THEN 2 ELSE s.priority END DESC,
+                s.next_attempt_at, s.id LIMIT 1 FOR UPDATE OF s SKIP LOCKED
             """).ToListAsync(ct);
         var scan = rows.SingleOrDefault();
         if (scan is not null) { scan.State = "processing"; scan.Attempts++; scan.LeaseToken = lease; scan.LeaseUntil = now.AddMinutes(3); await db.SaveChangesAsync(ct); }
@@ -99,7 +106,7 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
     public async Task<ModerationAiInput?> InputAsync(long postId, int revision, CancellationToken ct)
     {
         var post = await DetailAsync(postId, ct);
-        if (post is null || post.ContentRevision != revision || post.Status != "pending_review") return null;
+        if (post is null || post.ContentRevision != revision || post.Status is not ("pending_review" or "published")) return null;
         return new(postId, revision, post.Title, post.Content,
             post.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => new ModerationAiMedia(m.Id, m.MediaUrl, m.MediaType)).ToArray(),
             post.PostIngredients.Select(i => $"{i.Ingredient?.Name} {i.Quantity} {i.Unit}").ToArray(),

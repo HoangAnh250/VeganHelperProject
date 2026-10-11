@@ -17,6 +17,78 @@ namespace VeganHelper.IntegrationTests;
 [Collection("Member2 API")]
 public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
 {
+    [Fact]
+    public async Task SearchPosts_HttpReturnsPublishedRecipeWithoutAuthentication()
+    {
+        var recipe = await RecipeAsync();
+        var keyword = "Matcha " + Guid.NewGuid().ToString("N");
+        await using (var db = fixture.Context())
+            await db.Posts.Where(p => p.Id == recipe.Id).ExecuteUpdateAsync(s =>
+                s.SetProperty(p => p.Title, keyword + " Vegan Cheesecake"));
+        using var client = fixture.Factory.CreateClient();
+        var result = await client.GetFromJsonAsync<JsonElement>("/api/Posts/search?keyword=" + Uri.EscapeDataString(keyword.ToUpperInvariant()));
+        Assert.Equal(1, result.GetProperty("totalCount").GetInt64());
+        var item = Assert.Single(result.GetProperty("items").EnumerateArray());
+        Assert.Equal(recipe.Id, item.GetProperty("id").GetInt64());
+        Assert.Equal("recipe", item.GetProperty("postType").GetString());
+    }
+
+    [Fact]
+    public async Task CreatePost_IsPublicImmediatelyAndQueuesRevisionOne()
+    {
+        var recipe = await RecipeAsync(); var storage = new RecordingStorage(); using var factory = Factory(storage);
+        using var client = Client(factory, recipe.AuthorId);
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent("New public recipe"), "Title" }, { new StringContent("recipe"), "PostType" },
+            { new StringContent(recipe.CategoryId.ToString()), "CategoryId" }, { new StringContent("Plant-based ingredients"), "Content" }
+        };
+        var image = new ByteArrayContent(Jpeg()); image.Headers.ContentType = new("image/jpeg"); form.Add(image, "MediaFiles", "new.jpg");
+        var response = await client.PostAsync("/api/posts", form); Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>(); var id = result.GetProperty("id").GetInt64();
+        Assert.Equal("published", result.GetProperty("status").GetString());
+        using var guest = fixture.Factory.Client(); Assert.Equal(HttpStatusCode.OK, (await guest.GetAsync($"/api/posts/{id}")).StatusCode);
+        await using var db = fixture.Context(); var scan = await db.Set<PostModerationScan>().SingleAsync(s => s.PostId == id);
+        Assert.Equal(1, scan.Revision); Assert.Equal("queued", scan.State);
+    }
+
+    [Fact]
+    public async Task EditingReportedPost_RetainsOriginalImageEvidence()
+    {
+        var recipe = await RecipeAsync(); var reporter = await UserAsync();
+        using (var member = fixture.Factory.Client(reporter))
+            Assert.Equal(HttpStatusCode.OK, (await member.PostAsJsonAsync($"/api/posts/{recipe.Id}/reports",
+                new { expectedRevision = 1, reasonCategory = "non_vegan", reason = "Please check the original image" })).StatusCode);
+        var storage = new RecordingStorage(); using var factory = Factory(storage);
+        using var client = Client(factory, recipe.AuthorId); using var form = Form(recipe, false);
+        Assert.Equal(HttpStatusCode.OK, (await client.PutAsync($"/api/posts/{recipe.Id}", form)).StatusCode);
+        Assert.Empty(storage.Deleted);
+        await using var db = fixture.Context();
+        var report = await db.Flags.SingleAsync(f => f.PostId == recipe.Id && f.SourceType == "user");
+        Assert.Contains(recipe.MediaUrls[0], report.ReportedSnapshotJson);
+        Assert.Equal(1, report.PostRevision); Assert.Equal("pending", report.Status);
+    }
+
+    [Fact]
+    public async Task Edit_WhenHoldAppearsDuringUpload_PreservesHold()
+    {
+        var recipe = await RecipeAsync();
+        var storage = new RecordingStorage();
+        storage.BeforeUpload = async () =>
+        {
+            await using var db = fixture.Context();
+            await db.Posts.Where(p => p.Id == recipe.Id).ExecuteUpdateAsync(s =>
+                s.SetProperty(p => p.Status, "pending_review").SetProperty(p => p.ModerationHold, true));
+        };
+        using var factory = Factory(storage);
+        using var client = Client(factory, recipe.AuthorId);
+        using var form = Form(recipe, false);
+        var response = await client.PutAsync($"/api/posts/{recipe.Id}", form);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using var verify = fixture.Context();
+        var post = await verify.Posts.SingleAsync(p => p.Id == recipe.Id);
+        Assert.True(post.ModerationHold); Assert.Equal("pending_review", post.Status); Assert.Equal(2, post.ContentRevision);
+    }
     private async Task<long> UserAsync()
     {
         await using var db = fixture.Context();
@@ -142,7 +214,7 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         Assert.Equal(!changeRelations, saved.PostIngredients.Any(i => i.IngredientId == recipe.IngredientIds[0]));
         Assert.Equal(recipe.FirstStepId, saved.PostSteps.Single(s => s.StepNumber == 1).Id);
         Assert.Equal(changeRelations ? new[] { 1, 3 } : new[] { 1, 2 }, saved.PostSteps.Select(s => s.StepNumber).Order());
-        Assert.Equal("pending_review", saved.Status);
+        Assert.Equal("published", saved.Status);
         Assert.Equal(2, saved.ContentRevision);
         var scan = await db.Set<PostModerationScan>().SingleAsync(s => s.PostId == recipe.Id);
         Assert.Equal(saved.ContentRevision, scan.Revision); Assert.Equal("queued", scan.State);
@@ -243,14 +315,16 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
     }
     private sealed class RecordingStorage : IMediaStorageService
     {
+        public Func<Task>? BeforeUpload { get; set; }
         public List<string> Errors { get; } = [];
         public List<string> Uploaded { get; } = [];
         public List<string> Deleted { get; } = [];
-        public Task<string> UploadFileAsync(IFormFile file, string folder)
+        public async Task<string> UploadFileAsync(IFormFile file, string folder)
         {
+            if (BeforeUpload is not null) await BeforeUpload();
             var url = $"https://media.example.invalid/{Guid.NewGuid():N}/{file.FileName}";
             Uploaded.Add(url);
-            return Task.FromResult(url);
+            return url;
         }
         public Task DeleteFileAsync(string fileUrl) { Deleted.Add(fileUrl); return Task.CompletedTask; }
     }

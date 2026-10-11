@@ -53,7 +53,7 @@ public sealed class PostService : IPostService
             PrepTimeMins = request.PrepTimeMins,
             CookingTimeMins = request.CookingTimeMins,
             DietType = string.IsNullOrWhiteSpace(request.DietType) ? null : request.DietType,
-            Status = "pending_review",
+            Status = "published",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -215,6 +215,8 @@ public sealed class PostService : IPostService
             CookingTimeMins = post.CookingTimeMins,
             DietType = post.DietType,
             Status = post.Status,
+            ContentRevision = post.ContentRevision,
+            ModerationHold = post.ModerationHold,
             ViewCount = post.ViewCount,
             CreatedAt = post.CreatedAt,
             Media = post.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => new PostMediaDto
@@ -302,12 +304,13 @@ public sealed class PostService : IPostService
         {
             foreach (var media in post.Media)
             {
-                await _mediaStorageService.DeleteFileAsync(media.MediaUrl);
+                if (!await _postRepository.IsEvidenceMediaAsync(media.MediaUrl, cancellationToken))
+                    await _mediaStorageService.DeleteFileAsync(media.MediaUrl);
             }
         }
     }
 
-    public async Task UpdatePostAsync(long postId, UpdatePostRequest request, long authorId, CancellationToken cancellationToken = default)
+    public async Task<PostPublicationDto> UpdatePostAsync(long postId, UpdatePostRequest request, long authorId, CancellationToken cancellationToken = default)
     {
         await _updateValidator.ValidateAndThrowAsync(request, cancellationToken);
 
@@ -340,6 +343,7 @@ public sealed class PostService : IPostService
         var originalSteps = post.PostSteps.ToArray();
 
         // Update basic fields
+        var originalRevision = post.ContentRevision;
         post.ContentRevision = checked(post.ContentRevision + 1);
         post.Title = request.Title;
         post.Content = request.Content;
@@ -392,6 +396,10 @@ public sealed class PostService : IPostService
 
             await _postRepository.BeginTransactionAsync(cancellationToken);
             transactionStarted = true;
+            var state = await _postRepository.LockPublicationAsync(postId, originalRevision, cancellationToken)
+                ?? throw new VeganHelper.BLL.Exceptions.ConflictException("Post changed or was deleted. Reload before editing.");
+            post.ModerationHold = state.ModerationHold || state.Status is "pending_review" or "hidden" or "rejected";
+            post.Status = post.ModerationHold ? "pending_review" : "published";
             if (!string.IsNullOrWhiteSpace(request.IngredientsJson))
                 await ApplyIngredientsAsync(post, ingredients, cancellationToken);
             if (!string.IsNullOrWhiteSpace(request.StepsJson)) ApplySteps(post, steps);
@@ -417,13 +425,18 @@ public sealed class PostService : IPostService
         var obsoleteUrls = removed.Select(m => m.MediaUrl).Distinct()
             .Where(url => !post.Media.Any(m => m.MediaUrl == url));
         await CleanupMediaAsync(obsoleteUrls, postId);
+        return new PostPublicationDto(post.Id, post.Status, post.ContentRevision, post.ModerationHold);
     }
 
     private async Task CleanupMediaAsync(IEnumerable<string> urls, long postId)
     {
         foreach (var url in urls)
         {
-            try { await _mediaStorageService.DeleteFileAsync(url); }
+            try
+            {
+                if (!await _postRepository.IsEvidenceMediaAsync(url, CancellationToken.None))
+                    await _mediaStorageService.DeleteFileAsync(url);
+            }
             catch (Exception error)
             {
                 // Keep the successful DB update intact. This orphan requires later cleanup.

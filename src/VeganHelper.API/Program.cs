@@ -146,6 +146,8 @@ builder.Services.AddScoped<IAdminMemberService, AdminMemberService>();
 builder.Services.AddScoped<IAdminCategoryRepository, AdminCategoryRepository>();
 builder.Services.AddScoped<IAdminCategoryService, AdminCategoryService>();
 builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
+builder.Services.AddScoped<IPostReportRepository, PostReportRepository>();
+builder.Services.AddScoped<IPostReportService, PostReportService>();
 builder.Services.AddScoped<IAdminModerationService, AdminModerationService>();
 builder.Services.AddScoped<PostModerationProcessor>();
 builder.Services.AddScoped<PostModerationJob>();
@@ -154,7 +156,7 @@ builder.Services.AddOptions<ModerationAiOptions>().BindConfiguration("Moderation
         && o.Model is not null && System.Text.RegularExpressions.Regex.IsMatch(o.Model, @"\Agemini-[a-z0-9][a-z0-9.-]{0,79}\z")
         && o.TimeoutSeconds is >= 1 and <= 120 && double.IsFinite(o.MinAutoPublishConfidence) && o.MinAutoPublishConfidence is >= .9 and <= 1
         && o.AllowedMediaHosts is not null, "Configure a valid ModerationAi key, model, timeout and confidence threshold.").ValidateOnStart();
-var moderationPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "PostModeration.v1.json");
+var moderationPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "PostModeration.v2.json");
 var moderationPrompt = JsonSerializer.Deserialize<ModerationPromptDefinition>(File.ReadAllText(moderationPromptPath), JsonSerializerOptions.Web)
     ?? throw new InvalidOperationException("Moderation prompt is missing.");
 if (string.IsNullOrWhiteSpace(moderationPrompt.Version) || moderationPrompt.Version.Length > 30 || string.IsNullOrWhiteSpace(moderationPrompt.SystemInstruction)

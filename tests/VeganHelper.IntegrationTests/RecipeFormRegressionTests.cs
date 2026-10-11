@@ -13,6 +13,57 @@ namespace VeganHelper.IntegrationTests;
 
 public partial class PostRepositoryTests
 {
+    [Theory]
+    [InlineData("recipe", true)]
+    [InlineData("recipe", false)]
+    [InlineData("article", true)]
+    [InlineData("article", false)]
+    [InlineData("video", true)]
+    [InlineData("video", false)]
+    public async Task PostSearch_FindsEveryPublishedType_ByTitleOrContent(string postType, bool matchTitle)
+    {
+        var user = await AddUser();
+        var keyword = "Matcha " + Guid.NewGuid().ToString("N");
+        var post = NewPost(user.Id);
+        post.PostType = postType;
+        post.Title = matchTitle ? keyword + " Vegan Cheesecake" : "Another title";
+        post.Content = matchTitle ? "Plant-based ingredients" : keyword + " in content";
+        _context.Posts.Add(post);
+        await _context.SaveChangesAsync();
+        var result = await _postRepository.SearchPostsAsync(keyword.ToUpperInvariant(), 1, 10);
+        Assert.Equal(1, result.TotalCount);
+        var item = Assert.Single(result.Items);
+        Assert.Equal(post.Id, item.Id);
+        Assert.Equal(postType, item.PostType);
+    }
+
+    [Fact]
+    public async Task PostSearch_RecipesPreserveVisibilityPaginationAndCount()
+    {
+        var user = await AddUser();
+        var keyword = Guid.NewGuid().ToString("N");
+        var posts = Enumerable.Range(0, 7).Select(i =>
+        {
+            var post = NewPost(user.Id);
+            post.Title = keyword;
+            post.PostType = "recipe";
+            post.CreatedAt = DateTime.UtcNow.AddMinutes(i);
+            return post;
+        }).ToArray();
+        posts[3].Status = "pending_review"; posts[3].ModerationHold = true;
+        posts[4].Status = "hidden";
+        posts[5].Status = "rejected";
+        posts[6].IsDeleted = true; posts[6].DeletedAt = DateTime.UtcNow;
+        _context.Posts.AddRange(posts);
+        await _context.SaveChangesAsync();
+        var first = await _postRepository.SearchPostsAsync(keyword, 1, 2);
+        var second = await _postRepository.SearchPostsAsync(keyword, 2, 2);
+        Assert.Equal(3, first.TotalCount);
+        Assert.Equal(3, second.TotalCount);
+        Assert.Equal(new[] { posts[2].Id, posts[1].Id }, first.Items.Select(p => p.Id));
+        Assert.Equal(posts[0].Id, Assert.Single(second.Items).Id);
+    }
+
     [Fact]
     public async Task DeveloperUserSearch_WorksWithPostgreSqlCaseInsensitiveUsername()
     {
@@ -39,6 +90,8 @@ public partial class PostRepositoryTests
     private PostService RecipeService()
     {
         var repository = new Mock<IPostRepository>();
+        repository.Setup(r => r.LockPublicationAsync(It.IsAny<long>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns((long id, int revision, CancellationToken ct) => _postRepository.LockPublicationAsync(id, revision, ct));
         repository.Setup(r => r.GetOrCreateIngredientAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns((string name, string unit, CancellationToken ct) => _postRepository.GetOrCreateIngredientAsync(name, unit, ct));
         repository.Setup(r => r.FindIngredientByIdAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()))

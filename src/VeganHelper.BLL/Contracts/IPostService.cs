@@ -15,6 +15,6 @@ public interface IPostService
     Task<PagedResult<MyPostItemDto>> GetMyPostsAsync(long authorId, GetMyPostsRequest request, CancellationToken cancellationToken = default);
     Task DeletePostAsync(long postId, long authorId, CancellationToken cancellationToken = default);
 
-    Task UpdatePostAsync(long postId, UpdatePostRequest request, long authorId, CancellationToken cancellationToken = default);
+    Task<PostPublicationDto> UpdatePostAsync(long postId, UpdatePostRequest request, long authorId, CancellationToken cancellationToken = default);
 
 }

@@ -18,6 +18,8 @@ public sealed class ModerationPostProjection
 }
 public sealed class ModerationFlagProjection
 {
+    public int? ReportedRevision { get; init; }
+    public string? ReportedSnapshotJson { get; init; }
     public long Id { get; init; }
     public long PostId { get; init; }
     public string Title { get; init; } = "";
@@ -30,6 +32,8 @@ public sealed class ModerationFlagProjection
 }
 public interface IModerationRepository
 {
+    Task DeferProviderAsync(DateTime retryAfter, CancellationToken ct);
+    void AddAssessment(PostModerationAssessment assessment);
     Task<DatabasePage<ModerationPostProjection>> ListPostsAsync(string? keyword, string? status, int page, int size, CancellationToken ct);
     Task<DatabasePage<ModerationFlagProjection>> ListFlagsAsync(long? postId, double? minConfidence, int page, int size, CancellationToken ct);
     Task<Post?> DetailAsync(long postId, CancellationToken ct);

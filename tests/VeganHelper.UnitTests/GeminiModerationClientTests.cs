@@ -10,9 +10,53 @@ namespace VeganHelper.UnitTests;
 
 public class GeminiModerationClientTests
 {
-    private const string Safe = """{"verdict":"safe","confidence":0.98,"summary":"Plant based recipe.","findings":[]}""";
-    private const string Flagged = """{"verdict":"flagged","confidence":0.99,"summary":"Animal ingredients.","findings":[{"code":"animal_ingredient_recipe","field":"ingredients","excerpt":"beef","mediaId":null,"reason":"Animal ingredient in recipe."}]}""";
+    private const string Safe = """{"result":"PASS","reason":"Plant based recipe."}""";
+    private const string Flagged = """{"result":"FAIL","reason":"Animal ingredient in recipe: beef."}""";
     private static readonly byte[] Jpeg = [0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+    [Theory]
+    [InlineData("PASS", "Nội dung phù hợp.", "safe")]
+    [InlineData("FAIL", "Ảnh #11 chứa thịt sống.", "flagged")]
+    public async Task Review_CompactResult_UsesHarnessMappingWithoutInventedConfidence(string result, string reason, string verdict)
+    {
+        using var http = new HttpClient(new FakeHandler(async (request, ct) =>
+        {
+            if (request.Method == HttpMethod.Get) return Image();
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
+            var config = body.RootElement.GetProperty("generation_config");
+            Assert.Equal(2048, config.GetProperty("max_output_tokens").GetInt32());
+            Assert.Equal("low", config.GetProperty("thinking_level").GetString());
+            Assert.Equal("none", config.GetProperty("thinking_summaries").GetString());
+            return Reply(JsonSerializer.Serialize(new { result, reason }));
+        }));
+        var reviewed = await Client(http).ReviewAsync(Input() with { Media = [Media(11)] }, default);
+        Assert.Equal(verdict, reviewed.Verdict);
+        Assert.Equal(reason, reviewed.Summary);
+        Assert.Null(reviewed.Confidence);
+        if (result == "PASS") Assert.Empty(reviewed.Findings);
+        else
+        {
+            var finding = Assert.Single(reviewed.Findings);
+            Assert.Equal("post", finding.Field);
+            Assert.Null(finding.MediaId); // Free-form reason cannot reliably attribute an exact media identifier.
+            Assert.Equal(reason, finding.Reason);
+        }
+    }
+
+    [Fact]
+    public async Task Review_CompactResult_RejectsLongReason()
+    {
+        var output = JsonSerializer.Serialize(new { result = "FAIL", reason = new string('x', 201) });
+        using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(output))));
+        var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
+        Assert.Equal("invalid_response", ex.Code);
+    }
+
+    [Fact]
+    public void CompactEvidence_HasNoConfidenceScoreAndDoesNotUseLegacyFallback()
+    {
+        Assert.Null(VeganHelper.BLL.Mapping.ModerationMapping.FlagConfidence("{\"confidence\":null}", .99));
+    }
 
     [Fact]
     public async Task Review_SendsAllTextAndImagesAsData_WithHeaderKeyAndStrictSchema()
@@ -56,7 +100,7 @@ public class GeminiModerationClientTests
         }, default);
         Assert.Equal("safe", result.Verdict);
         Assert.Equal("gemini-3.8-flash", result.Model);
-        Assert.Equal("post-moderation.v1", result.PromptVersion);
+        Assert.Equal("post-moderation.v2", result.PromptVersion);
         Assert.Equal(100, result.InputTokens);
         Assert.Equal(35, result.OutputTokens);
         Assert.True(result.LatencyMs >= 0);
@@ -72,7 +116,7 @@ public class GeminiModerationClientTests
             Assert.False(generation.TryGetProperty("temperature", out _));
             Assert.False(generation.TryGetProperty("top_p", out _));
             Assert.False(generation.TryGetProperty("top_k", out _));
-            Assert.Equal(8192, generation.GetProperty("max_output_tokens").GetInt32());
+            Assert.Equal(2048, generation.GetProperty("max_output_tokens").GetInt32());
             return Reply(Safe);
         }));
         var result = await Client(http).ReviewAsync(Input(), default);
@@ -195,13 +239,13 @@ public class GeminiModerationClientTests
 
     [Theory]
     [InlineData("not json")]
-    [InlineData("{\"verdict\":\"safe\",\"summary\":\"Missing confidence\",\"findings\":[]}")]
-    [InlineData("{\"verdict\":\"safe\",\"confidence\":1.1,\"summary\":\"Invalid confidence\",\"findings\":[]}")]
-    [InlineData("{\"verdict\":\"allow\",\"confidence\":1,\"summary\":\"Unknown verdict\",\"findings\":[]}")]
-    [InlineData("{\"verdict\":\"flagged\",\"confidence\":1,\"summary\":\"No evidence\",\"findings\":[]}")]
-    [InlineData("{\"verdict\":\"uncertain\",\"confidence\":0.5,\"summary\":\"No evidence\",\"findings\":[]}")]
-    [InlineData("{\"verdict\":\"safe\",\"verdict\":\"flagged\",\"confidence\":1,\"summary\":\"Duplicate key\",\"findings\":[]}")]
-    [InlineData("{\"verdict\":\"safe\",\"confidence\":1,\"summary\":\"Unknown key\",\"findings\":[],\"extra\":true}")]
+    [InlineData("{\"result\":\"PASS\"}")]
+    [InlineData("{\"result\":\"safe\",\"reason\":\"Wrong enum\"}")]
+    [InlineData("{\"result\":\"pass\",\"reason\":\"Wrong casing\"}")]
+    [InlineData("{\"result\":\"FAIL\",\"reason\":\"\"}")]
+    [InlineData("{\"result\":\"PASS\",\"reason\":null}")]
+    [InlineData("{\"result\":\"PASS\",\"result\":\"FAIL\",\"reason\":\"Duplicate key\"}")]
+    [InlineData("{\"result\":\"PASS\",\"reason\":\"Extra field\",\"confidence\":1}")]
     public async Task Review_MalformedStructuredOutput_FailsClosed(string output)
     {
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(output))));
@@ -246,29 +290,31 @@ public class GeminiModerationClientTests
     {
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent("secret raw provider message private-key") })));
         var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
-        Assert.Equal("provider_error", ex.Code);
+        Assert.Equal(status == 429 ? "provider_quota" : "provider_error", ex.Code);
         Assert.Equal(retryable, ex.Retryable);
         Assert.DoesNotContain("private-key", ex.ToString());
         Assert.Null(ex.InnerException);
     }
 
     [Fact]
-    public async Task Review_ValidFlaggedFinding_IsPreserved()
+    public async Task Review_ValidFailReason_IsPreserved()
     {
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(Flagged))));
         var result = await Client(http).ReviewAsync(Input() with { Ingredients = ["beef"] }, default);
         Assert.Equal("flagged", result.Verdict);
-        Assert.Equal("animal_ingredient_recipe", Assert.Single(result.Findings).Code);
+        Assert.Equal("policy_review", Assert.Single(result.Findings).Code);
+        Assert.Equal("Animal ingredient in recipe: beef.", result.Summary);
     }
 
     [Fact]
-    public async Task Review_UncertainImageFinding_PreservesTheInputMediaIdentifier()
+    public async Task Review_UncertainImageFail_PreservesReasonWithoutClaimingAConfirmedViolation()
     {
-        const string output = """{"verdict":"uncertain","confidence":0.5,"summary":"Image is ambiguous.","findings":[{"code":"uncertain_content","field":"media","excerpt":"","mediaId":11,"reason":"Plant based substitute cannot be distinguished from meat."}]}""";
+        const string output = """{"result":"FAIL","reason":"Ảnh #11 chưa phân biệt được thực phẩm chay với thịt; cần Admin kiểm tra."}""";
         using var http = new HttpClient(new FakeHandler((request, _) => Task.FromResult(request.Method == HttpMethod.Get ? Image() : Reply(output))));
         var result = await Client(http).ReviewAsync(Input() with { Media = [Media(11)] }, default);
-        Assert.Equal("uncertain", result.Verdict);
-        Assert.Equal(11, Assert.Single(result.Findings).MediaId);
+        Assert.Equal("flagged", result.Verdict);
+        Assert.Contains("Ảnh #11", result.Summary);
+        Assert.Null(Assert.Single(result.Findings).MediaId);
     }
 
     [Fact]
@@ -348,23 +394,15 @@ public class GeminiModerationClientTests
     }
 
     [Theory]
-    [InlineData("summary")]
     [InlineData("reason")]
-    [InlineData("excerpt")]
-    [InlineData("code")]
-    [InlineData("findings")]
-    [InlineData("code_newline")]
-    public async Task Review_OverlongStructuredFieldsAndFindings_AreRejected(string field)
+    [InlineData("result")]
+    public async Task Review_OverlongStructuredFields_AreRejected(string field)
     {
         var result = JsonNode.Parse(Flagged)!.AsObject();
         switch (field)
         {
-            case "summary": result["summary"] = new string('x', 501); break;
-            case "reason": result["findings"]![0]!["reason"] = new string('x', 1001); break;
-            case "excerpt": result["findings"]![0]!["excerpt"] = new string('x', 501); break;
-            case "code": result["findings"]![0]!["code"] = new string('x', 65); break;
-            case "code_newline": result["findings"]![0]!["code"] = "raw_meat\n"; break;
-            case "findings": result["findings"] = new JsonArray(Enumerable.Range(0, 21).Select(_ => result["findings"]![0]!.DeepClone()).ToArray()); break;
+            case "reason": result["reason"] = new string('x', 201); break;
+            case "result": result["result"] = "PASS\n"; break;
         }
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(result.ToJsonString()))));
         var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
@@ -415,7 +453,7 @@ public class GeminiModerationClientTests
         Options.Create(new ModerationAiOptions { Enabled = enabled, ApiKey = "private-key", AllowedMediaHosts = ["media.example.org", "localhost", "127.0.0.1", "::1"], TimeoutSeconds = timeout }),
         Prompt());
 
-    private static ModerationPromptDefinition Prompt() => new() { Version = "post-moderation.v1", SystemInstruction = "System policy", ResponseSchema = JsonSerializer.SerializeToElement(new { type = "object" }) };
+    private static ModerationPromptDefinition Prompt() => new() { Version = "post-moderation.v2", SystemInstruction = "System policy", ResponseSchema = JsonSerializer.SerializeToElement(new { type = "object" }) };
 
     private static HttpResponseMessage Image(byte[]? data = null, string mime = "image/jpeg")
     {

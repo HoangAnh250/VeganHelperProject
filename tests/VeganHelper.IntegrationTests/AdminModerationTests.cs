@@ -134,7 +134,7 @@ public sealed class AdminModerationTests(Member2ApiFixture fixture)
         Assert.Equal(1, detail.GetProperty("contentRevision").GetInt32()); Assert.False(detail.TryGetProperty("passwordHash", out _));
     }
     [Fact]
-    public async Task ModerationSettings_WhenUpdated_UsesOptimisticVersionAndAuditsToggle()
+    public async Task ModerationSettings_WhenUpdated_ReturnsGoneAndLeavesSettingsUnchanged()
     {
         var admin = await UserAsync(); using var client = Client(admin);
         var before = await client.GetFromJsonAsync<JsonElement>("/api/admin/moderation/settings"); var version = before.GetProperty("version").GetInt32();
@@ -142,7 +142,10 @@ public sealed class AdminModerationTests(Member2ApiFixture fixture)
         var update = await client.PutAsJsonAsync("/api/admin/moderation/settings", new { autoPublishEnabled = true, expectedVersion = version });
         var stale = await client.PutAsJsonAsync("/api/admin/moderation/settings", new { autoPublishEnabled = false, expectedVersion = version });
 
-        Assert.Equal(HttpStatusCode.OK, update.StatusCode); Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal(HttpStatusCode.Gone, update.StatusCode); Assert.Equal(HttpStatusCode.Gone, stale.StatusCode);
+        var after = await client.GetFromJsonAsync<JsonElement>("/api/admin/moderation/settings");
+        Assert.Equal(version, after.GetProperty("version").GetInt32());
+        Assert.Equal("immediate", after.GetProperty("publicationMode").GetString());
         // Restore default so tests remain independent of execution order.
         await client.PutAsJsonAsync("/api/admin/moderation/settings", new { autoPublishEnabled = false, expectedVersion = version + 1 });
     }

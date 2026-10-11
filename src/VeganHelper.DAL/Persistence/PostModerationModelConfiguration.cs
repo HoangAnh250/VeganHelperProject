@@ -7,12 +7,20 @@ internal static class PostModerationModelConfiguration
 {
     internal static void Configure(ModelBuilder b)
     {
+        b.Entity<Post>().Property(p => p.ModerationHold).HasColumnName("moderation_hold").HasDefaultValue(false);
+        b.Entity<Flag>().Property(f => f.ReportedSnapshotJson).HasColumnName("reported_snapshot_json").HasColumnType("jsonb");
+        b.Entity<Flag>().Property(f => f.ReasonCategory).HasColumnName("reason_category").HasMaxLength(40);
+        b.Entity<Flag>().HasIndex(f => new { f.ReporterId, f.PostId, f.PostRevision }).IsUnique()
+            .HasFilter("source_type = 'user' AND status = 'pending' AND post_revision IS NOT NULL");
+        b.Entity<Flag>().HasIndex(f => new { f.ReporterId, f.CreatedAt });
         b.Entity<Post>().Property(p => p.ContentRevision).HasColumnName("content_revision").HasDefaultValue(1).IsConcurrencyToken();
         b.Entity<Flag>().Property(f => f.PostRevision).HasColumnName("post_revision");
         b.Entity<Flag>().Property(f => f.ModerationScanId).HasColumnName("moderation_scan_id");
         b.Entity<Flag>().HasOne<PostModerationScan>().WithMany().HasForeignKey(f => f.ModerationScanId).OnDelete(DeleteBehavior.NoAction);
         b.Entity<PostModerationScan>(e =>
         {
+            e.Property(x => x.Priority).HasColumnName("priority");
+            e.Property(x => x.ReportRecheckRequested).HasColumnName("report_recheck_requested");
             e.ToTable("post_moderation_scans", t =>
             {
                 t.HasCheckConstraint("CK_moderation_scan_state", "state IN ('queued','processing','safe','flagged','manual_required','failed','obsolete')");
@@ -52,12 +60,23 @@ internal static class PostModerationModelConfiguration
         });
         b.Entity<PostModerationSettings>(e =>
         {
+            e.Property(x => x.ProviderRetryAfter).HasColumnName("provider_retry_after");
             e.ToTable("post_moderation_settings", t => t.HasCheckConstraint("CK_moderation_settings_singleton", "id = 1 AND version > 0"));
             e.HasKey(x => x.Id); e.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
             e.Property(x => x.AutoPublishEnabled).HasColumnName("auto_publish_enabled"); e.Property(x => x.Version).HasColumnName("version");
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at"); e.Property(x => x.UpdatedByAdminId).HasColumnName("updated_by_admin_id");
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UpdatedByAdminId).OnDelete(DeleteBehavior.NoAction);
             e.HasData(new PostModerationSettings());
+        });
+        b.Entity<PostModerationAssessment>(e =>
+        {
+            e.ToTable("post_moderation_assessments");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
+            e.Property(x => x.PostId).HasColumnName("post_id"); e.Property(x => x.Revision).HasColumnName("revision");
+            e.Property(x => x.RequestId).HasColumnName("request_id"); e.HasIndex(x => x.RequestId).IsUnique();
+            e.Property(x => x.ResultJson).HasColumnName("result_json").HasColumnType("jsonb");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.HasOne<Post>().WithMany().HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.NoAction);
         });
     }
 }

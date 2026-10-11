@@ -39,7 +39,7 @@ public class PostsController : ControllerBase
 
         var postId = await _postService.CreatePostAsync(request, userId, cancellationToken);
 
-        return CreatedAtAction(nameof(CreatePost), new { id = postId }, new { id = postId, message = "Post created successfully and is pending review." });
+        return CreatedAtAction(nameof(GetPostDetail), new { id = postId }, new PostPublicationDto(postId, "published", 1, false));
     }
 
     /// <summary>
@@ -55,7 +55,7 @@ public class PostsController : ControllerBase
     }
 
     /// <summary>
-    /// Searches published articles and videos by title or content.
+    /// Searches published articles, videos and recipes by title or content.
     /// </summary>
     [HttpGet("search")]
     [AllowAnonymous]
@@ -139,7 +139,6 @@ public class PostsController : ControllerBase
             return Unauthorized(new { message = "User identity is missing or invalid." });
         }
 
-        await _postService.UpdatePostAsync(id, request, userId, cancellationToken);
-        return Ok(new { message = "Update successful, post is pending review again" });
+        return Ok(await _postService.UpdatePostAsync(id, request, userId, cancellationToken));
     }
 }

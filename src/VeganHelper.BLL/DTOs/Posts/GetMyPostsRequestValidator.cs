@@ -13,7 +13,7 @@ public class GetMyPostsRequestValidator : AbstractValidator<GetMyPostsRequest>
             .InclusiveBetween(1, 100).WithMessage("PageSize must be between 1 and 100.");
 
         RuleFor(x => x.Status)
-            .Must(x => string.IsNullOrEmpty(x) || x == "published" || x == "pending_review" || x == "draft" || x == "rejected")
-            .WithMessage("Status must be published, pending_review, draft, or rejected.");
+            .Must(x => string.IsNullOrEmpty(x) || x == "published" || x == "pending_review" || x == "draft" || x == "rejected" || x == "hidden")
+            .WithMessage("Status must be published, pending_review, draft, rejected, or hidden.");
     }
 }

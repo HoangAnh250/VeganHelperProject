@@ -16,7 +16,8 @@ public sealed record UserProfileDto(
     DateOnly? BirthDate,
     string? BiologicalSex,
     string DietType,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string Role = "member");
 
 public sealed record UserSearchResultDto(
     long Id,

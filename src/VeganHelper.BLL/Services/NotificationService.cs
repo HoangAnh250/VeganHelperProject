@@ -72,6 +72,10 @@ public sealed class NotificationService(INotificationRepository repository, IMap
          post.Status == "published" ? "Your post has been approved." : "Your post was rejected. Please review it before resubmitting.",
          $"/posts/{post.Id}", ct);
     }
+    public async Task<long?> NotifyModerationHoldAsync(long postId, long authorId, int revision, string reason, CancellationToken ct = default) =>
+        await Publish(authorId, $"moderation-hold:{postId}:{revision}", "post_review", "Post temporarily hidden",
+            "Your post needs an Admin review. " + reason, $"/posts/edit/{postId}", ct);
+
     public async Task<long?> NotifyModerationDecisionAsync(long decisionId, CancellationToken ct = default)
     {
         var source = await repository.ModerationDecisionSourceAsync(decisionId, ct);

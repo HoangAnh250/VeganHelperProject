@@ -32,3 +32,4 @@ docs/Background_Job_Processing_Skill.md
 # Database migration credentials and data exports
 supabase.local.json
 .local-data/
+.superpowers/

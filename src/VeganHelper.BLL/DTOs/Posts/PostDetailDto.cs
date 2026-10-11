@@ -5,6 +5,8 @@ namespace VeganHelper.BLL.DTOs.Posts;
 
 public class PostDetailDto
 {
+    public int ContentRevision { get; set; }
+    public bool ModerationHold { get; set; }
     public long Id { get; set; }
     public long AuthorId { get; set; }
     public string AuthorName { get; set; } = string.Empty;

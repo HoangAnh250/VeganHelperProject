@@ -20,6 +20,8 @@ public class FN14MediaTests
 
     public FN14MediaTests()
     {
+        repository.Setup(r => r.LockPublicationAsync(It.IsAny<long>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PostPublicationState { Status = "published" });
         for (var i = 1; i <= 4; i++)
             post.Media.Add(new PostMedia { Id = i, MediaUrl = $"old-{i}", MediaType = "image", DisplayOrder = i - 1, IsPrimary = i == 1 });
         repository.Setup(r => r.GetPostForUpdateAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(post);

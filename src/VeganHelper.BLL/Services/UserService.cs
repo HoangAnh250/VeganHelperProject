@@ -32,7 +32,7 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         }
 
         var isGoogleLinked = await repository.IsGoogleLinkedAsync(userId, cancellationToken);
-        return ServiceResult<UserProfileDto>.Ok(Map(user, profile, isGoogleLinked));
+        return ServiceResult<UserProfileDto>.Ok(Map(user, profile, isGoogleLinked, await repository.RoleNameAsync(user.RoleId, cancellationToken) ?? "member"));
     }
 
     public async Task<ServiceResult<UserProfileDto>> UpdateProfileAsync(long userId, UpdateProfileCommand command, CancellationToken cancellationToken)
@@ -101,7 +101,7 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         user.UpdatedAt = DateTime.UtcNow;
         await repository.SaveChangesAsync(cancellationToken);
         var isGoogleLinked = await repository.IsGoogleLinkedAsync(userId, cancellationToken);
-        return ServiceResult<UserProfileDto>.Ok(Map(user, profile, isGoogleLinked));
+        return ServiceResult<UserProfileDto>.Ok(Map(user, profile, isGoogleLinked, await repository.RoleNameAsync(user.RoleId, cancellationToken) ?? "member"));
     }
 
     public async Task<ServiceResult<PagedResult<UserSearchResultDto>>> SearchUsersAsync(
@@ -185,7 +185,7 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         return ServiceResult<PublicUserProfileDto>.Ok(result);
     }
 
-    private static UserProfileDto Map(User user, UserProfile profile, bool isGoogleLinked) => new(
+    private static UserProfileDto Map(User user, UserProfile profile, bool isGoogleLinked, string role) => new(
         user.Id,
         user.Username,
         user.Email,
@@ -199,6 +199,6 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         profile.BirthDate,
         profile.BiologicalSex,
         profile.DietType,
-        user.CreatedAt);
+        user.CreatedAt, role);
 
 }

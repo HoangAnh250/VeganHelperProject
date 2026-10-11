@@ -10,12 +10,15 @@ public sealed class MappingProfile : Profile
 {
     public MappingProfile()
     {
+        CreateMap<Flag, VeganHelper.BLL.DTOs.Posts.AdminPostReportDto>();
+        CreateMap<PostModerationAssessment, VeganHelper.BLL.DTOs.Posts.ModerationAssessmentDto>();
         CreateMap<AdminAuditLog, VeganHelper.BLL.DTOs.Admin.AdminAuditLogDto>();
         CreateMap<AdminMemberProjection, VeganHelper.BLL.DTOs.Admin.AdminMemberDto>();
         CreateMap<AdminCategoryProjection, VeganHelper.BLL.DTOs.Admin.AdminCategoryDto>();
         CreateMap<ModerationPostProjection, VeganHelper.BLL.DTOs.Admin.ModerationPostDto>();
         CreateMap<ModerationFlagProjection, VeganHelper.BLL.DTOs.Admin.ModerationFlagDto>()
-            .ForMember(d => d.Findings, o => o.MapFrom(s => ModerationMapping.Findings(s.FindingsJson)));
+            .ForMember(d => d.Findings, o => o.MapFrom(s => ModerationMapping.FlagFindings(s.ReportedSnapshotJson, s.FindingsJson)))
+            .ForMember(d => d.ConfidenceScore, o => o.MapFrom(s => ModerationMapping.FlagConfidence(s.ReportedSnapshotJson, s.ConfidenceScore)));
         CreateMap<PostModerationDecision, VeganHelper.BLL.DTOs.Admin.ModerationDecisionDto>();
         CreateMap<PostModerationSettings, VeganHelper.BLL.DTOs.Admin.ModerationSettingsDto>();
         CreateMap<PostMedia, VeganHelper.BLL.DTOs.Posts.PostMediaDto>();
