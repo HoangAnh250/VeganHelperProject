@@ -22,6 +22,7 @@ public sealed class PostService : IPostService
     private readonly IValidator<UpdatePostRequest> _updateValidator;
     private readonly IMediaStorageService _mediaStorageService;
     private readonly ILogger<PostService> _logger;
+    private readonly IPostInteractionRepository _postInteractionRepository;
 
     public PostService(
         IPostRepository postRepository, 
@@ -29,6 +30,7 @@ public sealed class PostService : IPostService
         IValidator<GetMyPostsRequest> getMyPostsValidator,
         IValidator<UpdatePostRequest> updateValidator,
         IMediaStorageService mediaStorageService,
+        IPostInteractionRepository postInteractionRepository,
         ILogger<PostService>? logger = null)
     {
         _postRepository = postRepository;
@@ -36,6 +38,7 @@ public sealed class PostService : IPostService
         _getMyPostsValidator = getMyPostsValidator;
         _updateValidator = updateValidator;
         _mediaStorageService = mediaStorageService;
+        _postInteractionRepository = postInteractionRepository;
         _logger = logger ?? NullLogger<PostService>.Instance;
     }
 
@@ -151,9 +154,9 @@ public sealed class PostService : IPostService
         CancellationToken cancellationToken = default)
     {
         var keyword = request.Keyword?.Trim();
-        if (string.IsNullOrWhiteSpace(keyword) || keyword.Length < 2)
+        if (string.IsNullOrWhiteSpace(keyword))
         {
-            throw new ArgumentException("Keyword must contain at least 2 characters.");
+            throw new ArgumentException("Keyword must contain at least 1 character.");
         }
 
         var pageIndex = request.PageIndex < 1 ? 1 : request.PageIndex;
@@ -188,11 +191,14 @@ public sealed class PostService : IPostService
         };
     }
 
-    public async Task<PostDetailDto> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default, long? viewerId = null)
+    public async Task<PostDetailDto> GetPostDetailAsync(
+        long postId,
+        long? viewerId = null,
+        CancellationToken cancellationToken = default)
     {
         var (post, authorName) = await _postRepository.GetPostDetailAsync(postId, cancellationToken);
         
-        if (post == null || post.IsDeleted || post.Status != "published" && post.AuthorId != viewerId)
+        if (post == null || post.IsDeleted || (post.Status != "published" && post.AuthorId != viewerId))
         {
             throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} not found.");
         }
@@ -200,6 +206,21 @@ public sealed class PostService : IPostService
         // Increment view count in DB and locally for the return object
         await _postRepository.IncrementViewCountAsync(postId, cancellationToken);
         post.ViewCount++;
+
+        var likeCount = await _postInteractionRepository.CountLikesAsync(postId, cancellationToken);
+        var isLiked = false;
+        var isSaved = false;
+        if (viewerId.HasValue)
+        {
+            isLiked = await _postInteractionRepository.FindLikeAsync(
+                viewerId.Value,
+                postId,
+                cancellationToken) is not null;
+            isSaved = await _postInteractionRepository.FindSavedPostAsync(
+                viewerId.Value,
+                postId,
+                cancellationToken) is not null;
+        }
 
         return new PostDetailDto
         {
@@ -218,6 +239,9 @@ public sealed class PostService : IPostService
             ContentRevision = post.ContentRevision,
             ModerationHold = post.ModerationHold,
             ViewCount = post.ViewCount,
+            LikeCount = likeCount,
+            IsLiked = isLiked,
+            IsSaved = isSaved,
             CreatedAt = post.CreatedAt,
             Media = post.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => new PostMediaDto
             {
@@ -282,7 +306,9 @@ public sealed class PostService : IPostService
 
     public async Task DeletePostAsync(long postId, long authorId, CancellationToken cancellationToken = default)
     {
-        var (post, _) = await _postRepository.GetPostDetailAsync(postId, cancellationToken);
+        // Owner operations must also work for pending/rejected posts.
+        // Use the owner/update query for authorization and soft deletion.
+        var post = await _postRepository.GetPostForUpdateAsync(postId, cancellationToken);
         if (post == null)
         {
             throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} not found.");

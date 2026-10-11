@@ -2,6 +2,31 @@ START TRANSACTION;
 
 DO $EF$
 BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20261009164444_AddCommentReportUniqueness') THEN
+    DROP INDEX "IX_flags_comment_id";
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20261009164444_AddCommentReportUniqueness') THEN
+    CREATE UNIQUE INDEX "UX_flags_user_comment_report" ON flags (comment_id, reporter_id) WHERE source_type = 'user' AND comment_id IS NOT NULL AND reporter_id IS NOT NULL;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20261009164444_AddCommentReportUniqueness') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20261009164444_AddCommentReportUniqueness', '10.0.12');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
     IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20261010084021_PublishFirstAndPostReports') THEN
     DROP INDEX "IX_flags_reporter_id";
     END IF;

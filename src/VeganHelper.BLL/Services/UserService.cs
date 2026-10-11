@@ -111,10 +111,10 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         CancellationToken cancellationToken)
     {
         var normalizedKeyword = keyword?.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedKeyword) || normalizedKeyword.Length < 2)
+        if (string.IsNullOrWhiteSpace(normalizedKeyword))
         {
             return ServiceResult<PagedResult<UserSearchResultDto>>.Fail(
-                "Keyword must contain at least 2 characters.",
+                "Keyword must contain at least 1 character.",
                 400);
         }
 

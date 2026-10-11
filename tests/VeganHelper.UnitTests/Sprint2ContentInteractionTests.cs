@@ -41,12 +41,12 @@ public sealed class Sprint2ContentInteractionTests
     }
 
     [Fact]
-    public async Task SearchUsersAsync_RejectsShortKeyword()
+    public async Task SearchUsersAsync_RejectsEmptyKeyword()
     {
         var repository = new Mock<IUserRepository>();
         var service = new UserService(repository.Object, new Mock<IAvatarStorage>().Object);
 
-        var result = await service.SearchUsersAsync("a", 1, 10, CancellationToken.None);
+        var result = await service.SearchUsersAsync(" ", 1, 10, CancellationToken.None);
 
         Assert.False(result.Succeeded);
         Assert.Equal(400, result.StatusCode);
@@ -117,13 +117,13 @@ public sealed class Sprint2ContentInteractionTests
     }
 
     [Fact]
-    public async Task SearchPostsAsync_RejectsKeywordShorterThanTwoCharacters()
+    public async Task SearchPostsAsync_RejectsEmptyKeyword()
     {
         var repository = new Mock<IPostRepository>();
         var service = CreatePostService(repository);
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.SearchPostsAsync(
-            new SearchPostsRequest { Keyword = "a" }));
+            new SearchPostsRequest { Keyword = " " }));
 
         repository.Verify(
             x => x.SearchPostsAsync(
@@ -134,8 +134,10 @@ public sealed class Sprint2ContentInteractionTests
             Times.Never);
     }
 
-    [Fact]
-    public async Task SearchPostsAsync_TrimsKeywordAndMapsPagedResults()
+    [Theory]
+    [InlineData("tofu")]
+    [InlineData("t")]
+    public async Task SearchPostsAsync_TrimsKeywordAndMapsPagedResults(string keyword)
     {
         var repository = new Mock<IPostRepository>();
         var service = CreatePostService(repository);
@@ -150,12 +152,12 @@ public sealed class Sprint2ContentInteractionTests
             }
         };
 
-        repository.Setup(x => x.SearchPostsAsync("tofu", 1, 10, It.IsAny<CancellationToken>()))
+        repository.Setup(x => x.SearchPostsAsync(keyword, 1, 10, It.IsAny<CancellationToken>()))
             .ReturnsAsync((1L, projections));
 
         var result = await service.SearchPostsAsync(new SearchPostsRequest
         {
-            Keyword = "  tofu  ",
+            Keyword = $"  {keyword}  ",
             PageIndex = 0,
             PageSize = 10
         });
@@ -164,7 +166,7 @@ public sealed class Sprint2ContentInteractionTests
         Assert.Equal(10, result.Items.First().Id);
         Assert.Equal(1L, result.TotalItems);
         Assert.Equal(1, result.TotalPages);
-        repository.Verify(x => x.SearchPostsAsync("tofu", 1, 10, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(x => x.SearchPostsAsync(keyword, 1, 10, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -207,5 +209,6 @@ public sealed class Sprint2ContentInteractionTests
         new Mock<IValidator<CreatePostRequest>>().Object,
         new Mock<IValidator<GetMyPostsRequest>>().Object,
         new Mock<IValidator<UpdatePostRequest>>().Object,
-        new Mock<IMediaStorageService>().Object);
+        new Mock<IMediaStorageService>().Object,
+        new Mock<IPostInteractionRepository>().Object);
 }

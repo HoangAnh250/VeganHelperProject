@@ -164,7 +164,10 @@ public sealed class PostRepository : IPostRepository
             .Include(p => p.PostIngredients)
                 .ThenInclude(pi => pi.Ingredient)
             .Include(p => p.PostSteps)
-            .FirstOrDefaultAsync(p => p.Id == postId && !p.IsDeleted, cancellationToken);
+            .FirstOrDefaultAsync(
+                // PostService verifies publication/ownership before returning detail or recording a view.
+                p => p.Id == postId && !p.IsDeleted,
+                cancellationToken);
 
         if (post == null)
         {

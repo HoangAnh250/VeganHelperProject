@@ -1,6 +1,6 @@
 # FN13/FN14, FN41–FN43 — Công khai trước, kiểm tra AI sau và report
 
-Cập nhật 10/10/2026. Code BE ở nhánh `feature/reports`, chưa commit/push/merge. Thay đổi FE trong đợt này đã revert theo yêu cầu; giao diện do thành viên khác thực hiện. Migration mới chưa áp dụng vào Supabase chung.
+Cập nhật 11/10/2026. Code BE từ nhánh `feature/reports` đã được commit local để tích hợp vào `developer`; chưa push GitHub. Thay đổi FE trong đợt này đã revert theo yêu cầu; giao diện do thành viên khác thực hiện. Migration mới chưa áp dụng vào Supabase chung.
 
 ## Luồng đã triển khai
 
@@ -112,3 +112,10 @@ Lệnh migrate tác động database trong connection string đang cấu hình. 
 FE hiện dùng lại code trước đợt thay đổi này. Thành viên làm FE cần tích hợp các contract mới ở trên trước khi test đầy đủ giao diện report/notification/hold.
 
 Kiểm thử BE ngày 10/10: 181 unit + 256 integration qua trên PostgreSQL local, EF không thiếu migration. Có kiểm thử migration từ schema cũ, hold trong lúc upload, report đồng thời/rate limit, Admin stale/concurrent decisions, quota/cooldown hồi phục và giữ ảnh bằng chứng. Review độc lập đã xác nhận các phát hiện được sửa. Trước khi revert, FE mới đã qua 14 tests/build; kết quả đó là lịch sử của bản FE đã gỡ, không xác nhận việc tích hợp giao diện hiện tại. Chưa gọi Gemini thật hoặc áp migration vào Supabase; cần smoke test với key/storage thật sau khi triển khai.
+
+
+## Kiểm tra tích hợp developer ngày 11/10/2026
+
+Đã tích hợp origin/developer tại c6aeeff, giữ chức năng bình luận, report bình luận, like/save và tìm kiếm từ khóa một ký tự. Luồng tìm kiếm recipe và quyền xem bài bị ẩn của tác giả được giữ nguyên. Snapshot PostgreSQL và target model migration khớp nhau; SQL preview bao gồm migration report bình luận trước migration publish-first/report bài viết.
+
+Xác minh: build thành công; 202 unit test và 266 integration test đạt trên PostgreSQL local; không có pending model changes. Không chạy migration trên Supabase chung và không sửa FE.

@@ -639,8 +639,6 @@ namespace VeganHelper.DAL.PostgresMigrations
                     b.HasKey("Id")
                         .HasName("PK_flags");
 
-                    b.HasIndex("CommentId");
-
                     b.HasIndex("ModerationScanId");
 
                     b.HasIndex("PostId");
@@ -650,6 +648,11 @@ namespace VeganHelper.DAL.PostgresMigrations
                     b.HasIndex("ShopId");
 
                     b.HasIndex("ReporterId", "CreatedAt");
+
+                    b.HasIndex("CommentId", "ReporterId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_flags_user_comment_report")
+                        .HasFilter("source_type = 'user' AND comment_id IS NOT NULL AND reporter_id IS NOT NULL");
 
                     b.HasIndex("Status", "CreatedAt")
                         .HasDatabaseName("IX_flags_1");

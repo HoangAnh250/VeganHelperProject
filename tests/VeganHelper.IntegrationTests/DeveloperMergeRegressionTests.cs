@@ -33,6 +33,23 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         Assert.Equal("recipe", item.GetProperty("postType").GetString());
     }
 
+    [Theory]
+    [InlineData("pending_review")]
+    [InlineData("rejected")]
+    public async Task HeldPostDetail_IsVisibleOnlyToAuthor(string status)
+    {
+        var recipe = await RecipeAsync();
+        await using (var db = fixture.Context())
+            await db.Posts.Where(p => p.Id == recipe.Id).ExecuteUpdateAsync(s =>
+                s.SetProperty(p => p.Status, status).SetProperty(p => p.ModerationHold, true));
+        using var guest = fixture.Factory.Client();
+        using var other = fixture.Factory.Client(await UserAsync());
+        using var author = fixture.Factory.Client(recipe.AuthorId);
+        Assert.Equal(HttpStatusCode.NotFound, (await guest.GetAsync($"/api/posts/{recipe.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/api/posts/{recipe.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await author.GetAsync($"/api/posts/{recipe.Id}")).StatusCode);
+    }
+
     [Fact]
     public async Task CreatePost_IsPublicImmediatelyAndQueuesRevisionOne()
     {

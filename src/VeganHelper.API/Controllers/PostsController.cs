@@ -97,8 +97,12 @@ public class PostsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPostDetail(long id, CancellationToken cancellationToken)
     {
-        long? viewerId = long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsed) ? parsed : null;
-        var result = await _postService.GetPostDetailAsync(id, cancellationToken, viewerId);
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        long? viewerId = long.TryParse(userIdClaim?.Value, out var parsedUserId)
+            ? parsedUserId
+            : null;
+
+        var result = await _postService.GetPostDetailAsync(id, viewerId, cancellationToken);
         return Ok(result);
     }
 
