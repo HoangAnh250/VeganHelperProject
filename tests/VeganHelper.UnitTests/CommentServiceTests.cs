@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore.Storage;
 using Moq;
+using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs.Comments;
 using VeganHelper.BLL.Exceptions;
 using VeganHelper.BLL.Services;
@@ -250,11 +251,93 @@ public sealed class CommentServiceTests
         };
         repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(comment);
 
-        await CreateService(repository).DeleteCommentAsync(10, 100, 8, true);
+        await CreateService(repository).DeleteCommentAsync(10, 100, 8, true, new DeleteCommentRequest
+        {
+            Reason = "Community guideline violation"
+        });
 
         Assert.True(comment.IsDeleted);
         Assert.Equal("hidden", comment.Status);
         repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_RootCommentSoftDeletesEntireThreadWithoutNotificationForOwnerDelete()
+    {
+        var repository = CreateRepository();
+        var transaction = CreateTransaction();
+        var root = new Comment { Id = 100, PostId = 10, UserId = 7, Content = "Root", Status = "visible" };
+        var reply = new Comment { Id = 101, PostId = 10, UserId = 8, ParentCommentId = 100, Content = "Reply", Status = "visible" };
+        var nestedReply = new Comment { Id = 102, PostId = 10, UserId = 9, ParentCommentId = 101, Content = "Nested reply", Status = "visible" };
+        var unrelatedRoot = new Comment { Id = 200, PostId = 10, UserId = 10, Content = "Other root", Status = "visible" };
+
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(root);
+        repository.Setup(x => x.GetCommentsForUpdateAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Comment> { root, reply, nestedReply, unrelatedRoot });
+        repository.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(transaction.Object);
+
+        var notifications = new Mock<INotificationPublisher>();
+        await CreateService(repository, notifications).DeleteCommentAsync(10, 100, 7, false);
+
+        Assert.True(root.IsDeleted);
+        Assert.True(reply.IsDeleted);
+        Assert.True(nestedReply.IsDeleted);
+        Assert.False(unrelatedRoot.IsDeleted);
+        notifications.Verify(x => x.NotifyCommentDeletionAsync(
+            It.IsAny<long>(), It.IsAny<long>(), It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        transaction.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_NestedAdministratorDeleteKeepsRepliesAndNotifiesSelectedOwner()
+    {
+        var repository = CreateRepository();
+        var transaction = CreateTransaction();
+        var target = new Comment { Id = 101, PostId = 10, UserId = 8, ParentCommentId = 100, Content = "Reply", Status = "visible" };
+        var reply = new Comment { Id = 102, PostId = 10, UserId = 9, ParentCommentId = 101, Content = "Nested reply", Status = "visible" };
+
+        repository.Setup(x => x.GetCommentForUpdateAsync(101, It.IsAny<CancellationToken>())).ReturnsAsync(target);
+        repository.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(transaction.Object);
+        var notifications = new Mock<INotificationPublisher>();
+        notifications.Setup(x => x.NotifyCommentDeletionAsync(
+                8, 101, 10, "Reply", "Community guideline violation", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(500L);
+
+        await CreateService(repository, notifications).DeleteCommentAsync(
+            10,
+            101,
+            99,
+            true,
+            new DeleteCommentRequest { Reason = "Community guideline violation" });
+
+        Assert.True(target.IsDeleted);
+        Assert.False(reply.IsDeleted);
+        notifications.Verify(x => x.NotifyCommentDeletionAsync(
+            8, 101, 10, "Reply", "Community guideline violation", It.IsAny<CancellationToken>()), Times.Once);
+        transaction.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetCommentsAsync_DeletedNestedParentKeepsReplyAndExposesReplyContext()
+    {
+        var repository = CreateRepository();
+        repository.Setup(x => x.IsPublishedPostAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        repository.Setup(x => x.GetVisibleCommentsAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<CommentProjection>
+            {
+                new() { Id = 100, PostId = 10, UserId = 7, AuthorName = "Root", Content = "Root", Status = "visible" },
+                new() { Id = 101, PostId = 10, UserId = 8, AuthorName = "Deleted author", ParentCommentId = 100, Content = "Deleted", Status = "hidden", IsDeleted = true },
+                new() { Id = 102, PostId = 10, UserId = 9, AuthorName = "Reply author", ParentCommentId = 101, Content = "Still visible", Status = "visible" }
+            });
+
+        var result = await CreateService(repository).GetCommentsAsync(10, null, 4);
+
+        var deleted = result[0].Replies[0];
+        var reply = deleted.Replies[0];
+        Assert.Equal("This comment has been deleted.", deleted.Content);
+        Assert.Equal("Deleted author", reply.ReplyToDisplayName);
+        Assert.True(reply.IsReplyToDeleted);
+        Assert.Equal("Still visible", reply.Content);
     }
 
     [Fact]
@@ -366,6 +449,26 @@ public sealed class CommentServiceTests
         return transaction;
     }
 
-    private static CommentService CreateService(Mock<ICommentRepository> repository) =>
-        new(repository.Object, new CreateCommentRequestValidator(), new UpdateCommentRequestValidator(), new ReportCommentRequestValidator(), new CommentKeywordFilter());
+    private static CommentService CreateService(
+        Mock<ICommentRepository> repository,
+        Mock<INotificationPublisher>? notifications = null)
+    {
+        notifications ??= new Mock<INotificationPublisher>();
+        notifications.Setup(x => x.NotifyCommentDeletionAsync(
+                It.IsAny<long>(),
+                It.IsAny<long>(),
+                It.IsAny<long>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((long?)1);
+
+        return new(
+            repository.Object,
+            new CreateCommentRequestValidator(),
+            new UpdateCommentRequestValidator(),
+            new ReportCommentRequestValidator(),
+            new CommentKeywordFilter(),
+            notifications.Object);
+    }
 }

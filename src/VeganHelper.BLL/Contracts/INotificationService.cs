@@ -15,6 +15,13 @@ public interface INotificationPublisher
 {
     Task<long?> NotifyModerationDecisionAsync(long decisionId, CancellationToken ct = default);
     Task<long?> NotifyCommentAsync(long commentId, CancellationToken ct = default);
+    Task<long?> NotifyCommentDeletionAsync(
+        long recipientUserId,
+        long commentId,
+        long postId,
+        string originalContent,
+        string reason,
+        CancellationToken ct = default);
     Task<long?> NotifyPostReviewAsync(long postId, CancellationToken ct = default);
     Task<long?> NotifyMealReminderAsync(long scheduleId, DateOnly date, CancellationToken ct = default);
 }
