@@ -7,6 +7,17 @@ internal static class Member2ModelConfiguration
 {
     internal static void Configure(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<MealPlan>().Property(p=>p.GenerationSnapshot).HasColumnName("generation_snapshot").HasColumnType("jsonb");
+        modelBuilder.Entity<MealSuitableTime>(entity =>
+        {
+            entity.ToTable("meal_suitable_times", table => table.HasCheckConstraint(
+                "CK_meal_suitable_times_time", "meal_time IN ('breakfast', 'lunch', 'dinner')"));
+            entity.HasKey(t => new { t.MealId, t.MealTime });
+            entity.Property(t => t.MealId).HasColumnName("meal_id");
+            entity.Property(t => t.MealTime).HasColumnName("meal_time").HasMaxLength(20).IsRequired();
+            entity.HasOne<Meal>().WithMany().HasForeignKey(t => t.MealId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(t => new { t.MealTime, t.MealId });
+        });
         modelBuilder.Entity<UserAllergy>().Property(a => a.IsCustom).HasColumnName("is_custom").HasDefaultValue(false);
         modelBuilder.Entity<Shop>(entity =>
         {

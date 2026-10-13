@@ -28,6 +28,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<MealPlan> MealPlans => Set<MealPlan>();
     public DbSet<Meal> Meals => Set<Meal>();
+    public DbSet<MealSuitableTime> MealSuitableTimes => Set<MealSuitableTime>();
     public DbSet<MealPlanSchedule> MealPlanSchedule => Set<MealPlanSchedule>();
     public DbSet<MealIngredient> MealIngredients => Set<MealIngredient>();
     public DbSet<ChatSession> ChatSessions => Set<ChatSession>();

@@ -1,0 +1,31 @@
+key,template_name,diet_type,is_template,generation_source,status,daily_calories_min,daily_calories_max,review_status
+plan-01,Vegan Vietnamese Comfort Week - Unreviewed Sample,vegan,True,template,completed,1443.29,1716.26,sample_not_dietitian_reviewed
+plan-02,Vegan Vietnamese Noodles Week - Unreviewed Sample,vegan,True,template,completed,1447.68,1708.51,sample_not_dietitian_reviewed
+plan-03,Vegan Vietnamese Rice Week - Unreviewed Sample,vegan,True,template,completed,1340.80,1749.10,sample_not_dietitian_reviewed
+plan-04,Vegan Vietnamese Garden Week - Unreviewed Sample,vegan,True,template,completed,1235.46,1809.54,sample_not_dietitian_reviewed
+plan-05,Vegan Vietnamese Mushroom Week - Unreviewed Sample,vegan,True,template,completed,1406.34,1842.29,sample_not_dietitian_reviewed
+plan-06,Vegan Asian Variety Week - Unreviewed Sample,vegan,True,template,completed,1626.46,1956.64,sample_not_dietitian_reviewed
+plan-07,Vegan Indian Inspired Week - Unreviewed Sample,vegan,True,template,completed,1444.67,1711.24,sample_not_dietitian_reviewed
+plan-08,Vegan Thai Inspired Week - Unreviewed Sample,vegan,True,template,completed,1485.25,1719.98,sample_not_dietitian_reviewed
+plan-09,Vegan Mediterranean Variety Week - Unreviewed Sample,vegan,True,template,completed,1239.66,1692.18,sample_not_dietitian_reviewed
+plan-10,Vegan Italian Inspired Week - Unreviewed Sample,vegan,True,template,completed,1390.96,1731.76,sample_not_dietitian_reviewed
+plan-11,Vegan Mexican Inspired Week - Unreviewed Sample,vegan,True,template,completed,1419.94,1762.68,sample_not_dietitian_reviewed
+plan-12,Vegan Global Variety Week - Unreviewed Sample,vegan,True,template,completed,1459.81,1682.91,sample_not_dietitian_reviewed
+plan-13,Vegan Bean and Grain Week - Unreviewed Sample,vegan,True,template,completed,1583.37,1766.80,sample_not_dietitian_reviewed
+plan-14,Vegan Tofu and Greens Week - Unreviewed Sample,vegan,True,template,completed,1554.92,1789.09,sample_not_dietitian_reviewed
+plan-15,Vegan Lentil Variety Week - Unreviewed Sample,vegan,True,template,completed,1552.30,1954.72,sample_not_dietitian_reviewed
+plan-16,Vegan Chickpea Variety Week - Unreviewed Sample,vegan,True,template,completed,1443.98,1949.16,sample_not_dietitian_reviewed
+plan-17,Vegan Pumpkin and Grains Week - Unreviewed Sample,vegan,True,template,completed,1649.12,1928.55,sample_not_dietitian_reviewed
+plan-18,Vegan Mixed Cuisine Week - Unreviewed Sample,vegan,True,template,completed,1694.52,1973.24,sample_not_dietitian_reviewed
+plan-19,Vegan Vegetable Variety Week - Unreviewed Sample,vegan,True,template,completed,1515.62,1864.90,sample_not_dietitian_reviewed
+plan-20,Vegan Plant Protein Variety Week - Unreviewed Sample,vegan,True,template,completed,1485.25,1719.98,sample_not_dietitian_reviewed
+plan-21,Lacto-Ovo Vegetarian Vietnamese Egg Week - Unreviewed Sample,lacto_ovo_vegetarian,True,template,completed,1628.52,1884.15,sample_not_dietitian_reviewed
+plan-22,Lacto-Ovo Vegetarian Vietnamese Rice and Dairy Week - Unreviewed Sample,lacto_ovo_vegetarian,True,template,completed,1636.79,1841.31,sample_not_dietitian_reviewed
+plan-23,Lacto-Ovo Vegetarian Vietnamese Noodles and Egg Week - Unreviewed Sample,lacto_ovo_vegetarian,True,template,completed,1588.55,1862.90,sample_not_dietitian_reviewed
+plan-24,Lacto-Ovo Vegetarian Mediterranean Egg and Dairy Week - Unreviewed Sample,lacto_ovo_vegetarian,True,template,completed,1620.51,1883.73,sample_not_dietitian_reviewed
+plan-25,Lacto-Ovo Vegetarian Italian Dairy Week - Unreviewed Sample,lacto_ovo_vegetarian,True,template,completed,1634.74,1796.32,sample_not_dietitian_reviewed
+plan-26,Lacto-Ovo Vegetarian Mexican Egg and Dairy Week - Unreviewed Sample,lacto_ovo_vegetarian,True,template,completed,1613.37,1955.03,sample_not_dietitian_reviewed
+plan-27,Lacto-Ovo Vegetarian Indian Egg and Dairy Week - Unreviewed Sample,lacto_ovo_vegetarian,True,template,completed,1628.52,1817.01,sample_not_dietitian_reviewed
+plan-28,Lacto-Ovo Vegetarian Global Egg and Dairy Week - Unreviewed Sample,lacto_ovo_vegetarian,True,template,completed,1636.79,1870.50,sample_not_dietitian_reviewed
+plan-29,Lacto-Ovo Vegetarian Vegetable Egg Week - Unreviewed Sample,lacto_ovo_vegetarian,True,template,completed,1668.02,1991.45,sample_not_dietitian_reviewed
+plan-30,Lacto-Ovo Vegetarian Mixed Cuisine Egg and Dairy Week - Unreviewed Sample,lacto_ovo_vegetarian,True,template,completed,1612.22,1904.69,sample_not_dietitian_reviewed

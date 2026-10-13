@@ -104,15 +104,6 @@ public sealed class HealthProfileService(
 
     private static decimal? CalculateTdee(UserProfile profile)
     {
-        if (profile.HeightCm is null || profile.WeightKg is null || profile.BirthDate is null || profile.BiologicalSex is not ("male" or "female")) return null;
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var birthDate = profile.BirthDate.Value;
-        var age = today.Year - birthDate.Year;
-        if (birthDate > today.AddYears(-age)) age--;
-        if (age is < 18 or > 120) return null;
-        var multiplier = profile.ActivityLevel switch { "sedentary" => 1.2m, "light" => 1.375m, "moderate" => 1.55m, "active" => 1.725m, "very_active" => 1.9m, _ => (decimal?)null };
-        if (multiplier is null) return null;
-        var bmr = 10m * profile.WeightKg.Value + 6.25m * profile.HeightCm.Value - 5m * age + (profile.BiologicalSex == "male" ? 5m : -161m);
-        return Math.Round(bmr * multiplier.Value, 2);
+        return MealPlanning.MaintenanceEnergy.Estimate(profile, DateOnly.FromDateTime(DateTime.UtcNow));
     }
 }

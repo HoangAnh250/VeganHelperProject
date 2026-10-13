@@ -10,6 +10,8 @@ public sealed class MappingProfile : Profile
 {
     public MappingProfile()
     {
+        CreateMap<MealPlan, VeganHelper.BLL.DTOs.MealPlanning.MealPlanDto>()
+            .ForMember(d=>d.Menu,o=>o.Ignore());
         CreateMap<Flag, VeganHelper.BLL.DTOs.Posts.AdminPostReportDto>();
         CreateMap<PostModerationAssessment, VeganHelper.BLL.DTOs.Posts.ModerationAssessmentDto>();
         CreateMap<AdminAuditLog, VeganHelper.BLL.DTOs.Admin.AdminAuditLogDto>();

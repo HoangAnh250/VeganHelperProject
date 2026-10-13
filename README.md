@@ -56,6 +56,8 @@ The original architecture guide is preserved as reference. Its sample Recipe mod
 
 ## Meal planning datasets and provenance
 
+FN26 backend endpoints, generation rules, migration and test instructions are documented in [FN26 API](docs/FN26_API.md).
+
 The meal-planning data survey and sample import were completed on 12 October 2026. The table below distinguishes the dataset actually used for the imported ingredient energy values from datasets downloaded for evaluation only.
 
 | Dataset | Version evaluated | Use in this project | Official source and download |

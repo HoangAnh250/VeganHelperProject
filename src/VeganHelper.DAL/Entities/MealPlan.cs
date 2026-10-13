@@ -16,6 +16,7 @@ public sealed class MealPlan
     public string AvailableIngredientsSnapshot { get; set; } = string.Empty;
     public string GenerationSource { get; set; } = string.Empty;
     public string? ModelName { get; set; }
+    public string? GenerationSnapshot { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? ErrorMessage { get; set; }
     public DateTime CreatedAt { get; set; }

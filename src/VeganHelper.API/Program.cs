@@ -174,6 +174,8 @@ builder.Services.AddAuthorization(options => options.AddPolicy(AdminPolicies.Adm
     policy => policy.RequireAuthenticatedUser().AddRequirements(new ActiveAdminRequirement())));
 
 builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
+builder.Services.AddScoped<VeganHelper.BLL.Services.MealPlanning.IMealPlanningService, VeganHelper.BLL.Services.MealPlanning.MealPlanningService>();
+builder.Services.AddScoped<IMealPlanningRepository, MealPlanningRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
