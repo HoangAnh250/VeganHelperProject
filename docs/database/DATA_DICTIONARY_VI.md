@@ -1,6 +1,6 @@
 # Từ điển dữ liệu VeganHelperSystem
 
-Bản đã chỉnh theo thống nhất: 27 bảng, 40 khóa ngoại. Dựa trên 24 bảng nguồn, thêm 4 bảng và thay user_roles bằng users.role_id.
+Bản đã chỉnh theo thống nhất: 30 bảng, 43 khóa ngoại. Dựa trên schema trước Sprint 1, bổ sung các bảng token phục vụ xác thực và phiên đăng nhập.
 
 Mỗi field ghi rõ kiểu, khả năng NULL, khóa và ý nghĩa. CHECK/DEFAULT/INDEX xem SQL đi kèm. SQL là bản tạo mới, không phải migration cho database có dữ liệu.
 
@@ -13,6 +13,7 @@ Tài khoản ứng dụng; hỗ trợ username/password và đăng nhập Google
 | id | BIGINT | PK, IDENTITY | Không | Định danh tài khoản. |
 | username | NVARCHAR(100) | UNIQUE | Không | Tên đăng nhập; backend chuẩn hóa và kiểm tra trùng không phân biệt hoa/thường. |
 | email | NVARCHAR(255) | UNIQUE | Không | Email; backend chuẩn hóa trước khi lưu. |
+| phone_number | NVARCHAR(20) |  | Có | Số điện thoại Việt Nam dùng trong hồ sơ. |
 | password_hash | NVARCHAR(500) |  | Có | Hash từ thư viện mật khẩu; NULL khi chỉ đăng nhập Google. |
 | email_verified_at | DATETIME2 |  | Có | Thời điểm email được xác minh; không thay thế cơ chế token xác minh. |
 | is_active | BIT |  | Không | Cho phép tài khoản hoạt động. |
@@ -20,6 +21,8 @@ Tài khoản ứng dụng; hỗ trợ username/password và đăng nhập Google
 | updated_at | DATETIME2 |  | Có | Thời điểm cập nhật; backend cập nhật. |
 | last_login_at | DATETIME2 |  | Có | Lần đăng nhập thành công gần nhất. |
 | deleted_at | DATETIME2 |  | Có | Thời điểm xóa mềm tài khoản. |
+| failed_login_attempts | INT |  | Không | Số lần đăng nhập sai liên tiếp; khóa sau 5 lần. |
+| locked_until | DATETIME2 |  | Có | Thời điểm hết khóa; chính sách Sprint 1 là 15 phút. |
 | role_id | INT | FK | Không | Vai trò duy nhất của tài khoản; FK tới roles. |
 
 - FK: users(role_id) → roles(id). Mỗi dòng con: 1 cha; mỗi cha: 0 đến nhiều dòng con.
@@ -484,3 +487,44 @@ Báo cáo từ người dùng hoặc AI. AI đánh dấu bài ngoài chủ đề
 - FK: flags(shop_id) → shops(id). Mỗi dòng con: 0 hoặc 1 cha; mỗi cha: 0 đến nhiều dòng con.
 
 - FK: flags(resolved_by_admin_id) → users(id). Mỗi dòng con: 0 hoặc 1 cha; mỗi cha: 0 đến nhiều dòng con.
+
+## email_verification_tokens
+
+One-time registration OTP records. The raw OTP is never stored; token_hash stores its SHA-256 hash.
+
+| Field | Type | Key | NULL? | Meaning |
+|---|---|---|---|---|
+| id | BIGINT | PK, IDENTITY | No | Token record identifier. |
+| user_id | BIGINT | FK | No | User waiting for email verification. |
+| token_hash | VARCHAR(128) | UNIQUE | No | SHA-256 hash of the six-digit OTP. |
+| expires_at | DATETIME2 |  | No | Expiry time (15 minutes). |
+| consumed_at | DATETIME2 |  | Yes | Set when the OTP is used once. |
+| created_at | DATETIME2 |  | No | Creation time in UTC. |
+
+## password_reset_tokens
+
+One-time password reset records. The raw reset token is never stored.
+
+| Field | Type | Key | NULL? | Meaning |
+|---|---|---|---|---|
+| id | BIGINT | PK, IDENTITY | No | Token record identifier. |
+| user_id | BIGINT | FK | No | Account allowed to reset the password. |
+| token_hash | VARCHAR(128) | UNIQUE | No | SHA-256 hash of the reset token. |
+| expires_at | DATETIME2 |  | No | Expiry time (15 minutes). |
+| used_at | DATETIME2 |  | Yes | Set after a successful reset; prevents reuse. |
+| created_at | DATETIME2 |  | No | Creation time in UTC. |
+
+## refresh_tokens
+
+Rotating refresh sessions used to issue new short-lived JWT access tokens.
+
+| Field | Type | Key | NULL? | Meaning |
+|---|---|---|---|---|
+| id | BIGINT | PK, IDENTITY | No | Session token identifier. |
+| user_id | BIGINT | FK | No | Token owner. |
+| token_hash | VARCHAR(128) | UNIQUE | No | SHA-256 hash of the opaque refresh token. |
+| expires_at | DATETIME2 |  | No | Refresh session expiry. |
+| revoked_at | DATETIME2 |  | Yes | Set on logout or rotation. |
+| created_at | DATETIME2 |  | No | Creation time in UTC. |
+
+- Each token table has a user_id FK to users(id). Raw OTP/reset/refresh values are only returned or logged by the development flow and are not persisted.

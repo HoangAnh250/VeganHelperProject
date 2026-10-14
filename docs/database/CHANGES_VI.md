@@ -34,6 +34,15 @@
 
 ## Phạm vi file
 
-- 27 bảng, bản SQL tạo mới, không phải migration. Chưa thực thi lên SQL Server hay gọi API AI.
+- Schema nền có 27 bảng; Sprint 1 bổ sung 3 bảng token thành 30 bảng. SQL tạo mới và migration Code First là hai cách triển khai riêng; chưa thực thi lên SQL Server hay gọi API AI.
 - Giữ nguyên file nguồn và bộ Draw.io cũ; bộ này nằm trong thư mục phiên bản riêng.
 - Không thay các field khác chưa thống nhất, ví dụ context_summary và summary_through_message_id vẫn được giữ như bản trước.
+
+## Sprint 1 - Authentication and profile
+
+- Added users.phone_number, users.failed_login_attempts and users.locked_until for profile contact data and the five-failed-login/15-minute lockout policy.
+- Added email_verification_tokens for one-time six-digit registration OTPs. Only the SHA-256 hash is stored.
+- Added password_reset_tokens for one-time 15-minute password reset tokens. Only the SHA-256 hash is stored.
+- Added refresh_tokens for rotating and revoking refresh sessions. Access tokens remain short-lived JWTs.
+- Added the Code First migration Sprint1AuthAndProfile. The migration is pending and has not been applied to SQL Server.
+- The full SQL script now contains 30 tables and the three Sprint 1 token tables. Replace the JWT signing key through user-secrets or an environment variable before running the API.

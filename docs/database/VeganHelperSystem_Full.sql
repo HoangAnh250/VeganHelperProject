@@ -10,6 +10,7 @@ CREATE TABLE [users] (
     [id] BIGINT IDENTITY(1,1) NOT NULL,
     [username] NVARCHAR(100) NOT NULL,
     [email] NVARCHAR(255) NOT NULL,
+    [phone_number] NVARCHAR(20) NULL,
     [password_hash] NVARCHAR(500) NULL,
     [email_verified_at] DATETIME2 NULL,
     [is_active] BIT NOT NULL DEFAULT 1,
@@ -17,11 +18,46 @@ CREATE TABLE [users] (
     [updated_at] DATETIME2 NULL,
     [last_login_at] DATETIME2 NULL,
     [deleted_at] DATETIME2 NULL,
+    [failed_login_attempts] INT NOT NULL DEFAULT 0,
+    [locked_until] DATETIME2 NULL,
     [role_id] INT NOT NULL,
     CONSTRAINT [PK_users] PRIMARY KEY ([id]),
     CONSTRAINT [UQ_users_username] UNIQUE ([username]),
     CONSTRAINT [UQ_users_email] UNIQUE ([email]),
     CONSTRAINT [CK_users_1] CHECK (deleted_at IS NULL OR is_active = 0)
+);
+
+CREATE TABLE [email_verification_tokens] (
+    [id] BIGINT IDENTITY(1,1) NOT NULL,
+    [user_id] BIGINT NOT NULL,
+    [token_hash] VARCHAR(128) NOT NULL,
+    [expires_at] DATETIME2 NOT NULL,
+    [consumed_at] DATETIME2 NULL,
+    [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT [PK_email_verification_tokens] PRIMARY KEY ([id]),
+    CONSTRAINT [UQ_email_verification_tokens_hash] UNIQUE ([token_hash])
+);
+
+CREATE TABLE [password_reset_tokens] (
+    [id] BIGINT IDENTITY(1,1) NOT NULL,
+    [user_id] BIGINT NOT NULL,
+    [token_hash] VARCHAR(128) NOT NULL,
+    [expires_at] DATETIME2 NOT NULL,
+    [used_at] DATETIME2 NULL,
+    [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT [PK_password_reset_tokens] PRIMARY KEY ([id]),
+    CONSTRAINT [UQ_password_reset_tokens_hash] UNIQUE ([token_hash])
+);
+
+CREATE TABLE [refresh_tokens] (
+    [id] BIGINT IDENTITY(1,1) NOT NULL,
+    [user_id] BIGINT NOT NULL,
+    [token_hash] VARCHAR(128) NOT NULL,
+    [expires_at] DATETIME2 NOT NULL,
+    [revoked_at] DATETIME2 NULL,
+    [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT [PK_refresh_tokens] PRIMARY KEY ([id]),
+    CONSTRAINT [UQ_refresh_tokens_hash] UNIQUE ([token_hash])
 );
 
 CREATE TABLE [user_profiles] (
@@ -387,6 +423,12 @@ CREATE TABLE [flags] (
 
 ALTER TABLE [users] ADD CONSTRAINT [FK_users_1] FOREIGN KEY ([role_id]) REFERENCES [roles] ([id]) ON DELETE NO ACTION;
 
+ALTER TABLE [email_verification_tokens] ADD CONSTRAINT [FK_email_verification_tokens_users] FOREIGN KEY ([user_id]) REFERENCES [users] ([id]) ON DELETE NO ACTION;
+
+ALTER TABLE [password_reset_tokens] ADD CONSTRAINT [FK_password_reset_tokens_users] FOREIGN KEY ([user_id]) REFERENCES [users] ([id]) ON DELETE NO ACTION;
+
+ALTER TABLE [refresh_tokens] ADD CONSTRAINT [FK_refresh_tokens_users] FOREIGN KEY ([user_id]) REFERENCES [users] ([id]) ON DELETE NO ACTION;
+
 ALTER TABLE [user_profiles] ADD CONSTRAINT [FK_user_profiles_1] FOREIGN KEY ([user_id]) REFERENCES [users] ([id]) ON DELETE NO ACTION;
 
 ALTER TABLE [user_identities] ADD CONSTRAINT [FK_user_identities_1] FOREIGN KEY ([user_id]) REFERENCES [users] ([id]) ON DELETE NO ACTION;
@@ -468,6 +510,12 @@ ALTER TABLE [flags] ADD CONSTRAINT [FK_flags_5] FOREIGN KEY ([resolved_by_admin_
 CREATE INDEX [IX_posts_1] ON [posts] ([status], [is_deleted], [created_at]);
 
 CREATE INDEX [IX_posts_2] ON [posts] ([author_id], [created_at]);
+
+CREATE INDEX [IX_email_verification_tokens_user_expiry] ON [email_verification_tokens] ([user_id], [expires_at]);
+
+CREATE INDEX [IX_password_reset_tokens_user_expiry] ON [password_reset_tokens] ([user_id], [expires_at]);
+
+CREATE INDEX [IX_refresh_tokens_user_status] ON [refresh_tokens] ([user_id], [expires_at], [revoked_at]);
 
 CREATE UNIQUE INDEX [IX_post_media_1] ON [post_media] ([post_id]) WHERE is_primary = 1;
 

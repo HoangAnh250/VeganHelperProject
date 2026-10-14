@@ -1,0 +1,250 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>My Posts - Guest Locked | Botanical Hearth</title>
+<!-- Google Fonts: Fraunces & Be Vietnam Pro -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS CDN with Forms and Container Queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'herb-white': '#F3F6EE',
+            'surface-paper': '#FDFBF6',
+            'primary-moss': '#2F5233',
+            'primary-moss-hover': '#244027',
+            'accent-beetroot': '#A63446',
+            'accent-beetroot-hover': '#8B2939',
+            'border-sage-mist': '#DCE3D5',
+            'text-charcoal': '#2B2A25',
+            'text-stem-gray': '#6B6F63',
+            'accent-ochre': '#C68B59'
+          },
+          fontFamily: {
+            serif: ['Fraunces', 'serif'],
+            sans: ['"Be Vietnam Pro"', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+<!-- Custom Design Tokens & Scoped Layout Overrides -->
+<style data-purpose="typography">
+    body {
+      font-family: 'Be Vietnam Pro', sans-serif;
+      background-color: #F3F6EE;
+      color: #2B2A25;
+      -webkit-font-smoothing: antialiased;
+    }
+    .font-serif-title {
+      font-family: 'Fraunces', Georgia, serif;
+    }
+  </style>
+<style data-purpose="custom-scrollbars-and-shadows">
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #F3F6EE;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #DCE3D5;
+      border-radius: 9999px;
+    }
+    .fab-shadow {
+      box-shadow: 0 10px 25px -5px rgba(47, 82, 51, 0.25), 0 8px 10px -6px rgba(47, 82, 51, 0.2);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-herb-white text-text-charcoal relative">
+<!-- BEGIN: MainHeader -->
+<header class="sticky top-0 z-40 bg-surface-paper border-b border-border-sage-mist" data-purpose="logged-in-navigation-bar">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+<!-- Brand Logo & Name -->
+<a aria-label="Botanical Hearth Home" class="flex items-center gap-2.5 text-primary-moss font-bold group" href="#">
+<span class="p-1.5 rounded-lg bg-herb-white text-primary-moss group-hover:scale-105 transition-transform duration-200">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
+<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path>
+<path d="M12 22V9"></path>
+</svg>
+</span>
+<span class="font-serif-title text-xl font-bold tracking-tight text-text-charcoal group-hover:text-primary-moss transition-colors">Botanical Hearth</span>
+</a>
+<!-- Middle Navigation -->
+<nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-text-stem-gray">
+<a class="hover:text-primary-moss transition-colors py-5 border-b-2 border-transparent hover:border-border-sage-mist" href="#">Home</a>
+<a class="hover:text-primary-moss transition-colors py-5 border-b-2 border-transparent hover:border-border-sage-mist" href="#">Weekly Menu</a>
+<a class="hover:text-primary-moss transition-colors py-5 border-b-2 border-transparent hover:border-border-sage-mist" href="#">Find Vegan Stores</a>
+<!-- Active Tab: My Posts -->
+<a aria-current="page" class="text-primary-moss font-semibold py-5 border-b-2 border-primary-moss" href="#">My Posts</a>
+</nav>
+<!-- Right: User Avatar Dropdown -->
+<div class="flex items-center gap-3"><button class="px-4 py-2 text-sm font-medium text-primary-moss hover:bg-herb-white rounded-lg transition-colors" type="button">Log In</button><button class="px-4 py-2 text-sm font-medium text-surface-paper bg-primary-moss hover:bg-primary-moss-hover rounded-lg transition-colors shadow-sm" type="button">Sign Up</button></div>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContent -->
+<main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full" data-purpose="my-posts-management-screen"><div class="min-h-[70vh] flex items-center justify-center py-12 px-4"><div class="bg-surface-paper border border-border-sage-mist rounded-2xl p-10 max-w-lg w-full text-center mx-auto shadow-sm"><div class="w-16 h-16 rounded-full bg-[#EAEFE5] flex items-center justify-center mx-auto mb-4"><svg class="w-8 h-8 text-text-stem-gray" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" stroke-linecap="round" stroke-linejoin="round"></path></svg></div><h2 class="font-serif-title text-2xl font-semibold text-text-charcoal">Sign in to access My Posts</h2><p class="text-sm text-text-stem-gray mt-2 mb-6 leading-relaxed">Log in to share plant-based culinary recipes, publish cooking videos, and manage your saved dishes.</p><div class="flex flex-col sm:flex-row items-center justify-center gap-3"><button class="w-full sm:w-auto bg-primary-moss hover:bg-primary-moss-hover text-surface-paper font-medium px-6 py-3 rounded-lg transition-colors shadow-sm" type="button">Log In</button><button class="w-full sm:w-auto border border-primary-moss text-primary-moss hover:bg-herb-white font-medium px-6 py-3 rounded-lg transition-colors" type="button">Sign Up</button></div></div></div></main>
+<!-- END: MainContent -->
+<!-- BEGIN: FloatingActionButtons -->
+<!-- Upload Recipe FAB -->
+<!-- AI Nutrition Assistant Chatbot FAB -->
+<button aria-haspopup="dialog" aria-label="Open AI Nutrition Assistant" class="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary-moss hover:bg-primary-moss-hover text-surface-paper flex items-center justify-center fab-shadow transition-transform hover:scale-105 active:scale-95 z-30 focus:outline-none focus:ring-4 focus:ring-primary-moss/30" id="chatBotFab" title="Open AI Nutrition Assistant" type="button">
+<!-- AI Sparkle Icon -->
+<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
+<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+<path d="M5 3v4"></path>
+<path d="M3 5h4"></path>
+<path d="M19 17v4"></path>
+<path d="M17 19h4"></path>
+</svg>
+</button>
+<!-- END: FloatingActionButtons -->
+<!-- BEGIN: NutritionAssistantPopupWidget -->
+<div aria-labelledby="chatWidgetTitle" class="hidden fixed bottom-24 right-6 w-[380px] h-[520px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-8rem)] bg-surface-paper border border-border-sage-mist rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300 transform origin-bottom-right" id="aiChatWidget" role="dialog">
+<!-- Header -->
+<div class="px-5 py-3.5 bg-herb-white border-b border-border-sage-mist flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary-moss text-surface-paper flex items-center justify-center shadow-sm">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<h2 class="font-bold text-sm text-text-charcoal leading-none" id="chatWidgetTitle">AI Nutrition Assistant</h2>
+<div class="flex items-center gap-1.5 mt-1">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<span class="text-xs text-text-stem-gray">Online &amp; ready</span>
+</div>
+</div>
+</div>
+<button aria-label="Close Assistant" class="text-text-stem-gray hover:text-text-charcoal p-1 rounded-lg hover:bg-border-sage-mist/40 transition-colors" id="closeChatBtn" type="button">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+<!-- Message Area -->
+<div class="flex-grow p-4 overflow-y-auto space-y-3.5 custom-scrollbar text-xs sm:text-sm">
+<!-- Assistant Bubble -->
+<div class="flex items-start gap-2.5">
+<div class="w-6 h-6 rounded-full bg-primary-moss/10 text-primary-moss flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px]">
+          AI
+        </div>
+<div class="bg-herb-white text-text-charcoal p-3 rounded-2xl rounded-tl-sm border border-border-sage-mist/70 leading-relaxed shadow-xs">
+          Hello Chef! How can I assist with your recipes or nutrition calculations today?
+        </div>
+</div>
+<!-- Quick Chips -->
+<div class="pt-1 pb-1 flex flex-wrap gap-1.5">
+<button class="suggestion-chip text-xs bg-herb-white hover:bg-border-sage-mist/60 text-primary-moss font-medium px-2.5 py-1.5 rounded-full border border-border-sage-mist transition-colors">
+          🌱 High Protein Dishes
+        </button>
+<button class="suggestion-chip text-xs bg-herb-white hover:bg-border-sage-mist/60 text-primary-moss font-medium px-2.5 py-1.5 rounded-full border border-border-sage-mist transition-colors">
+          🥣 Weight Loss Menu
+        </button>
+<button class="suggestion-chip text-xs bg-herb-white hover:bg-border-sage-mist/60 text-primary-moss font-medium px-2.5 py-1.5 rounded-full border border-border-sage-mist transition-colors">
+          🥦 Ingredient Swaps
+        </button>
+</div>
+<!-- User Bubble Sample -->
+<div class="flex items-start justify-end gap-2.5">
+<div class="bg-primary-moss text-surface-paper p-3 rounded-2xl rounded-tr-sm leading-relaxed shadow-xs max-w-[80%]">
+          Can you suggest a nutrient-dense vegan substitute for oyster sauce in braises?
+        </div>
+</div>
+<!-- Assistant Response Sample -->
+<div class="flex items-start gap-2.5">
+<div class="w-6 h-6 rounded-full bg-primary-moss/10 text-primary-moss flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px]">
+          AI
+        </div>
+<div class="bg-herb-white text-text-charcoal p-3 rounded-2xl rounded-tl-sm border border-border-sage-mist/70 leading-relaxed shadow-xs">
+          Shiitake mushroom concentrate combined with dark soy sauce and a pinch of coconut sugar creates an authentic savory umami glaze rich in zinc!
+        </div>
+</div>
+</div>
+<!-- Input Footer -->
+<div class="p-3 bg-surface-paper border-t border-border-sage-mist">
+<form class="relative flex items-center" id="chatForm" onsubmit="event.preventDefault();">
+<input class="w-full pl-3.5 pr-10 py-2.5 bg-herb-white border border-border-sage-mist rounded-xl text-xs sm:text-sm text-text-charcoal placeholder-text-stem-gray/70 focus:outline-none focus:ring-2 focus:ring-primary-moss focus:border-primary-moss transition-all" placeholder="Ask AI nutrition assistant..." type="text">
+<button class="absolute right-1.5 p-1.5 bg-primary-moss hover:bg-primary-moss-hover text-surface-paper rounded-lg transition-colors" title="Send query" type="submit">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<line x1="22" x2="11" y1="2" y2="13"></line>
+<polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+</svg>
+</button>
+</form>
+</div>
+</div>
+<!-- END: NutritionAssistantPopupWidget -->
+<!-- BEGIN: MainFooter -->
+<footer class="mt-auto border-t border-border-sage-mist bg-surface-paper" data-purpose="application-footer">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs sm:text-sm text-text-stem-gray">
+<!-- Left Trademark and Subtitle -->
+<div class="flex items-center gap-2 text-center md:text-left">
+<span class="font-bold text-text-charcoal">Botanical Hearth</span>
+<span>•</span>
+<span>Plant-based culinary &amp; family nutrition platform</span>
+</div>
+<!-- Right Policy Navigation -->
+<nav class="flex flex-wrap justify-center items-center gap-6">
+<a class="hover:text-primary-moss transition-colors" href="#">About Us</a>
+<a class="hover:text-primary-moss transition-colors" href="#">Terms of Service</a>
+<a class="hover:text-primary-moss transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary-moss transition-colors" href="#">Contact Support</a>
+</nav>
+</div>
+</footer>
+<!-- END: MainFooter -->
+<!-- Script for Dropdown & Chatbot Interactions -->
+<script data-purpose="ui-interactivity">
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. Avatar Dropdown Toggle with Click Outside
+      const avatarBtn = document.getElementById('avatarButton');
+      const userDropdown = document.getElementById('userDropdownMenu');
+
+      avatarBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = userDropdown.classList.toggle('hidden');
+        avatarBtn.setAttribute('aria-expanded', !isHidden);
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!userDropdown.classList.contains('hidden') && !userDropdown.contains(e.target) && !avatarBtn.contains(e.target)) {
+          userDropdown.classList.add('hidden');
+          avatarBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      // 2. Chatbot FAB Toggle
+      const chatFab = document.getElementById('chatBotFab');
+      const chatWidget = document.getElementById('aiChatWidget');
+      const closeChatBtn = document.getElementById('closeChatBtn');
+
+      function toggleChatWidget() {
+        chatWidget.classList.toggle('hidden');
+      }
+
+      chatFab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleChatWidget();
+      });
+
+      closeChatBtn.addEventListener('click', () => {
+        chatWidget.classList.add('hidden');
+      });
+
+      // Optional: Close AI assistant with Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !chatWidget.classList.contains('hidden')) {
+          chatWidget.classList.add('hidden');
+        }
+      });
+    });
+  </script>
+</body></html>

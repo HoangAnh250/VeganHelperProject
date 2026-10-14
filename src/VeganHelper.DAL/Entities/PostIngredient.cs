@@ -6,4 +6,6 @@ public sealed class PostIngredient
     public long IngredientId { get; set; }
     public decimal? Quantity { get; set; }
     public string Unit { get; set; } = string.Empty;
+
+    public Ingredient? Ingredient { get; set; }
 }

@@ -1,0 +1,8 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=aws-0-REGION.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.PROJECT_REF;Password=REPLACE_ME;SSL Mode=VerifyFull;Timeout=30;Command Timeout=120"
+  },
+  "Migration": {
+    "SourceConnectionString": "Server=YOUR_LOCAL_SQL_SERVER;Database=VeganHelperSystem;Trusted_Connection=True;TrustServerCertificate=True"
+  }
+}

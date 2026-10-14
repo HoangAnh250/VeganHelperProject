@@ -1,0 +1,48 @@
+{
+  "batch": "VH-MEAL-SEED-20261012-v1",
+  "ingredients": 101,
+  "meals": 200,
+  "meal_ingredients": 1144,
+  "meal_plans": 30,
+  "meal_plan_schedule": 630,
+  "meal_diets": {
+    "vegan": 140,
+    "lacto_ovo_vegetarian": 60
+  },
+  "meal_cuisines": {
+    "International": 58,
+    "Vietnamese": 55,
+    "Indian": 5,
+    "Thai-inspired": 5,
+    "Japanese-inspired": 3,
+    "East Asian-inspired": 3,
+    "Chinese-inspired": 3,
+    "Indonesian-inspired": 1,
+    "Sri Lankan-inspired": 1,
+    "Malaysian-inspired": 1,
+    "Mexican-inspired": 9,
+    "Italian-inspired": 19,
+    "Mediterranean": 5,
+    "Moroccan-inspired": 2,
+    "Greek-inspired": 1,
+    "Turkish-inspired": 2,
+    "Middle Eastern-inspired": 3,
+    "Spanish-inspired": 2,
+    "French-inspired": 2,
+    "European-inspired": 5,
+    "American-inspired": 3,
+    "British-inspired": 1,
+    "Latin American-inspired": 1,
+    "Vietnamese-inspired": 5,
+    "Indian-inspired": 5
+  },
+  "plan_diets": {
+    "vegan": 20,
+    "lacto_ovo_vegetarian": 10
+  },
+  "lowest_meal_kcal": "285.00",
+  "highest_meal_kcal": "801.77",
+  "template_daily_kcal_min": "1235.46",
+  "template_daily_kcal_max": "1991.45",
+  "expert_reviewed": false
+}

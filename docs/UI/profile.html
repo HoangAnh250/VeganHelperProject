@@ -1,0 +1,476 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Profile - LoggedIn | Botanical Hearth</title>
+<!-- Google Fonts: Fraunces, Libre Caslon Text & Be Vietnam Pro -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&amp;family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,400&amp;family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS v3 with Forms & Container Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Custom Configuration -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'herb-white': '#F3F6EE',
+            'surface-paper': '#FDFBF6',
+            'primary-moss': '#2F5233',
+            'moss-hover': '#244028',
+            'border-sage-mist': '#DCE3D5',
+            'text-charcoal': '#2B2A25',
+            'text-stem-gray': '#6B6F63',
+            'accent-beetroot': '#A63446',
+            'badge-green-bg': '#EBF3EA',
+            'badge-green-text': '#2E6930'
+          },
+          fontFamily: {
+            serif: ['Fraunces', 'serif'],
+            caslon: ['"Libre Caslon Text"', 'serif'],
+            sans: ['"Be Vietnam Pro"', 'sans-serif'],
+          },
+          boxShadow: {
+            'subtle': '0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.02)',
+            'float': '0 10px 25px -5px rgba(47, 82, 51, 0.15), 0 8px 10px -6px rgba(47, 82, 51, 0.1)',
+            'popover': '0 12px 32px -4px rgba(43, 42, 37, 0.12), 0 4px 12px -2px rgba(43, 42, 37, 0.06)'
+          }
+        }
+      }
+    };
+  </script>
+<!-- Core Base Styles -->
+<style data-purpose="base-styling">
+    body {
+      background-color: #F3F6EE;
+      color: #2B2A25;
+      font-family: 'Be Vietnam Pro', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .font-fraunces {
+      font-family: 'Fraunces', serif;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-herb-white text-text-charcoal selection:bg-primary-moss selection:text-white">
+<!-- BEGIN: MainHeader -->
+<header class="bg-surface-paper border-b border-border-sage-mist sticky top-0 z-30 transition-colors"><div class="max-w-[1280px] mx-auto px-6 lg:px-8 h-20 flex items-center justify-between"><a class="flex items-center gap-2.5 text-text-charcoal hover:opacity-90 transition group" data-purpose="brand-logo" href="#"><svg class="w-8 h-8 text-primary-moss transform group-hover:rotate-6 transition-transform" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M21 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg><span class="font-fraunces text-2xl font-bold tracking-tight text-text-charcoal">Botanical Hearth</span></a><nav aria-label="Main Navigation" class="hidden md:flex items-center space-x-8"><a class="text-sm font-medium text-text-stem-gray hover:text-primary-moss transition-colors" href="#">Home</a><a class="text-sm font-medium text-text-stem-gray hover:text-primary-moss transition-colors" href="#">Weekly Menu</a><a class="text-sm font-medium text-text-stem-gray hover:text-primary-moss transition-colors" href="#">Find Vegan Stores</a><a class="text-sm font-medium text-text-stem-gray hover:text-primary-moss transition-colors" href="#">My Posts</a></nav><div class="flex items-center justify-end gap-6" data-purpose="user-menu-container"><div class="relative" data-purpose="notifications-container"><button aria-expanded="false" aria-haspopup="true" class="relative w-9 h-9 rounded-full border border-border-sage-mist bg-surface-paper flex items-center justify-center text-text-stem-gray hover:text-primary-moss hover:border-primary-moss focus:outline-none focus:ring-2 focus:ring-primary-moss/20 transition-all" id="notificationBtn" title="Notifications" type="button"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-primary-moss ring-2 ring-surface-paper"></span></button><div class="hidden absolute right-0 top-12 w-[360px] bg-surface-paper rounded-xl shadow-popover border border-border-sage-mist z-50 origin-top-right transition-all transform ease-out duration-150 overflow-hidden" id="notificationDropdown" role="menu"><div class="px-4 py-3 border-b border-border-sage-mist flex items-center justify-between bg-surface-paper"><div class="flex items-center gap-2"><h3 class="font-semibold text-text-charcoal text-sm">Notifications</h3><span class="px-1.5 py-0.5 text-[11px] font-semibold bg-primary-moss/10 text-primary-moss rounded-full">2 new</span></div><button class="text-xs text-text-stem-gray hover:text-primary-moss transition-colors font-medium" type="button">Mark all as read</button></div><div class="divide-y divide-border-sage-mist/70 max-h-[380px] overflow-y-auto"><a class="flex items-start gap-3 p-3.5 bg-herb-white/70 hover:bg-herb-white transition-colors relative group" href="#"><span class="w-2 h-2 rounded-full bg-primary-moss mt-1.5 flex-shrink-0"></span><div class="w-8 h-8 rounded-full bg-primary-moss/10 text-primary-moss flex items-center justify-center flex-shrink-0 font-medium text-xs">AL</div><div class="flex-1 text-xs space-y-1"><p class="text-text-charcoal leading-relaxed"><span class="font-semibold">Anna Lin</span> liked your recipe <span class="font-medium text-primary-moss">'Silken Tofu Soup'</span></p><p class="text-[11px] text-text-stem-gray">5m ago</p></div></a><a class="flex items-start gap-3 p-3.5 bg-herb-white/70 hover:bg-herb-white transition-colors relative group" href="#"><span class="w-2 h-2 rounded-full bg-primary-moss mt-1.5 flex-shrink-0"></span><div class="w-8 h-8 rounded-full bg-accent-beetroot/10 text-accent-beetroot flex items-center justify-center flex-shrink-0 font-medium text-xs">CD</div><div class="flex-1 text-xs space-y-1"><p class="text-text-charcoal leading-relaxed"><span class="font-semibold">Chef Duy</span> commented on your weekly plan</p><p class="text-[11px] text-text-stem-gray">1h ago</p></div></a><a class="flex items-start gap-3 p-3.5 bg-surface-paper hover:bg-herb-white transition-colors relative group" href="#"><span class="w-2 h-2 rounded-full bg-transparent mt-1.5 flex-shrink-0"></span><div class="w-8 h-8 rounded-full bg-border-sage-mist/60 text-text-stem-gray flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path></svg></div><div class="flex-1 text-xs space-y-1"><p class="text-text-stem-gray leading-relaxed">Your community post was successfully approved and published.</p><p class="text-[11px] text-text-stem-gray/80">Yesterday</p></div></a></div><div class="p-2.5 border-t border-border-sage-mist text-center bg-surface-paper"><a class="inline-flex items-center justify-center text-xs font-medium text-primary-moss hover:underline" href="#">View all notifications</a></div></div></div><div class="relative"><button aria-expanded="false" aria-haspopup="true" class="w-9 h-9 rounded-full border border-border-sage-mist bg-surface-paper flex items-center justify-center text-text-stem-gray hover:text-primary-moss hover:border-primary-moss focus:outline-none focus:ring-2 focus:ring-primary-moss/20 transition-all" id="profileMenuBtn" type="button"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" stroke-linecap="round" stroke-linejoin="round"></path></svg></button><div class="hidden absolute right-0 top-12 w-56 bg-surface-paper rounded-xl shadow-popover border border-border-sage-mist py-2 z-40 origin-top-right transition-all transform ease-out duration-150" id="profileDropdown" role="menu"><div class="px-4 py-2 border-b border-border-sage-mist/60"><p class="text-xs font-medium text-text-stem-gray">Signed in as</p><p class="text-sm font-semibold text-text-charcoal truncate">linh.nguyen@botanicalhearth.com</p></div><div class="py-1"><a class="flex items-center px-4 py-2.5 text-sm font-medium text-primary-moss bg-herb-white/80 font-semibold" href="#" role="menuitem"><svg class="w-4 h-4 mr-3 text-primary-moss" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" stroke-linecap="round" stroke-linejoin="round"></path></svg> My Profile </a><a class="flex items-center px-4 py-2.5 text-sm text-text-charcoal hover:bg-herb-white hover:text-primary-moss transition-colors" href="#" role="menuitem"><svg class="w-4 h-4 mr-3 text-text-stem-gray" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" stroke-linecap="round" stroke-linejoin="round"></path></svg> Admin Dashboard </a></div><div class="border-t border-border-sage-mist my-1"></div><div class="py-1"><button class="w-full flex items-center px-4 py-2.5 text-sm font-medium text-accent-beetroot hover:bg-red-50 transition-colors" role="menuitem" type="button"><svg class="w-4 h-4 mr-3 text-accent-beetroot" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" stroke-linecap="round" stroke-linejoin="round"></path></svg> Log Out </button></div></div></div></div></div></header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContent -->
+<main class="flex-grow py-10 px-4 sm:px-6">
+<div class="max-w-[960px] mx-auto space-y-6">
+<!-- BEGIN: UserIdentityHeaderCard -->
+<section class="bg-surface-paper rounded-xl border border-border-sage-mist p-6 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-6" data-purpose="user-identity-card">
+<!-- User Left Info (Avatar + Details) -->
+<div class="flex items-center gap-5">
+<!-- 80px Circular Avatar with Verified Badge -->
+<div class="relative flex-shrink-0">
+<div class="w-20 h-20 rounded-full border border-border-sage-mist bg-herb-white/70 flex items-center justify-center text-text-stem-gray"><img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&amp;fit=crop&amp;w=250&amp;q=80" alt="Linh Phuong Nguyen" class="w-full h-full object-cover rounded-full"></div>
+<!-- Green verified checkmark badge -->
+<span class="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary-moss text-white flex items-center justify-center ring-2 ring-surface-paper shadow-sm" title="Verified Member">
+<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+</span>
+</div>
+<!-- Name, Chip Badge, Email, Timestamp -->
+<div class="space-y-1.5">
+<div class="flex flex-wrap items-center gap-3">
+<h1 class="font-fraunces text-2xl font-bold text-text-charcoal tracking-tight">Linh Nguyen</h1>
+<!-- Subtle Community Member chip -->
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-herb-white text-text-stem-gray border border-border-sage-mist">
+                Community Member
+              </span>
+</div>
+<!-- Email address line -->
+<div class="flex items-center text-sm text-text-stem-gray gap-2">
+<svg class="w-4 h-4 text-text-stem-gray" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+<path d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">linh.nguyen@botanicalhearth.com</span>
+</div>
+<!-- Timestamp line -->
+<div class="flex items-center text-sm text-text-stem-gray gap-2">
+<svg class="w-4 h-4 text-text-stem-gray" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+<path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">Joined 4 months ago</span>
+</div>
+</div>
+</div>
+<!-- Right: Primary Action Button -->
+<div class="flex-shrink-0 self-start md:self-center">
+<button class="h-11 px-5 inline-flex items-center justify-center gap-2 rounded-lg bg-primary-moss hover:bg-moss-hover text-white text-sm font-medium transition shadow-sm hover:shadow active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-moss" id="openEditProfileBtn" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">Edit Profile</span>
+</button>
+</div>
+</section>
+<!-- END: UserIdentityHeaderCard -->
+<!-- BEGIN: PersonalInformationCard -->
+<section class="bg-surface-paper rounded-xl border border-border-sage-mist p-6 sm:p-8 shadow-subtle" data-purpose="personal-information-card">
+<!-- Section Header -->
+<div class="pb-6 border-b border-border-sage-mist/70">
+<h2 class="font-fraunces text-xl sm:text-2xl font-semibold text-text-charcoal">Personal Information</h2>
+<p class="text-sm text-text-stem-gray mt-1">Identity and contact information stored securely on your account</p>
+</div>
+<!-- Information Fields Vertical Stack -->
+<div class="mt-6 space-y-4">
+<!-- Field 1: Full Name -->
+<div class="p-4 rounded-lg bg-herb-white/50 border border-border-sage-mist/80 flex items-center justify-between hover:bg-herb-white transition-colors">
+<div class="space-y-0.5">
+<p class="text-[13px] text-text-stem-gray font-normal">Full Name</p>
+<p class="text-base font-semibold text-text-charcoal">Linh Phuong Nguyen</p>
+</div>
+<div class="text-text-stem-gray p-2">
+<svg class="w-5 h-5 text-text-stem-gray" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+<path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- Field 2: Email Address -->
+<div class="p-4 rounded-lg bg-herb-white/50 border border-border-sage-mist/80 flex items-center justify-between hover:bg-herb-white transition-colors">
+<div class="space-y-0.5">
+<p class="text-[13px] text-text-stem-gray font-normal">Email</p>
+<p class="text-base font-semibold text-text-charcoal">linh.nguyen@botanicalhearth.com</p>
+</div>
+<div class="flex items-center gap-3">
+<!-- Verified Badge -->
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-badge-green-bg text-badge-green-text text-xs font-medium border border-badge-green-text/20">
+<span class="">Verified</span>
+</span>
+<svg class="w-5 h-5 text-text-stem-gray" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+<path d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- Field 3: Phone Number -->
+<div class="p-4 rounded-lg bg-herb-white/50 border border-border-sage-mist/80 flex items-center justify-between hover:bg-herb-white transition-colors">
+<div class="space-y-0.5">
+<p class="text-[13px] text-text-stem-gray font-normal">Phone Number</p>
+<p class="text-base font-semibold text-text-charcoal">+84 912 345 678</p>
+</div>
+<div class="text-text-stem-gray p-2">
+<svg class="w-5 h-5 text-text-stem-gray" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+<path d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- Field 4: Biological Sex / Gender -->
+<div class="p-4 rounded-lg bg-herb-white/50 border border-border-sage-mist/80 flex items-center justify-between hover:bg-herb-white transition-colors">
+<div class="space-y-0.5">
+<p class="text-[13px] text-text-stem-gray font-normal">Biological Sex</p>
+<p class="text-base font-semibold text-text-charcoal">Female</p>
+</div>
+<div class="text-text-stem-gray p-2">
+<svg class="w-5 h-5 text-text-stem-gray" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+<path d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- Field 5: Date of Birth -->
+<div class="p-4 rounded-lg bg-herb-white/50 border border-border-sage-mist/80 flex items-center justify-between hover:bg-herb-white transition-colors">
+<div class="space-y-0.5">
+<p class="text-[13px] text-text-stem-gray font-normal">Date of Birth</p>
+<p class="text-base font-semibold text-text-charcoal">14/05/1992</p>
+</div>
+<div class="text-text-stem-gray p-2">
+<svg class="w-5 h-5 text-text-stem-gray" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+<path d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.87c1.355 0 2.697.055 4.024.165C17.155 8.51 18 9.473 18 10.608v2.513m-12 4.879m0 0a3 3 0 104.243 4.242 3 3 0 00-4.243-4.242zm12 0a3 3 0 104.243 4.242 3 3 0 00-4.243-4.242zM3.375 19.5h17.25" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+</div>
+</section>
+<!-- END: PersonalInformationCard -->
+</div>
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: MainFooter -->
+<footer class="bg-herb-white border-t border-border-sage-mist py-8 px-6 lg:px-8 mt-12 transition-colors">
+<div class="max-w-[1280px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-text-stem-gray">
+<!-- Footer Brand & Mission -->
+<div class="flex items-center space-x-2">
+<span class="font-medium text-text-charcoal">Botanical Hearth</span>
+<span class="text-border-sage-mist">•</span>
+<span class="">Plant-based culinary &amp; family nutrition platform</span>
+</div>
+<!-- Footer Policy Links -->
+<nav class="flex items-center space-x-6">
+<a class="hover:text-primary-moss transition-colors" href="#">About Us</a>
+<a class="hover:text-primary-moss transition-colors" href="#">Terms of Service</a>
+<a class="hover:text-primary-moss transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary-moss transition-colors" href="#">Contact Support</a>
+</nav>
+</div>
+</footer>
+<!-- END: MainFooter -->
+<!-- BEGIN: ChatbotFloatingComponent -->
+<div class="fixed bottom-6 right-6 z-50 flex flex-col items-end" data-purpose="ai-assistant-container">
+<!-- AI Nutrition Assistant Pop-up Widget -->
+<div class="hidden w-[380px] h-[520px] bg-surface-paper rounded-2xl shadow-popover border border-border-sage-mist flex flex-col mb-4 overflow-hidden origin-bottom-right transition-all animate-in fade-in zoom-in-95 duration-200" id="aiChatWidget">
+<!-- Assistant Header -->
+<div class="bg-primary-moss text-white px-5 py-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+<!-- 4-point Sparkle Icon -->
+<svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+<path d="M12 2L14.2 9.8L22 12L14.2 14.2L12 22L9.8 14.2L2 12L9.8 9.8L12 2Z"></path>
+</svg>
+</div>
+<div>
+<h3 class="font-fraunces font-semibold text-base leading-tight">AI Nutrition Assistant</h3>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+<span class="text-[11px] text-white/80 font-normal">Online &amp; ready</span>
+</div>
+</div>
+</div>
+<button class="text-white/80 hover:text-white p-1 rounded hover:bg-white/10 transition" id="closeAiChatBtn" type="button">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+<!-- Messages Scroll Area -->
+<div class="flex-1 p-4 overflow-y-auto space-y-3.5 bg-herb-white/40 text-sm">
+<!-- Assistant Message Bubble -->
+<div class="flex items-start gap-2.5 max-w-[85%]">
+<div class="w-7 h-7 rounded-full bg-primary-moss/10 flex items-center justify-center flex-shrink-0 mt-0.5 text-primary-moss">
+<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+<path d="M12 2L14.2 9.8L22 12L14.2 14.2L12 22L9.8 14.2L2 12L9.8 9.8L12 2Z"></path>
+</svg>
+</div>
+<div class="bg-surface-paper border border-border-sage-mist rounded-2xl rounded-tl-sm p-3 shadow-xs text-text-charcoal">
+<p class="">Hello Linh! 👋 I'm your Botanical Hearth nutrition guide. How can I assist your plant-based meal planning today?</p>
+</div>
+</div>
+<!-- Suggestion Chips Group -->
+<div class="pt-2">
+<p class="text-[11px] font-semibold text-text-stem-gray uppercase tracking-wider mb-2">Quick inquiries</p>
+<div class="flex flex-wrap gap-1.5">
+<button class="text-xs bg-surface-paper hover:bg-primary-moss hover:text-white text-text-charcoal px-3 py-1.5 rounded-full border border-border-sage-mist transition-colors shadow-2xs">
+              🌱 High Protein Dishes
+            </button>
+<button class="text-xs bg-surface-paper hover:bg-primary-moss hover:text-white text-text-charcoal px-3 py-1.5 rounded-full border border-border-sage-mist transition-colors shadow-2xs">
+              🥣 Weight Loss Menu
+            </button>
+<button class="text-xs bg-surface-paper hover:bg-primary-moss hover:text-white text-text-charcoal px-3 py-1.5 rounded-full border border-border-sage-mist transition-colors shadow-2xs">
+              🥦 Ingredient Swaps
+            </button>
+</div>
+</div>
+</div>
+<!-- Input Footer Area -->
+<div class="p-3 bg-surface-paper border-t border-border-sage-mist">
+<form class="flex items-center gap-2" onsubmit="event.preventDefault();">
+<input class="flex-1 text-sm bg-herb-white/60 border border-border-sage-mist rounded-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-moss/30 focus:border-primary-moss placeholder:text-text-stem-gray/70" placeholder="Ask AI nutrition assistant..." type="text">
+<button class="w-9 h-9 rounded-full bg-primary-moss text-white flex items-center justify-center hover:bg-moss-hover transition shadow-sm flex-shrink-0" title="Send" type="submit">
+<svg class="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+<path d="M12 19.5v-15m0 0l-6.75 6.75M12 4.5l6.75 6.75" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</form>
+</div>
+</div>
+<!-- 56px Floating Action Button (AI Assistant) -->
+<button aria-label="Toggle AI Nutrition Assistant" class="w-14 h-14 rounded-full bg-primary-moss text-white flex items-center justify-center shadow-float hover:bg-moss-hover hover:scale-105 active:scale-95 transition-all focus:outline-none focus:ring-4 focus:ring-primary-moss/30" id="aiChatToggleBtn" type="button">
+<!-- 4-point AI sparkle icon -->
+<svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+<path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"></path>
+</svg>
+</button>
+</div>
+<!-- END: ChatbotFloatingComponent -->
+<!-- BEGIN: EditProfileModal -->
+<div class="fixed inset-0 z-50 pointer-events-auto hidden flex items-center justify-center p-4" id="edit-profile-modal-overlay">
+  <!-- Sibling 1: Backdrop -->
+  <div class="absolute inset-0 bg-[#2b2a25] bg-opacity-40" id="editModalBackdrop"></div>
+  <!-- Sibling 2: Modal Content Box -->
+  <div class="relative z-10 bg-surface-paper border border-border-sage-mist rounded-xl w-full max-w-md p-6 sm:p-7 shadow-[0_2px_12px_rgba(43,42,37,0.12)] max-h-[90vh] overflow-y-auto" id="edit-profile-modal-container" style="box-shadow: 0 2px 12px rgba(43,42,37,0.12);">
+    <!-- Modal Header -->
+    <div class="flex items-start justify-between pb-4 border-b border-border-sage-mist">
+      <div>
+        <h2 class="font-caslon text-2xl font-bold text-text-charcoal tracking-tight">Edit Profile</h2>
+        <p class="text-xs sm:text-sm text-text-stem-gray mt-1">Update your account identity and contact details.</p>
+      </div>
+      <button aria-label="Close modal" class="text-text-stem-gray hover:text-text-charcoal p-1.5 rounded-lg hover:bg-herb-white transition-colors duration-200" id="closeEditProfileBtn" type="button">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+    </div>
+    <!-- Modal Content -->
+    <form class="mt-5 space-y-4 font-sans" id="editProfileForm" onsubmit="event.preventDefault();">
+      <!-- Avatar Edit -->
+      <div class="flex items-center gap-4 pb-2">
+        <div class="relative w-16 h-16 rounded-full bg-[#EAEFE5] border border-border-sage-mist flex items-center justify-center text-text-stem-gray flex-shrink-0">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&amp;fit=crop&amp;w=250&amp;q=80" alt="Linh Phuong Nguyen" class="w-full h-full object-cover rounded-full">
+          <span class="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-primary-moss text-white flex items-center justify-center ring-2 ring-surface-paper shadow-xs">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"></path>
+              <path d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"></path>
+              <path d="M18.75 10.5h.008v.008h-.008V10.5z"></path>
+            </svg>
+          </span>
+        </div>
+        <div>
+          <button class="text-xs font-medium text-primary-moss hover:text-[#25401F] border border-border-sage-mist bg-white hover:bg-herb-white px-3 py-1.5 rounded-lg transition-colors duration-200 shadow-2xs" type="button">
+            Change Photo
+          </button>
+          <p class="text-[11px] text-text-stem-gray mt-1">Recommended: JPG, PNG at least 300x300px</p>
+        </div>
+      </div>
+      <!-- Full Name -->
+      <div>
+        <label class="block text-xs font-medium text-[#2B2A25] mb-1" for="modalFullName">Full Name</label>
+        <input class="w-full text-sm bg-white border border-border-sage-mist rounded-lg px-3 py-2 text-text-charcoal focus:outline-none focus:ring-2 focus:ring-[#2F5233] focus:border-[#2F5233] transition-colors duration-200" id="modalFullName" type="text" value="Linh Phuong Nguyen">
+      </div>
+      <!-- Email Address -->
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="block text-xs font-medium text-[#2B2A25]" for="modalEmail">Email</label>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-badge-green-bg text-badge-green-text text-[11px] font-medium border border-badge-green-text/20">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+            </svg>
+            Verified
+          </span>
+        </div>
+        <input class="w-full text-sm bg-white border border-border-sage-mist rounded-lg px-3 py-2 text-text-charcoal focus:outline-none focus:ring-2 focus:ring-[#2F5233] focus:border-[#2F5233] transition-colors duration-200" id="modalEmail" type="email" value="linh.nguyen@botanicalhearth.com">
+      </div>
+      <!-- Phone Number -->
+      <div>
+        <label class="block text-xs font-medium text-[#2B2A25] mb-1" for="modalPhone">Phone Number</label>
+        <input class="w-full text-sm bg-white border border-border-sage-mist rounded-lg px-3 py-2 text-text-charcoal focus:outline-none focus:ring-2 focus:ring-[#2F5233] focus:border-[#2F5233] transition-colors duration-200" id="modalPhone" type="tel" value="+84 912 345 678">
+      </div>
+      <!-- 2-Column Grid: Sex & DOB -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div>
+          <label class="block text-xs font-medium text-[#2B2A25] mb-1" for="modalSex">Biological Sex</label>
+          <select class="w-full text-sm bg-white border border-border-sage-mist rounded-lg px-3 py-2 text-text-charcoal focus:outline-none focus:ring-2 focus:ring-[#2F5233] focus:border-[#2F5233] transition-colors duration-200" id="modalSex"><option value="Male">Male</option><option selected="" value="Female">Female</option><option value="Other">Other</option></select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-[#2B2A25] mb-1" for="modalDob">Date of Birth</label>
+          <input class="w-full text-sm bg-white border border-border-sage-mist rounded-lg px-3 py-2 text-text-charcoal focus:outline-none focus:ring-2 focus:ring-[#2F5233] focus:border-[#2F5233] transition-colors duration-200" id="modalDob" type="date" value="1992-05-14">
+        </div>
+      </div>
+      <!-- Modal Actions -->
+      <div class="flex items-center justify-end gap-3 mt-6 pt-2">
+        <button class="border border-[#2F5233] text-[#2F5233] hover:bg-[#F3F6EE] rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-200" id="cancelEditProfileBtn" type="button">
+          Cancel
+        </button>
+        <button class="bg-[#2F5233] hover:bg-[#25401F] text-white rounded-lg px-5 py-2 text-sm font-medium transition-colors duration-200 shadow-sm" id="saveEditProfileBtn" type="submit">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<!-- END: EditProfileModal -->
+<!-- BEGIN: InteractiveScripts -->
+<script data-purpose="dropdown-and-modal-interactions">
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. Profile Dropdown Toggle & Click Outside Handler
+      const profileMenuBtn = document.getElementById('profileMenuBtn');
+      const profileDropdown = document.getElementById('profileDropdown');
+
+      if (profileMenuBtn && profileDropdown) {
+        profileMenuBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isHidden = profileDropdown.classList.contains('hidden');
+          profileDropdown.classList.toggle('hidden', !isHidden);
+          profileMenuBtn.setAttribute('aria-expanded', String(isHidden));
+        });
+
+        // Click outside closes profile dropdown
+        document.addEventListener('click', (event) => {
+          if (!profileDropdown.classList.contains('hidden')) {
+            if (!profileDropdown.contains(event.target) && !profileMenuBtn.contains(event.target)) {
+              profileDropdown.classList.add('hidden');
+              profileMenuBtn.setAttribute('aria-expanded', 'false');
+            }
+          }
+        });
+      }
+
+      // 2. AI Chatbot Widget Visibility Toggle
+      const aiChatToggleBtn = document.getElementById('aiChatToggleBtn');
+      const aiChatWidget = document.getElementById('aiChatWidget');
+      const closeAiChatBtn = document.getElementById('closeAiChatBtn');
+
+      if (aiChatToggleBtn && aiChatWidget) {
+        const toggleAiWidget = () => {
+          aiChatWidget.classList.toggle('hidden');
+        };
+
+        aiChatToggleBtn.addEventListener('click', toggleAiWidget);
+
+        if (closeAiChatBtn) {
+          closeAiChatBtn.addEventListener('click', () => {
+            aiChatWidget.classList.add('hidden');
+          });
+        }
+      }
+
+      // 3. Edit Profile Modal Visibility Toggle
+      const openEditProfileBtn = document.getElementById('openEditProfileBtn');
+      const editProfileOverlay = document.getElementById('edit-profile-modal-overlay');
+      const editProfileContainer = document.getElementById('edit-profile-modal-container');
+      const closeEditProfileBtn = document.getElementById('closeEditProfileBtn');
+      const cancelEditProfileBtn = document.getElementById('cancelEditProfileBtn');
+      const saveEditProfileBtn = document.getElementById('saveEditProfileBtn');
+
+      const openModal = () => {
+        if (editProfileOverlay) {
+          const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+          document.body.classList.add('overflow-hidden');
+          document.body.style.paddingRight = `${scrollbarWidth}px`;
+          editProfileOverlay.classList.remove('hidden');
+        }
+      };
+
+      const closeModal = () => {
+        if (editProfileOverlay) {
+          document.body.classList.remove('overflow-hidden');
+          document.body.style.paddingRight = '';
+          editProfileOverlay.classList.add('hidden');
+        }
+      };
+
+      if (openEditProfileBtn) {
+        openEditProfileBtn.addEventListener('click', openModal);
+      }
+
+      if (closeEditProfileBtn) {
+        closeEditProfileBtn.addEventListener('click', closeModal);
+      }
+
+      if (cancelEditProfileBtn) {
+        cancelEditProfileBtn.addEventListener('click', closeModal);
+      }
+
+      if (saveEditProfileBtn) {
+        saveEditProfileBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          closeModal();
+        });
+      }
+
+      if (editProfileOverlay) {
+        editProfileOverlay.addEventListener('click', (e) => {
+          if (editProfileContainer && !editProfileContainer.contains(e.target)) {
+            closeModal();
+          }
+        });
+      }
+    });
+  </script>
+<!-- END: InteractiveScripts -->
+
+
+
+
+</body></html>

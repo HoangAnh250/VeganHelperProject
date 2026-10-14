@@ -1,0 +1,87 @@
+using Microsoft.EntityFrameworkCore;
+using VeganHelper.DAL.Entities;
+using VeganHelper.DAL.Persistence;
+
+namespace VeganHelper.DAL.Repositories;
+
+public sealed class AuthRepository(AppDbContext db) : IAuthRepository
+{
+    public Task<bool> HasActiveBanAsync(long userId, DateTime now, CancellationToken ct) =>
+        db.UserBans.AnyAsync(b => b.UserId == userId && b.UnbannedAt == null && (b.ExpiresAt == null || b.ExpiresAt > now), ct);
+
+    public Task<string?> FindSessionRoleAsync(long userId, int tokenVersion, DateTime now, CancellationToken ct) =>
+        (from user in db.Users.AsNoTracking()
+         join role in db.Roles on user.RoleId equals role.Id
+         where user.Id == userId && user.TokenVersion == tokenVersion && user.IsActive && user.DeletedAt == null
+            && !db.UserBans.Any(b => b.UserId == user.Id && b.UnbannedAt == null && (b.ExpiresAt == null || b.ExpiresAt > now))
+         select role.RoleName).SingleOrDefaultAsync(ct);
+    public Task<User?> FindUserByEmailAsync(string email, CancellationToken cancellationToken) =>
+        db.Users.SingleOrDefaultAsync(x => x.Email == email, cancellationToken);
+
+    public Task<User?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken) =>
+        db.Users.SingleOrDefaultAsync(x => x.Username == username, cancellationToken);
+
+    public Task<User?> FindUserByIdentifierAsync(string identifier, CancellationToken cancellationToken) =>
+        db.Users.SingleOrDefaultAsync(
+            x => x.Username == identifier || x.Email == identifier,
+            cancellationToken);
+
+    public Task<User?> FindUserByIdAsync(long id, CancellationToken cancellationToken) =>
+        db.Users.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    public Task<UserIdentity?> FindIdentityAsync(string provider, string providerSubject, CancellationToken cancellationToken) =>
+        db.UserIdentities.SingleOrDefaultAsync(
+            x => x.Provider == provider && x.ProviderSubject == providerSubject,
+            cancellationToken);
+
+    public Task<UserIdentity?> FindIdentityByUserAsync(long userId, string provider, CancellationToken cancellationToken) =>
+        db.UserIdentities.SingleOrDefaultAsync(
+            x => x.UserId == userId && x.Provider == provider,
+            cancellationToken);
+
+    public Task<string?> FindRoleNameAsync(int roleId, CancellationToken cancellationToken) =>
+        db.Roles.Where(x => x.Id == roleId).Select(x => x.RoleName).SingleOrDefaultAsync(cancellationToken);
+
+    public Task AddUserAsync(User user, CancellationToken cancellationToken) =>
+        db.Users.AddAsync(user, cancellationToken).AsTask();
+
+    public Task AddUserIdentityAsync(UserIdentity identity, CancellationToken cancellationToken) =>
+        db.UserIdentities.AddAsync(identity, cancellationToken).AsTask();
+
+    public void RemoveUserIdentity(UserIdentity identity) => db.UserIdentities.Remove(identity);
+
+    public Task AddEmailVerificationTokenAsync(EmailVerificationToken token, CancellationToken cancellationToken) =>
+        db.EmailVerificationTokens.AddAsync(token, cancellationToken).AsTask();
+
+    public Task RevokeEmailVerificationTokensAsync(long userId, string purpose, DateTime revokedAt, CancellationToken cancellationToken) =>
+        db.EmailVerificationTokens
+            .Where(x => x.UserId == userId && x.Purpose == purpose && x.ConsumedAt == null && x.ExpiresAt > revokedAt)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(x => x.ConsumedAt, revokedAt),
+                cancellationToken);
+
+    public Task<EmailVerificationToken?> FindEmailVerificationTokenAsync(string tokenHash, CancellationToken cancellationToken) =>
+        db.EmailVerificationTokens.SingleOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
+
+    public Task AddPasswordResetTokenAsync(PasswordResetToken token, CancellationToken cancellationToken) =>
+        db.PasswordResetTokens.AddAsync(token, cancellationToken).AsTask();
+
+    public Task<PasswordResetToken?> FindPasswordResetTokenAsync(string tokenHash, CancellationToken cancellationToken) =>
+        db.PasswordResetTokens.SingleOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
+
+    public Task AddRefreshTokenAsync(RefreshToken token, CancellationToken cancellationToken) =>
+        db.RefreshTokens.AddAsync(token, cancellationToken).AsTask();
+
+    public Task<RefreshToken?> FindRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken) =>
+        db.RefreshTokens.SingleOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
+
+    public async Task RevokeRefreshTokensAsync(long userId, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        await db.RefreshTokens
+            .Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > now)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.RevokedAt, now), cancellationToken);
+    }
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken) => db.SaveChangesAsync(cancellationToken);
+}

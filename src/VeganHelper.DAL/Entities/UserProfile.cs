@@ -7,8 +7,10 @@ public sealed class UserProfile
     public string? AvatarUrl { get; set; }
     public decimal? HeightCm { get; set; }
     public decimal? WeightKg { get; set; }
+    public decimal? CurrentBmi { get; set; }
     public DateOnly? BirthDate { get; set; }
     public string? BiologicalSex { get; set; }
     public string DietType { get; set; } = string.Empty;
+    public string? ActivityLevel { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
