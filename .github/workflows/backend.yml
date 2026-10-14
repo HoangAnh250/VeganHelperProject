@@ -1,0 +1,146 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [developer, main]
+  pull_request:
+    branches: [developer, main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy main to Azure after CI (requires AZURE_DEPLOY_ENABLED=true)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  ci:
+    name: Backend build and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_only
+          POSTGRES_DB: member2_test_ci
+          POSTGRES_INITDB_ARGS: --locale-provider=icu --icu-locale=en-US
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      VEGANHELPER_MEMBER2_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=member2_test_ci;Username=postgres;Password=ci_test_only
+      VEGANHELPER_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=veganhelper_test_ci;Username=postgres;Password=ci_test_only
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Create repository-test database
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          docker exec "$POSTGRES_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE DATABASE veganhelper_test_ci WITH TEMPLATE template0 ENCODING 'UTF8' LOCALE_PROVIDER icu ICU_LOCALE 'en-US';"
+
+      - run: dotnet restore VeganHelper.sln
+      - run: dotnet build VeganHelper.sln -c Release --no-restore
+      - run: dotnet test VeganHelper.sln -c Release --no-build --no-restore --logger trx --results-directory TestResults --verbosity minimal
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backend-test-results
+          path: TestResults/*.trx
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Publish API
+        run: dotnet publish src/VeganHelper.API/VeganHelper.API.csproj -c Release --no-build --no-restore -p:UseAppHost=false -o publish
+
+      - name: Check deployment package
+        run: |
+          test -f publish/VeganHelper.API.dll
+          test -f publish/Prompts/PostModeration.v2.json
+          test -f publish/supabase-root-2021.crt
+          if find publish -type f \( -name '.env' -o -name '.env.*' -o -name 'supabase.local.json' -o -name 'appsettings.json' -o -name 'appsettings.Development.json' -o -name 'appsettings.Local.json' \) -print -quit | grep -q .; then
+            echo '::error::Local configuration must not be included in the deployment package.'
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backend-publish
+          path: publish/
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy backend production
+    needs: ci
+    if: vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+      AZURE_WEBAPP_URL: ${{ vars.AZURE_WEBAPP_URL }}
+    steps:
+      - name: Check deployment configuration
+        run: |
+          for key in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_WEBAPP_NAME AZURE_WEBAPP_URL; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Configure $key in GitHub Actions secrets/variables before enabling deployment."
+              exit 1
+            fi
+          done
+          if [[ ! "$AZURE_WEBAPP_URL" =~ ^https://[^/]+/?$ ]]; then
+            echo '::error::AZURE_WEBAPP_URL must be the HTTPS base URL copied from App Service Overview, without /api.'
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: backend-publish
+          path: publish/
+
+      - name: Sign in to Azure with OIDC
+        uses: Azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy tested API artifact
+        uses: Azure/webapps-deploy@02a81bead70021f5284939794bcec79c271ab383 # v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: publish/
+
+      - name: Check backend liveness
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 10 \
+            --max-time 15 "${AZURE_WEBAPP_URL%/}/health/live"
