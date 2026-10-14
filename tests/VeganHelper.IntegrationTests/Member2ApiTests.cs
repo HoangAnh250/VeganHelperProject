@@ -16,6 +16,7 @@ using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using Testcontainers.PostgreSql;
 using VeganHelper.DAL.Entities;
+using VeganHelper.DAL.Storage;
 using VeganHelper.DAL.Persistence;
 using VeganHelper.DAL.Repositories;
 using VeganHelper.BLL.Services.Media;
@@ -96,6 +97,8 @@ public sealed class Member2ApiFactory(string connection) : WebApplicationFactory
             // Read-only post tests must not require cloud credentials or accidentally call R2.
             services.RemoveAll<IMediaStorageService>();
             services.AddSingleton<IMediaStorageService, NoCloudMediaStorage>();
+            services.RemoveAll<IAvatarStorage>();
+            services.AddSingleton<IAvatarStorage, NoCloudAvatarStorage>();
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
             services.RemoveAll<AppDbContext>();
@@ -128,6 +131,11 @@ public sealed class Member2ApiFactory(string connection) : WebApplicationFactory
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
         }
         return client;
+    }
+    private sealed class NoCloudAvatarStorage : IAvatarStorage
+    {
+        public Task<string> SaveAsync(byte[] bytes, string fileName, string contentType, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Use an explicit recording storage in avatar upload tests.");
     }
     private sealed class NoCloudMediaStorage : IMediaStorageService
     {
