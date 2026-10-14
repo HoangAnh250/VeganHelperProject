@@ -33,6 +33,13 @@ public sealed class CommentRepository(AppDbContext context) : ICommentRepository
         context.Comments
             .SingleOrDefaultAsync(comment => comment.Id == commentId, cancellationToken);
 
+    public async Task<IReadOnlyList<Comment>> GetCommentsForUpdateAsync(
+        long postId,
+        CancellationToken cancellationToken = default) =>
+        await context.Comments
+            .FromSqlInterpolated($"SELECT * FROM comments WHERE post_id = {postId} FOR UPDATE")
+            .ToListAsync(cancellationToken);
+
     public Task<CommentProjection?> GetCommentProjectionAsync(
         long commentId,
         CancellationToken cancellationToken = default) =>

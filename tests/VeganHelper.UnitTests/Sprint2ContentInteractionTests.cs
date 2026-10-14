@@ -41,20 +41,19 @@ public sealed class Sprint2ContentInteractionTests
     }
 
     [Fact]
-    public async Task SearchUsersAsync_RejectsEmptyKeyword()
+    public async Task SearchUsersAsync_AcceptsOneCharacterKeyword()
     {
         var repository = new Mock<IUserRepository>();
+        repository.Setup(x => x.SearchUsersAsync("a", 1, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((0L, (IReadOnlyList<UserSearchProjection>)new List<UserSearchProjection>()));
         var service = new UserService(repository.Object, new Mock<IAvatarStorage>().Object);
 
-        var result = await service.SearchUsersAsync(" ", 1, 10, CancellationToken.None);
+        var result = await service.SearchUsersAsync("a", 1, 10, CancellationToken.None);
 
-        Assert.False(result.Succeeded);
-        Assert.Equal(400, result.StatusCode);
-        repository.Verify(x => x.SearchUsersAsync(
-            It.IsAny<string>(),
-            It.IsAny<int>(),
-            It.IsAny<int>(),
-            It.IsAny<CancellationToken>()), Times.Never);
+        Assert.True(result.Succeeded);
+        Assert.NotNull(result.Data);
+        Assert.Empty(result.Data!.Items);
+        repository.Verify(x => x.SearchUsersAsync("a", 1, 10, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -117,21 +116,17 @@ public sealed class Sprint2ContentInteractionTests
     }
 
     [Fact]
-    public async Task SearchPostsAsync_RejectsEmptyKeyword()
+    public async Task SearchPostsAsync_AcceptsOneCharacterKeyword()
     {
         var repository = new Mock<IPostRepository>();
+        repository.Setup(x => x.SearchPostsAsync("a", 1, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((0L, (IEnumerable<PostFeedProjection>)new List<PostFeedProjection>()));
         var service = CreatePostService(repository);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => service.SearchPostsAsync(
-            new SearchPostsRequest { Keyword = " " }));
+        var result = await service.SearchPostsAsync(new SearchPostsRequest { Keyword = "a" });
 
-        repository.Verify(
-            x => x.SearchPostsAsync(
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<int>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+        Assert.Empty(result.Items);
+        repository.Verify(x => x.SearchPostsAsync("a", 1, 10, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Theory]
@@ -204,6 +199,23 @@ public sealed class Sprint2ContentInteractionTests
         repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task SearchUsersAsync_RejectsEmptyKeyword()
+    {
+        var repository = new Mock<IUserRepository>();
+        var service = new UserService(repository.Object, new Mock<IAvatarStorage>().Object);
+        var result = await service.SearchUsersAsync(" ", 1, 10, CancellationToken.None);
+        Assert.False(result.Succeeded);
+        repository.Verify(x => x.SearchUsersAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SearchPostsAsync_RejectsEmptyKeyword()
+    {
+        var repository = new Mock<IPostRepository>();
+        await Assert.ThrowsAsync<ArgumentException>(() => CreatePostService(repository).SearchPostsAsync(new SearchPostsRequest { Keyword = " " }));
+        repository.Verify(x => x.SearchPostsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
     private static PostService CreatePostService(Mock<IPostRepository> repository) => new(
         repository.Object,
         new Mock<IValidator<CreatePostRequest>>().Object,

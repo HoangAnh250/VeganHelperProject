@@ -2439,6 +2439,48 @@ namespace VeganHelper.DAL.PostgresMigrations
                         });
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserFollow", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<long>("FollowerId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("follower_id");
+
+                    b.Property<long>("FollowingId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("following_id");
+
+                    b.HasKey("Id")
+                        .HasName("PK_user_follows");
+
+                    b.HasIndex("FollowerId", "FollowingId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_user_follows_pair");
+
+                    b.HasIndex("FollowerId", "CreatedAt", "Id")
+                        .HasDatabaseName("IX_user_follows_follower_created");
+
+                    b.HasIndex("FollowingId", "CreatedAt", "Id")
+                        .HasDatabaseName("IX_user_follows_following_created");
+
+                    b.ToTable("user_follows", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_user_follows_no_self", "follower_id <> following_id");
+                        });
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.UserIdentity", b =>
                 {
                     b.Property<long>("Id")
@@ -3087,6 +3129,23 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserFollow", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("FollowerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_user_follows_follower");
+
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("FollowingId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_user_follows_following");
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.UserIdentity", b =>

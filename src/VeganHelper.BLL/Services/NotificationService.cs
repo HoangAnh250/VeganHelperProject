@@ -63,6 +63,33 @@ public sealed class NotificationService(INotificationRepository repository, IMap
         return await Publish(source.AuthorId, $"comment:{commentId}", "comment", "New comment",
          "Someone commented on your post.", $"/posts/{source.PostId}", ct);
     }
+    public async Task<long?> NotifyCommentDeletionAsync(
+        long recipientUserId,
+        long commentId,
+        long postId,
+        string originalContent,
+        string reason,
+        CancellationToken ct = default)
+    {
+        if (recipientUserId <= 0 || commentId <= 0 || postId <= 0)
+            return null;
+
+        var message = $"Your comment was removed by an administrator.\n" +
+                      $"Reason: {reason.Trim()}\n" +
+                      $"Original content: \"{originalContent.Trim()}\"";
+
+        if (message.Length > 1000)
+            message = message[..1000];
+
+        return await Publish(
+            recipientUserId,
+            $"comment:deleted:{commentId}:{Guid.NewGuid():N}",
+            "comment",
+            "Comment removed",
+            message,
+            $"/posts/{postId}",
+            ct);
+    }
     public async Task<long?> NotifyPostReviewAsync(long postId, CancellationToken ct = default)
     {
         var post = await repository.ReviewedPostAsync(postId, ct);

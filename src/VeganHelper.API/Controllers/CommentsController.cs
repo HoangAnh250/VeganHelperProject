@@ -70,12 +70,14 @@ public sealed class CommentsController(ICommentService service) : ControllerBase
 
     [HttpDelete("{commentId:long}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteComment(
         long postId,
         long commentId,
+        [FromBody] DeleteCommentRequest? request,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
@@ -86,6 +88,7 @@ public sealed class CommentsController(ICommentService service) : ControllerBase
             commentId,
             userId.Value,
             IsAdministrator(),
+            request,
             cancellationToken);
 
         return NoContent();

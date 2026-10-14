@@ -22,6 +22,7 @@ public interface ICommentService
         long commentId,
         long userId,
         bool isAdministrator,
+        DeleteCommentRequest? request = null,
         CancellationToken cancellationToken = default);
 
     Task<ReportCommentResponse> ReportCommentAsync(

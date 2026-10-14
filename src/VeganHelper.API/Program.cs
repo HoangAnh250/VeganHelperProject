@@ -110,6 +110,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IFollowService, FollowService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IEmailSender, SendGridEmailSender>();
 builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();

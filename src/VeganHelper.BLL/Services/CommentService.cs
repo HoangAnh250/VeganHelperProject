@@ -1,4 +1,5 @@
 using FluentValidation;
+using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs.Comments;
 using VeganHelper.BLL.Exceptions;
 using VeganHelper.DAL.Entities;
@@ -11,7 +12,8 @@ public sealed class CommentService(
     IValidator<CreateCommentRequest> validator,
     IValidator<UpdateCommentRequest> updateValidator,
     IValidator<ReportCommentRequest> reportValidator,
-    ICommentKeywordFilter keywordFilter) : ICommentService
+    ICommentKeywordFilter keywordFilter,
+    INotificationPublisher notifications) : ICommentService
 {
     private const int MinimumDepth = 1;
     private const int PreviewDepth = 2;
@@ -141,6 +143,7 @@ public sealed class CommentService(
         long commentId,
         long userId,
         bool isAdministrator,
+        DeleteCommentRequest? request = null,
         CancellationToken cancellationToken = default)
     {
         if (postId <= 0 || commentId <= 0 || userId <= 0)
@@ -150,16 +153,71 @@ public sealed class CommentService(
 
         var comment = await repository.GetCommentForUpdateAsync(commentId, cancellationToken);
         EnsureCommentBelongsToPost(comment, postId);
-        EnsureCanDeleteComment(comment!, userId, isAdministrator);
+        var targetComment = comment!;
+        EnsureCanDeleteComment(targetComment, userId, isAdministrator);
 
-        // The existing schema intentionally supports soft deletion. This removes the
-        // comment from public reads while preserving replies, foreign keys and audit data.
-        comment!.IsDeleted = true;
-        comment.DeletedAt = DateTime.UtcNow;
-        comment.UpdatedAt = DateTime.UtcNow;
-        comment.Status = "hidden";
+        var reason = request?.Reason?.Trim();
+        if (isAdministrator && string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("A deletion reason is required when an administrator removes a comment.");
+        }
 
-        await repository.SaveChangesAsync(cancellationToken);
+        var transaction = await repository.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var affectedComments = new List<Comment> { targetComment };
+            if (targetComment.ParentCommentId is null)
+            {
+                var thread = await repository.GetCommentsForUpdateAsync(postId, cancellationToken)
+                    ?? Array.Empty<Comment>();
+                affectedComments = CollectSubtree(targetComment, thread);
+            }
+
+            var now = DateTime.UtcNow;
+            foreach (var affectedComment in affectedComments)
+            {
+                affectedComment.IsDeleted = true;
+                affectedComment.DeletedAt = now;
+                affectedComment.UpdatedAt = now;
+                affectedComment.Status = "hidden";
+            }
+
+            await repository.SaveChangesAsync(cancellationToken);
+
+            // The notification is intentionally sent only for the comment selected by
+            // the administrator. Replies hidden by a root deletion are not notified.
+            if (isAdministrator)
+            {
+                await notifications.NotifyCommentDeletionAsync(
+                    targetComment.UserId,
+                    targetComment.Id,
+                    targetComment.PostId,
+                    targetComment.Content,
+                    reason!,
+                    cancellationToken);
+            }
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+        }
+        catch
+        {
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+            }
+
+            throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+        }
     }
 
     public async Task<ReportCommentResponse> ReportCommentAsync(
@@ -257,7 +315,9 @@ public sealed class CommentService(
             throw new NotFoundException($"Published post with ID {postId} was not found.");
         }
 
-        var comments = await repository.GetVisibleCommentsAsync(postId, cancellationToken);
+        var comments = HideDeletedRootThreads(
+            await repository.GetVisibleCommentsAsync(postId, cancellationToken));
+        var commentsById = comments.ToDictionary(comment => comment.Id);
         var childrenByParent = comments
             .Where(comment => comment.ParentCommentId.HasValue)
             .GroupBy(comment => comment.ParentCommentId!.Value)
@@ -267,7 +327,7 @@ public sealed class CommentService(
             .Where(comment => comment.ParentCommentId is null)
             .OrderByDescending(comment => comment.CreatedAt)
             .ThenByDescending(comment => comment.Id)
-            .Select(comment => BuildTree(comment, 1, maxDepth, viewerUserId, childrenByParent))
+            .Select(comment => BuildTree(comment, 1, maxDepth, viewerUserId, childrenByParent, commentsById))
             .ToList();
 
         return roots;
@@ -329,8 +389,82 @@ public sealed class CommentService(
     {
         if (!isAdministrator && comment.UserId != userId)
         {
-            throw new UnauthorizedAccessException("Only the comment owner or an administrator can hide this comment.");
+            throw new UnauthorizedAccessException("Only the comment owner or an administrator can delete this comment.");
         }
+    }
+
+    private static List<Comment> CollectSubtree(Comment root, IReadOnlyList<Comment> thread)
+    {
+        var commentsById = thread
+            .GroupBy(comment => comment.Id)
+            .ToDictionary(group => group.Key, group => group.First());
+        commentsById[root.Id] = root;
+
+        var childrenByParent = thread
+            .Where(comment => comment.ParentCommentId.HasValue)
+            .GroupBy(comment => comment.ParentCommentId!.Value)
+            .ToDictionary(group => group.Key, group => group.Select(comment => comment.Id).ToList());
+
+        var affected = new List<Comment>();
+        var visited = new HashSet<long>();
+        var pending = new Stack<long>();
+        pending.Push(root.Id);
+
+        while (pending.Count > 0)
+        {
+            var id = pending.Pop();
+            if (!visited.Add(id))
+            {
+                continue;
+            }
+
+            if (commentsById.TryGetValue(id, out var comment))
+            {
+                affected.Add(comment);
+            }
+
+            if (childrenByParent.TryGetValue(id, out var children))
+            {
+                foreach (var childId in children)
+                {
+                    pending.Push(childId);
+                }
+            }
+        }
+
+        return affected;
+    }
+
+    private static List<CommentProjection> HideDeletedRootThreads(
+        IReadOnlyList<CommentProjection> comments)
+    {
+        var childrenByParent = comments
+            .Where(comment => comment.ParentCommentId.HasValue)
+            .GroupBy(comment => comment.ParentCommentId!.Value)
+            .ToDictionary(group => group.Key, group => group.Select(comment => comment.Id).ToList());
+        var hiddenIds = new HashSet<long>();
+        var pending = new Stack<long>(comments
+            .Where(comment => comment.ParentCommentId is null && comment.IsDeleted)
+            .Select(comment => comment.Id));
+
+        while (pending.Count > 0)
+        {
+            var id = pending.Pop();
+            if (!hiddenIds.Add(id))
+            {
+                continue;
+            }
+
+            if (childrenByParent.TryGetValue(id, out var children))
+            {
+                foreach (var childId in children)
+                {
+                    pending.Push(childId);
+                }
+            }
+        }
+
+        return comments.Where(comment => !hiddenIds.Contains(comment.Id)).ToList();
     }
 
     private static CommentDto BuildTree(
@@ -338,34 +472,50 @@ public sealed class CommentService(
         int depth,
         int maxDepth,
         long? viewerUserId,
-        IReadOnlyDictionary<long, List<CommentProjection>> childrenByParent)
+        IReadOnlyDictionary<long, List<CommentProjection>> childrenByParent,
+        IReadOnlyDictionary<long, CommentProjection> commentsById)
     {
-        var dto = ToDto(comment, viewerUserId, depth);
+        var dto = ToDto(comment, viewerUserId, depth, commentsById);
         if (depth >= maxDepth || !childrenByParent.TryGetValue(comment.Id, out var children))
         {
             return dto;
         }
 
         dto.Replies = children
-            .Select(child => BuildTree(child, depth + 1, maxDepth, viewerUserId, childrenByParent))
+            .Select(child => BuildTree(child, depth + 1, maxDepth, viewerUserId, childrenByParent, commentsById))
             .ToList();
         return dto;
     }
 
-    private static CommentDto ToDto(CommentProjection comment, long? viewerUserId, int depth) => new()
+    private static CommentDto ToDto(
+        CommentProjection comment,
+        long? viewerUserId,
+        int depth,
+        IReadOnlyDictionary<long, CommentProjection>? commentsById = null)
     {
-        Id = comment.Id,
-        PostId = comment.PostId,
-        UserId = comment.UserId,
-        AuthorName = comment.AuthorName,
-        AvatarUrl = comment.AvatarUrl,
-        ParentCommentId = comment.ParentCommentId,
-        Content = comment.IsDeleted ? "Comment deleted" : comment.Content,
-        Status = comment.IsDeleted ? "deleted" : comment.Status,
-        IsDeleted = comment.IsDeleted,
-        Depth = depth,
-        IsMine = viewerUserId.HasValue && viewerUserId.Value == comment.UserId,
-        CreatedAt = comment.CreatedAt,
-        UpdatedAt = comment.UpdatedAt
-    };
+        var parent = comment.ParentCommentId is long parentId
+            && commentsById is not null
+            && commentsById.TryGetValue(parentId, out var parentComment)
+            ? parentComment
+            : null;
+
+        return new CommentDto
+        {
+            Id = comment.Id,
+            PostId = comment.PostId,
+            UserId = comment.UserId,
+            AuthorName = comment.AuthorName,
+            AvatarUrl = comment.AvatarUrl,
+            ParentCommentId = comment.ParentCommentId,
+            ReplyToDisplayName = parent?.AuthorName,
+            IsReplyToDeleted = parent?.IsDeleted == true,
+            Content = comment.IsDeleted ? "This comment has been deleted." : comment.Content,
+            Status = comment.IsDeleted ? "deleted" : comment.Status,
+            IsDeleted = comment.IsDeleted,
+            Depth = depth,
+            IsMine = viewerUserId.HasValue && viewerUserId.Value == comment.UserId,
+            CreatedAt = comment.CreatedAt,
+            UpdatedAt = comment.UpdatedAt
+        };
+    }
 }

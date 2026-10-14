@@ -9,6 +9,7 @@ public interface ICommentRepository
     Task<Comment?> GetCommentAsync(long commentId, CancellationToken cancellationToken = default);
     Task<Comment?> GetCommentForReportAsync(long commentId, CancellationToken cancellationToken = default);
     Task<Comment?> GetCommentForUpdateAsync(long commentId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Comment>> GetCommentsForUpdateAsync(long postId, CancellationToken cancellationToken = default);
     Task<CommentProjection?> GetCommentProjectionAsync(long commentId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CommentProjection>> GetVisibleCommentsAsync(long postId, CancellationToken cancellationToken = default);
     Task AddCommentAsync(Comment comment, CancellationToken cancellationToken = default);
