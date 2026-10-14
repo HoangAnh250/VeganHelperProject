@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -40,7 +41,13 @@ public sealed class PostReportTests(Member2ApiFixture fixture)
     [Fact]
     public async Task PrivateProfile_ReturnsDatabaseRoleForAdminRoutes()
     {
-        var admin = await UserAsync(2); using var client = fixture.Factory.Client(admin);
+        var admin = await UserAsync(2);
+        using var factory = fixture.Factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
+                new Dictionary<string, string?> { ["CloudflareR2:ServiceUrl"] = "" })));
+        using var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
+        using var authenticated = fixture.Factory.Client(admin);
+        client.DefaultRequestHeaders.Authorization = authenticated.DefaultRequestHeaders.Authorization;
         var response = await client.GetFromJsonAsync<JsonElement>("/api/users/me");
         Assert.Equal("admin", response.GetProperty("role").GetString());
     }
