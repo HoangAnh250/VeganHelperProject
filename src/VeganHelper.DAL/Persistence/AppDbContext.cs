@@ -42,6 +42,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Flag> Flags => Set<Flag>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
     public DbSet<UserBan> UserBans => Set<UserBan>();
+    public DbSet<UserFollow> UserFollows => Set<UserFollow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,6 +73,23 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.RoleId).HasColumnName("role_id").HasColumnType("integer").IsRequired(true);
             entity.Property(x => x.TokenVersion).HasColumnName("token_version").HasDefaultValue(0);
             entity.HasOne<Role>().WithMany().HasForeignKey(x => new { x.RoleId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_users_1");
+        });
+        modelBuilder.Entity<UserFollow>(entity =>
+        {
+            entity.ToTable("user_follows", table =>
+            {
+                table.HasCheckConstraint("CK_user_follows_no_self", "follower_id <> following_id");
+            });
+            entity.HasKey(x => x.Id).HasName("PK_user_follows");
+            entity.Property(x => x.Id).HasColumnName("id").HasColumnType("bigint").IsRequired().UseIdentityByDefaultColumn();
+            entity.Property(x => x.FollowerId).HasColumnName("follower_id").HasColumnType("bigint").IsRequired();
+            entity.Property(x => x.FollowingId).HasColumnName("following_id").HasColumnType("bigint").IsRequired();
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.FollowerId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_follows_follower");
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.FollowingId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_follows_following");
+            entity.HasIndex(x => new { x.FollowerId, x.FollowingId }).IsUnique().HasDatabaseName("UQ_user_follows_pair");
+            entity.HasIndex(x => new { x.FollowingId, x.CreatedAt, x.Id }).HasDatabaseName("IX_user_follows_following_created");
+            entity.HasIndex(x => new { x.FollowerId, x.CreatedAt, x.Id }).HasDatabaseName("IX_user_follows_follower_created");
         });
         modelBuilder.Entity<EmailVerificationToken>(entity =>
         {
