@@ -14,4 +14,5 @@ public class MyPostItemDto
     public string? CategoryName { get; set; }
     public int CategoryId { get; set; }
     public long ViewCount { get; set; }
+    public long LikeCount { get; set; }
 }

@@ -23,6 +23,23 @@ public sealed class PostRepository : IPostRepository
     {
         var entry = await _context.Posts.AddAsync(post, cancellationToken);
         _context.Set<PostModerationScan>().Add(new PostModerationScan { Post = post, Revision = post.ContentRevision });
+        await _context.SaveChangesAsync(cancellationToken);
+        if (post.Status == "published" && !post.IsDeleted)
+        {
+            // Snapshot opt-ins now: later follows/enabling never backfill old posts.
+            await _context.Database.ExecuteSqlInterpolatedAsync($"""
+                WITH audience AS MATERIALIZED (
+                    SELECT f.id, f.follower_id FROM user_follows f JOIN users u ON u.id = f.follower_id
+                    WHERE f.following_id = {post.AuthorId} AND f.notify_on_new_post
+                        AND f.follower_id <> {post.AuthorId} AND u.is_active
+                        AND u.deleted_at IS NULL AND u.email_verified_at IS NOT NULL
+                    ORDER BY f.id FOR SHARE OF f
+                )
+                INSERT INTO post_follower_notifications (post_id, follow_id, user_id, created_at)
+                SELECT {post.Id}, audience.id, audience.follower_id, {post.CreatedAt} FROM audience
+                ON CONFLICT (post_id, follow_id) DO NOTHING
+                """, cancellationToken);
+        }
         return entry.Entity;
     }
 

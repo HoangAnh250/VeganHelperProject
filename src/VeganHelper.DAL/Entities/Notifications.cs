@@ -4,6 +4,9 @@ public sealed class Notification
 {
     public long Id { get; set; }
     public long UserId { get; set; }
+    // Relationship identity is retained without an FK so inbox history survives unfollow.
+    public long? SourceFollowId { get; set; }
+    public long? SourcePostId { get; set; }
     public string EventKey { get; set; } = "";
     public string Type { get; set; } = "";
     public string Title { get; set; } = "";

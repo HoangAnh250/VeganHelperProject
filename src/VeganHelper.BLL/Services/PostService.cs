@@ -278,6 +278,8 @@ public sealed class PostService : IPostService
             request.PageSize, 
             cancellationToken);
 
+        var likeCounts = posts.Count == 0 ? new Dictionary<long, long>()
+            : await _postInteractionRepository.CountLikesForPostsAsync(posts.Select(p => p.Id).ToArray(), cancellationToken);
         var items = posts.Select(p => new MyPostItemDto
         {
             Id = p.Id,
@@ -289,7 +291,8 @@ public sealed class PostService : IPostService
             PostType = p.PostType,
             CategoryName = null,
             CategoryId = p.PostCategories.OrderBy(c => c.CategoryId).Select(c => c.CategoryId).FirstOrDefault(),
-            ViewCount = p.ViewCount
+            ViewCount = p.ViewCount,
+            LikeCount = likeCounts.GetValueOrDefault(p.Id)
         }).ToList();
 
         int totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);

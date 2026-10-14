@@ -5,13 +5,14 @@ using VeganHelper.DAL.Repositories;
 
 namespace VeganHelper.BLL.Services;
 
-public sealed class PostInteractionService(IPostInteractionRepository repository) : IPostInteractionService
+public sealed class PostInteractionService(IPostInteractionRepository repository, VeganHelper.BLL.Contracts.INotificationPublisher notifications) : IPostInteractionService
 {
     public async Task<ToggleLikeResponse> ToggleLikeAsync(
         long userId,
         long postId,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction = await repository.BeginLikeTransactionAsync(postId, cancellationToken);
         await EnsurePublishedPostAsync(postId, cancellationToken);
 
         var existingLike = await repository.FindLikeAsync(userId, postId, cancellationToken);
@@ -34,7 +35,9 @@ public sealed class PostInteractionService(IPostInteractionRepository repository
         }
 
         await repository.SaveChangesAsync(cancellationToken);
+        if (isLiked) await notifications.NotifyPostLikeAsync(userId, postId, cancellationToken);
         var likeCount = await repository.CountLikesAsync(postId, cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
 
         return new ToggleLikeResponse(postId, isLiked, likeCount);
     }

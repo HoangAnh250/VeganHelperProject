@@ -5,6 +5,7 @@ namespace VeganHelper.BLL.Contracts;
 
 public interface IFollowService
 {
+    Task<FollowStatusDto> SetNewPostNotificationsAsync(long followerId, long followingId, bool enabled, CancellationToken cancellationToken = default);
     Task<FollowStatusDto> FollowAsync(
         long followerId,
         long followingId,

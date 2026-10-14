@@ -15,10 +15,18 @@ public sealed class NotificationPushDispatcher(INotificationRepository repositor
         foreach (var delivery in rows)
         {
             ct.ThrowIfCancellationRequested();
+            // Serialize followed-post sends with preference/unfollow and visibility changes.
+            // An in-flight send finishes before a competing disable/hide operation can commit.
+            await using var sourceTransaction = delivery.Notification.Type == "followed_post"
+                ? await repository.BeginNewPostPushTransactionAsync(delivery.Notification, ct) : null;
             var state = "sent";
             string? code = null;
             var next = clock.GetUtcNow().UtcDateTime;
             if (!delivery.Subscription.IsActive || delivery.Subscription.UserId != delivery.Notification.UserId)
+                state = "cancelled";
+            else if (delivery.Notification.Type == "followed_post" &&
+                (!await repository.IsPushClaimCurrentAsync(delivery, ct) ||
+                 !await repository.NewPostPushAllowedAsync(delivery.Notification, ct)))
                 state = "cancelled";
             else
             {
@@ -43,6 +51,7 @@ public sealed class NotificationPushDispatcher(INotificationRepository repositor
                 else next = next.AddSeconds(RetryDelaySeconds(delivery.Attempts));
             }
             await repository.FinishPushAsync(delivery, state, code, next, ct);
+            if (sourceTransaction is not null) await sourceTransaction.CommitAsync(ct);
             if (state == "failed")
                 logger.LogError("Push delivery {DeliveryId} permanently failed after {Attempts} attempts; code {ErrorCode}.", delivery.Id, delivery.Attempts, code);
         }

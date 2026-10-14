@@ -1,14 +1,17 @@
 using VeganHelper.DAL.Entities;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace VeganHelper.DAL.Repositories;
 
 public interface IPostInteractionRepository
 {
+    Task<IDbContextTransaction> BeginLikeTransactionAsync(long postId, CancellationToken cancellationToken = default);
     Task<bool> IsPublishedPostAsync(long postId, CancellationToken cancellationToken = default);
 
     Task<PostLike?> FindLikeAsync(long userId, long postId, CancellationToken cancellationToken = default);
     Task AddLikeAsync(PostLike like, CancellationToken cancellationToken = default);
     void RemoveLike(PostLike like);
+    Task<Dictionary<long, long>> CountLikesForPostsAsync(long[] postIds, CancellationToken cancellationToken = default);
     Task<long> CountLikesAsync(long postId, CancellationToken cancellationToken = default);
 
     Task<SavedPost?> FindSavedPostAsync(long userId, long postId, CancellationToken cancellationToken = default);

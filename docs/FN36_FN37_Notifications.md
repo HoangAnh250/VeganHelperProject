@@ -1,8 +1,48 @@
 # FN36 / FN37 — Backend thông báo
 
-Nhánh nguồn: `codex/fn36-fn37-notifications` (commit `96b4820`). Kiến trúc: Controller → BLL service/DTO/AutoMapper → DAL repository → PostgreSQL. Đã commit local theo yêu cầu merge; nhánh tích hợp `codex/integrate-be-developer` kết hợp Sprint 2, FN14, thông báo và auth mới từ `origin/developer`. Không push hoặc áp dụng migration thông báo lên Supabase chung.
+Kiến trúc: Controller → BLL service/DTO/AutoMapper → DAL repository → PostgreSQL. FN36 lưu và gửi thông báo; FN37 quản lý trạng thái đọc và badge. Bản cập nhật social notifications làm ở BE, không sửa FE.
 
-FN36 có API nhận thông báo trong app, publisher cho comment/duyệt bài/nhắc thực đơn và worker gửi web push. FN37 hỗ trợ đọc từng thông báo, đọc tất cả và đếm badge. Các API tạo comment, duyệt bài và scheduler FN26 chưa có trong nền code này; cần nối các hook bên dưới khi những module đó được triển khai. Chỉ thêm module thông báo không tự phát sinh các sự kiện này.
+## Các sự kiện đang nối
+
+| Sự kiện | Người nhận | Type |
+| --- | --- | --- |
+| Like bài công khai | Chủ bài, trừ tự like | `post_like` |
+| Follow mới | Người được follow | `new_follower` |
+| Comment gốc visible trên bài công khai | Chủ bài, trừ tự comment | `comment` |
+| Reply visible | Tác giả comment cha, trừ tự reply | `comment_reply` |
+| Người đang follow đăng bài mới công khai | Người đã bật nhận bài mới của tác giả đó | `followed_post` |
+| Bài bị giữ để kiểm duyệt / quyết định Admin | Tác giả bài | `post_review` |
+| Admin xóa comment được chọn | Tác giả comment đó | `comment` |
+
+Reply không gửi thêm một thông báo comment cho chủ bài. Nếu chủ bài chính là tác giả comment cha thì họ nhận một thông báo reply. Comment hidden không phát thông báo lúc tạo. Unlike không phát sự kiện; unlike rồi like lại và unfollow rồi follow lại không tạo thêm thông báo cho cùng cặp user/post hoặc user/user.
+
+Nhắc thực đơn (`meal_reminder`) vẫn là hook dành cho scheduler; bản mở rộng này không bổ sung scheduler hoặc nối trạng thái `completed` của FN26 vào hook legacy `saved`.
+
+## Tùy chọn nhận bài mới theo tác giả
+
+Sau khi follow, `notifyOnNewPost` mặc định `false`. `GET /api/users/{userId}/follow-status` và response follow/unfollow trả thêm thuộc tính này cho quan hệ của người gọi với tác giả đó.
+
+```http
+PATCH /api/users/42/follow/notifications
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{ "notifyOnNewPost": true }
+```
+
+Đổi thành `false` để tắt. `userId` trong URL là tác giả được follow; người nhận được lấy từ JWT, không nhận từ body. Chưa follow trả 404; thiếu token trả 401; thiếu thuộc tính trong body trả 400. Response là FollowStatusDto có `userId`, `isFollowing`, `followersCount`, `followingCount`, `notifyOnNewPost`.
+
+Tắt chỉ ảnh hưởng bài mới của tác giả này, không unfollow, không tắt thông báo like/comment/reply, không xóa lịch sử đã nhận. Unfollow hủy các sự kiện đang chờ của quan hệ đó. Follow lại bắt đầu ở trạng thái tắt; bật sau không gửi lại bài cũ.
+
+## Giao dịch và hàng đợi bài mới
+
+Like, follow và comment lưu hành động + thông báo + push outbox trong cùng transaction. Event key cố định và unique `(user_id,event_key)` chống trùng khi retry. Quyết định kiểm duyệt và audit tiếp tục dùng transaction hiện có.
+
+Khi tạo post công khai lần đầu, BE lưu snapshot những follower hợp lệ đã bật nhận vào `post_follower_notifications` cùng transaction tạo post. Sửa bài hoặc duyệt lại không tạo thêm sự kiện. Hosted worker chạy mỗi 10 giây, xử lý tối đa 20 người nhận một đợt; hoạt động cả khi WebPush/Gemini tắt. Nhiều máy cùng chạy BE vẫn chia việc qua khóa PostgreSQL và `SKIP LOCKED`; crash trước commit để lại hàng đợi cho lần sau.
+
+Worker kiểm tra lại quan hệ, tùy chọn, tài khoản và trạng thái bài trước khi phát. Khi bài mất trạng thái công khai hoặc bị xóa mềm, trigger PostgreSQL hủy các hàng đợi và push chưa gửi trong cùng transaction; duyệt lại không làm sống lại các thông báo đã hủy. Lịch sử inbox giữ nguyên. Push kiểm tra lại lease và nguồn trước khi gửi; thay đổi tùy chọn/ẩn bài có thể chờ một lần gửi đang diễn ra (HTTP timeout 15 giây). Push đã gửi tới nhà cung cấp không thể thu hồi.
+
+Migration `20261014060145_AddSocialNotifications` thêm cột preference, source IDs, bảng hàng đợi và trigger hủy; không xóa dữ liệu nghiệp vụ. Bảng hàng đợi bật RLS, thu hồi quyền PUBLIC/anon/authenticated. Không rollback migration nếu đã có lịch sử thông báo social mà chưa xuất và xem xét dữ liệu.
 
 ## API cho FE
 
@@ -33,7 +73,7 @@ Một item trong danh sách:
 }
 ```
 
-Response phân trang dùng `PagedResult<NotificationDto>` hiện có: `items`, `pageIndex`, `pageSize`, `totalItems`, `totalCount`, `totalPages`. `type` gồm `comment`, `post_review`, `meal_reminder`. Không trả userId, eventKey, khóa push hoặc endpoint của trình duyệt trong danh sách.
+Response phân trang dùng `PagedResult<NotificationDto>` hiện có: `items`, `pageIndex`, `pageSize`, `totalItems`, `totalCount`, `totalPages`. `type` gồm `comment`, `comment_reply`, `post_like`, `new_follower`, `followed_post`, `post_review`, `meal_reminder`. Không trả userId, eventKey, khóa push hoặc endpoint của trình duyệt trong danh sách.
 
 Gọi đọc lại không thay đổi readAt lần đầu. ID không tồn tại hoặc thuộc tài khoản khác đều trả 404. Read-all chỉ áp dụng cho các thông báo đến ranh giới lúc bắt đầu thao tác; nếu có thông báo mới sau đó thì unreadCount có thể lớn hơn 0. FE dùng unreadCount trong response để cập nhật badge.
 
@@ -108,11 +148,11 @@ await publisher.NotifyPostReviewAsync(postId, cancellationToken);
 await publisher.NotifyMealReminderAsync(scheduleId, localDate, cancellationToken);
 ```
 
-- Comment: gọi sau khi comment được lưu/commit; chỉ comment visible trên bài published, chưa xóa. Chủ bài tự comment không nhận thông báo. Dedup bằng commentId.
+- Comment: CreateCommentAsync đã gọi sau SaveChanges và trước commit; chỉ comment visible trên bài published, chưa xóa. Chủ bài tự comment không nhận thông báo. Dedup bằng commentId.
 - Duyệt bài: gọi khi quyết định duyệt/từ chối được lưu/commit; bài published/rejected cần UpdatedAt. Không gọi hook khi chỉ đọc/sửa thông tin bài. Dedup bằng postId/status/UpdatedAt của quyết định.
 - Nhắc thực đơn: scheduler FN26 gọi với ngày tại múi giờ của người dùng. Hiện quy ước DayOfWeek ISO 1=Thứ Hai, 7=Chủ Nhật; chỉ plan saved, có owner, không template và ngày nằm trong StartDate/EndDate. Dedup bằng scheduleId/ngày. Scheduler/thời điểm nhắc chưa được bổ sung ở task này.
 
-Nếu module nguồn cần bảo đảm không mất sự kiện khi process chết ngay sau commit, module đó phải lưu sự kiện vào outbox của nó trong cùng transaction rồi gọi publisher bằng job retry. Transaction của publisher bảo đảm notification và các delivery được lưu cùng nhau; nó **không** bao phủ transaction lưu comment/quyết định duyệt/thực đơn. Không gọi publisher khi vẫn đang mở transaction trên cùng DbContext.
+Nếu module nguồn cần bảo đảm không mất sự kiện khi process chết ngay sau commit, module đó phải lưu sự kiện vào outbox của nó trong cùng transaction rồi gọi publisher bằng job retry. Transaction của publisher bảo đảm notification và các delivery được lưu cùng nhau; khi có ambient transaction của module nguồn, publisher tham gia transaction đó. Publisher tham gia transaction đang mở trên cùng DbContext; module nguồn gọi trước commit để lưu thông báo nguyên tử với hành động.
 
 ## Worker và FE web push
 
@@ -132,7 +172,9 @@ FE redesign hiện chưa nối module này. Cần:
 
 Unit test kiểm tra DTO mapping, ownership, endpoint/key validation, publisher và trạng thái retry. Integration test dùng PostgreSQL thật, migration, HTTP/JWT, dedup đồng thời, read idempotency, đổi tài khoản sau unsubscribe, lease recovery/final failure, quyền bảng, VAPID/mã hóa và lưu job Hangfire. HTTP push được thay bằng handler test, không gửi ra dịch vụ bên ngoài.
 
-Kết quả local: **91 unit test và 68 integration test đạt, không có test skipped**. TRX nằm trong `.local-data/fn36-fn37/test-results` (unit và lần integration với locale C) và `.local-data/fn36-fn37/test-results-icu` (integration đạt với ICU), đều được gitignore.
+Kết quả ngày 2026-10-14: **241 unit test và 292 integration test đạt, không skipped**. API build: 0 warning, 0 error. Đã áp dụng `20261014060145_AddSocialNotifications` lên Supabase project `brjltkherhhqqkryhsuq` sau khi được phép; BE khởi động và Swagger/API status trả HTTP 200. Code đang là thay đổi local chưa commit/push trên `developer` tại thư mục D:.
+
+Các test mới bao phủ like/unlike/re-like, concurrent like/follow, root/reply recipient, hidden comment, quyền công tắc, no backfill/edit events, audience capture cạnh tranh với tắt, batch/concurrent workers, hide→approve khi worker đã claim, in-flight push, rollback nguyên tử và RLS. HTTP push trong test được thay bằng mock, không gửi đến nhà cung cấp thật.
 
 Test chỉ chấp nhận database local có tên bắt đầu bằng `member2_test` hoặc `veganhelper_test`; không dùng Supabase chung. PostgreSQL test cần locale Unicode (ví dụ ICU en-US); locale `C` của bản portable Windows không hỗ trợ case-fold tiếng Việt và làm các test tìm kiếm/dị ứng cũ thất bại.
 
@@ -142,4 +184,4 @@ $env:VEGANHELPER_TEST_POSTGRES='Host=127.0.0.1;Port=55439;Database=veganhelper_t
 dotnet test VeganHelper.sln --logger trx --results-directory .local-data/fn36-fn37/test-results
 ```
 
-Các port/database ở ví dụ là môi trường kiểm tra của task, không phải cấu hình BE hằng ngày. Test engine phải đang chạy trước khi dùng các biến này. Chưa kiểm chứng push thật trên trình duyệt, triển khai worker hoặc migration trên Supabase chung.
+Các port/database ở ví dụ là môi trường kiểm tra của task, không phải cấu hình BE hằng ngày. Test engine phải đang chạy trước khi dùng các biến này. Chưa kiểm chứng push thật trên trình duyệt vì FE nằm ngoài phạm vi và WebPush/VAPID vẫn cần cấu hình. In-app notifications hoạt động độc lập với browser push.

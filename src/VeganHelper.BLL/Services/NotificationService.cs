@@ -56,10 +56,31 @@ public sealed class NotificationService(INotificationRepository repository, IMap
         return new(id);
     }
     public Task<bool> UnsubscribeAsync(long userId, long id, CancellationToken ct) => repository.UnsubscribeAsync(userId, id, ct);
+    public async Task<long?> NotifyPostLikeAsync(long actorId, long postId, CancellationToken ct = default)
+    {
+        var source = await repository.LikeSourceAsync(actorId, postId, ct);
+        if (source is null || source.AuthorId == actorId) return null;
+        return await Publish(source.AuthorId, $"like:{postId}:{actorId}", "post_like", "New like",
+            "Someone liked your post.", $"/posts/{postId}", ct);
+    }
+    public async Task<long?> NotifyFollowAsync(long followerId, long followingId, CancellationToken ct = default)
+    {
+        if (followerId == followingId || !await repository.FollowExistsAsync(followerId, followingId, ct)) return null;
+        // Pair-based key prevents unfollow/refollow from spamming the same recipient.
+        return await Publish(followingId, $"follow:{followerId}:{followingId}", "new_follower", "New follower",
+            "Someone started following you.", $"/users/{followerId}", ct);
+    }
     public async Task<long?> NotifyCommentAsync(long commentId, CancellationToken ct = default)
     {
         var source = await repository.CommentSourceAsync(commentId, ct);
-        if (source is null || source.AuthorId == source.CommenterId) return null;
+        if (source is null) return null;
+        if (source.ParentCommentId.HasValue)
+        {
+            if (source.ReplyRecipientId is not long recipient || recipient == source.CommenterId) return null;
+            return await Publish(recipient, $"reply:{commentId}", "comment_reply", "New reply",
+                "Someone replied to your comment.", $"/posts/{source.PostId}", ct);
+        }
+        if (source.AuthorId == source.CommenterId) return null;
         return await Publish(source.AuthorId, $"comment:{commentId}", "comment", "New comment",
          "Someone commented on your post.", $"/posts/{source.PostId}", ct);
     }

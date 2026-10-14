@@ -78,6 +78,7 @@ public sealed class CommentService(
             CreatedAt = DateTime.UtcNow
         };
 
+        await using var transaction = await repository.BeginTransactionAsync(cancellationToken);
         await repository.AddCommentAsync(comment, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
@@ -87,6 +88,9 @@ public sealed class CommentService(
             throw new InvalidOperationException("The comment was saved but could not be loaded.");
         }
 
+        if (comment.Status == "visible")
+            await notifications.NotifyCommentAsync(comment.Id, cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return ToDto(projection, userId, depth);
     }
 

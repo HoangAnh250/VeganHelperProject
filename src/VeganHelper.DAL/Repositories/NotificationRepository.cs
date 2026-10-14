@@ -6,6 +6,35 @@ namespace VeganHelper.DAL.Repositories;
 
 public sealed class NotificationRepository(AppDbContext db) : INotificationRepository
 {
+    public Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> BeginFanoutTransactionAsync(CancellationToken ct) =>
+        db.Database.BeginTransactionAsync(ct);
+    public Task LockFanoutPostsAsync(long[] postIds, CancellationToken ct) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM posts WHERE id = ANY({postIds}) ORDER BY id FOR SHARE", ct);
+    public async Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> BeginNewPostPushTransactionAsync(Notification n, CancellationToken ct)
+    {
+        var tx = await db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM user_follows WHERE id = {n.SourceFollowId} FOR UPDATE", ct);
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM posts WHERE id = {n.SourcePostId} FOR SHARE", ct);
+            return tx;
+        }
+        catch { await tx.DisposeAsync(); throw; }
+    }
+    public Task<bool> IsPushClaimCurrentAsync(NotificationPushDelivery d, CancellationToken ct) =>
+        db.Set<NotificationPushDelivery>().AnyAsync(current => current.Id == d.Id && current.State == "processing"
+            && current.LeaseToken == d.LeaseToken && current.Subscription.IsActive
+            && current.Subscription.UserId == d.Notification.UserId, ct);
+    public Task<List<PostFollowerNotification>> PendingFollowerPostsAsync(CancellationToken ct) =>
+        db.Set<PostFollowerNotification>().FromSqlRaw("""
+            SELECT q.* FROM post_follower_notifications q
+            JOIN user_follows f ON f.id = q.follow_id
+            ORDER BY q.id LIMIT 20 FOR UPDATE OF f SKIP LOCKED
+            """).AsNoTracking().ToListAsync(ct);
+    public Task<bool> FollowerPostPendingAsync(long id, CancellationToken ct) =>
+        db.Set<PostFollowerNotification>().AnyAsync(n => n.Id == id, ct);
+    public Task RemoveFollowerPostAsync(long id, CancellationToken ct) =>
+        db.Set<PostFollowerNotification>().Where(n => n.Id == id).ExecuteDeleteAsync(ct);
     public async Task<(int Count, List<Notification> Items)> ListAsync(long userId, int page, int size, bool unreadOnly, CancellationToken ct)
     {
         var query = db.Set<Notification>().AsNoTracking().Where(n => n.UserId == userId);
@@ -84,11 +113,30 @@ public sealed class NotificationRepository(AppDbContext db) : INotificationRepos
          join post in db.Posts on decision.PostId equals post.Id
          where decision.Id == id
          select new ModerationNotificationSource(post.AuthorId, post.Id, decision.Action, decision.Reason)).SingleOrDefaultAsync(ct);
+    public Task<LikeNotificationSource?> LikeSourceAsync(long actorId, long postId, CancellationToken ct) =>
+        (from like in db.PostLikes.AsNoTracking()
+         join post in db.Posts on like.PostId equals post.Id
+         where like.UserId == actorId && post.Id == postId && !post.IsDeleted && post.Status == "published"
+         select new LikeNotificationSource(post.AuthorId, actorId, post.Id)).SingleOrDefaultAsync(ct);
+    public Task<bool> FollowExistsAsync(long followerId, long followingId, CancellationToken ct) =>
+        db.UserFollows.AnyAsync(f => f.FollowerId == followerId && f.FollowingId == followingId, ct);
+    public Task<bool> NewPostPushAllowedAsync(Notification n, CancellationToken ct) =>
+        (from follow in db.UserFollows
+         join post in db.Posts on follow.FollowingId equals post.AuthorId
+         join user in db.Users on follow.FollowerId equals user.Id
+         join author in db.Users on follow.FollowingId equals author.Id
+         where follow.Id == n.SourceFollowId && follow.FollowerId == n.UserId && follow.NotifyOnNewPost
+             && post.Id == n.SourcePostId && !post.IsDeleted && post.Status == "published"
+             && user.IsActive && user.DeletedAt == null && user.EmailVerifiedAt != null
+             && author.IsActive && author.DeletedAt == null && author.EmailVerifiedAt != null
+         select follow.Id).AnyAsync(ct);
     public Task<CommentNotificationSource?> CommentSourceAsync(long id, CancellationToken ct) =>
      (from comment in db.Comments.AsNoTracking()
       join post in db.Posts on comment.PostId equals post.Id
       where comment.Id == id && !comment.IsDeleted && comment.Status == "visible" && !post.IsDeleted && post.Status == "published"
-      select new CommentNotificationSource(post.AuthorId, comment.UserId, post.Id)).SingleOrDefaultAsync(ct);
+      select new CommentNotificationSource(post.AuthorId, comment.UserId, post.Id, comment.ParentCommentId,
+          db.Comments.Where(parent => parent.Id == comment.ParentCommentId && parent.PostId == post.Id
+              && !parent.IsDeleted && parent.Status == "visible").Select(parent => (long?)parent.UserId).FirstOrDefault())).SingleOrDefaultAsync(ct);
     public Task<Post?> ReviewedPostAsync(long id, CancellationToken ct) =>
      db.Posts.AsNoTracking().SingleOrDefaultAsync(p => p.Id == id && !p.IsDeleted && (p.Status == "published" || p.Status == "rejected"), ct);
     public Task<MealReminderSource?> MealSourceAsync(long scheduleId, CancellationToken ct) =>
@@ -121,7 +169,7 @@ public sealed class NotificationRepository(AppDbContext db) : INotificationRepos
     }
     public async Task FinishPushAsync(NotificationPushDelivery delivery, string state, string? error, DateTime nextAttempt, CancellationToken ct)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(ct) : null;
         var changed = await db.Set<NotificationPushDelivery>()
          .Where(d => d.Id == delivery.Id && d.LeaseToken == delivery.LeaseToken && d.State == "processing")
          .ExecuteUpdateAsync(u => u.SetProperty(d => d.State, state).SetProperty(d => d.LastErrorCode, error)
@@ -131,6 +179,6 @@ public sealed class NotificationRepository(AppDbContext db) : INotificationRepos
             await db.Set<BrowserPushSubscription>()
              .Where(s => s.Id == delivery.SubscriptionId && s.UpdatedAt == delivery.Subscription.UpdatedAt)
              .ExecuteUpdateAsync(u => u.SetProperty(s => s.IsActive, false), ct);
-        await tx.CommitAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
     }
 }

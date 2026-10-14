@@ -10,12 +10,16 @@ internal static class NotificationModelConfiguration
         {
             e.ToTable("notifications", t =>
             {
-                t.HasCheckConstraint("CK_notifications_type", "type IN ('comment','post_review','meal_reminder')");
+                t.HasCheckConstraint("CK_notifications_type", "type IN ('comment','comment_reply','post_like','new_follower','followed_post','post_review','meal_reminder')");
                 t.HasCheckConstraint("CK_notifications_read", "is_read = (read_at IS NOT NULL)");
             });
             e.HasKey(n => n.Id);
             e.Property(n => n.Id).HasColumnName("id").UseIdentityByDefaultColumn();
             e.Property(n => n.UserId).HasColumnName("user_id");
+            e.Property(n => n.SourceFollowId).HasColumnName("source_follow_id");
+            e.Property(n => n.SourcePostId).HasColumnName("source_post_id");
+            e.HasIndex(n => n.SourceFollowId);
+            e.HasIndex(n => n.SourcePostId);
             e.Property(n => n.EventKey).HasColumnName("event_key").HasMaxLength(200).IsRequired();
             e.Property(n => n.Type).HasColumnName("type").HasMaxLength(30).IsRequired();
             e.Property(n => n.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
@@ -28,6 +32,21 @@ internal static class NotificationModelConfiguration
             e.HasIndex(n => new { n.UserId, n.EventKey }).IsUnique();
             e.HasIndex(n => new { n.UserId, n.CreatedAt, n.Id });
             e.HasIndex(n => n.UserId).HasFilter("is_read = false");
+        });
+        builder.Entity<PostFollowerNotification>(e =>
+        {
+            e.ToTable("post_follower_notifications");
+            e.HasKey(n => n.Id);
+            e.Property(n => n.Id).HasColumnName("id").UseIdentityByDefaultColumn();
+            e.Property(n => n.PostId).HasColumnName("post_id");
+            e.Property(n => n.FollowId).HasColumnName("follow_id");
+            e.Property(n => n.UserId).HasColumnName("user_id");
+            e.Property(n => n.CreatedAt).HasColumnName("created_at");
+            e.HasOne<Post>().WithMany().HasForeignKey(n => n.PostId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<UserFollow>().WithMany().HasForeignKey(n => n.FollowId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(n => new { n.PostId, n.FollowId }).IsUnique();
+            e.HasIndex(n => new { n.FollowId, n.Id });
         });
         builder.Entity<BrowserPushSubscription>(e =>
         {

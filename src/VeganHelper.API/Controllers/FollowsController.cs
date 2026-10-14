@@ -35,6 +35,16 @@ public sealed class FollowsController(IFollowService service) : ControllerBase
         return Ok(await service.UnfollowAsync(currentUserId, userId, cancellationToken));
     }
 
+    [HttpPatch("{userId:long:min(1)}/follow/notifications")]
+    [ProducesResponseType(typeof(FollowStatusDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetNotifications(long userId, [FromBody] UpdateFollowNotificationsRequest request, CancellationToken cancellationToken)
+    {
+        if (GetUserId() is not long currentUserId) return Unauthorized();
+        return Ok(await service.SetNewPostNotificationsAsync(currentUserId, userId, request.NotifyOnNewPost, cancellationToken));
+    }
+
     [HttpGet("{userId:long:min(1)}/follow-status")]
     [ProducesResponseType(typeof(FollowStatusDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

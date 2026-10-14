@@ -105,7 +105,7 @@ public sealed class Sprint2ContentInteractionTests
         repository.Setup(x => x.GetSavedPostsAsync(3, 1, 10, It.IsAny<CancellationToken>()))
             .ReturnsAsync((1L, projections));
 
-        var service = new PostInteractionService(repository.Object);
+        var service = new PostInteractionService(repository.Object, Mock.Of<VeganHelper.BLL.Contracts.INotificationPublisher>());
         var result = await service.GetSavedPostsAsync(3, 0, 10, CancellationToken.None);
 
         Assert.Single(result.Items);
@@ -172,7 +172,7 @@ public sealed class Sprint2ContentInteractionTests
         repository.Setup(x => x.FindLikeAsync(1, 10, It.IsAny<CancellationToken>())).ReturnsAsync((PostLike?)null);
         repository.Setup(x => x.CountLikesAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(4);
 
-        var service = new PostInteractionService(repository.Object);
+        var service = new PostInteractionService(repository.Object, Mock.Of<VeganHelper.BLL.Contracts.INotificationPublisher>());
         var result = await service.ToggleLikeAsync(1, 10);
 
         Assert.True(result.IsLiked);
@@ -191,7 +191,7 @@ public sealed class Sprint2ContentInteractionTests
         repository.Setup(x => x.IsPublishedPostAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
         repository.Setup(x => x.FindSavedPostAsync(1, 10, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
 
-        var service = new PostInteractionService(repository.Object);
+        var service = new PostInteractionService(repository.Object, Mock.Of<VeganHelper.BLL.Contracts.INotificationPublisher>());
         var result = await service.ToggleSaveAsync(1, 10);
 
         Assert.False(result.IsSaved);

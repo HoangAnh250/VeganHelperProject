@@ -6,6 +6,16 @@ namespace VeganHelper.DAL.Repositories;
 
 public sealed class PostInteractionRepository(AppDbContext context) : IPostInteractionRepository
 {
+    public async Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> BeginLikeTransactionAsync(long postId, CancellationToken cancellationToken = default)
+    {
+        var tx = await context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await context.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM posts WHERE id = {postId} FOR UPDATE", cancellationToken);
+            return tx;
+        }
+        catch { await tx.DisposeAsync(); throw; }
+    }
     public Task<bool> IsPublishedPostAsync(long postId, CancellationToken cancellationToken = default) =>
         context.Posts.AnyAsync(
             post => post.Id == postId && post.Status == "published" && !post.IsDeleted,
@@ -20,6 +30,12 @@ public sealed class PostInteractionRepository(AppDbContext context) : IPostInter
         context.PostLikes.AddAsync(like, cancellationToken).AsTask();
 
     public void RemoveLike(PostLike like) => context.PostLikes.Remove(like);
+
+    public Task<Dictionary<long, long>> CountLikesForPostsAsync(long[] postIds, CancellationToken cancellationToken = default) =>
+        context.PostLikes.AsNoTracking().Where(like => postIds.Contains(like.PostId))
+            .GroupBy(like => like.PostId)
+            .Select(group => new { PostId = group.Key, Count = group.LongCount() })
+            .ToDictionaryAsync(item => item.PostId, item => item.Count, cancellationToken);
 
     public Task<long> CountLikesAsync(long postId, CancellationToken cancellationToken = default) =>
         context.PostLikes.LongCountAsync(like => like.PostId == postId, cancellationToken);

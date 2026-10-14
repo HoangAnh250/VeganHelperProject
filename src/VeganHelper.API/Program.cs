@@ -182,6 +182,9 @@ builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
 builder.Services.AddScoped<INotificationPublisher>(sp => sp.GetRequiredService<NotificationService>());
 builder.Services.AddScoped<NotificationPushDispatcher>();
+builder.Services.AddScoped<FollowerPostNotificationDispatcher>();
+if (!builder.Environment.IsEnvironment("Testing"))
+    builder.Services.AddHostedService<FollowerPostNotificationWorker>();
 builder.Services.AddScoped<NotificationPushJob>();
 builder.Services.AddSingleton<IValidateOptions<WebPushSettings>, WebPushOptionsValidator>();
 builder.Services.AddOptions<WebPushSettings>().BindConfiguration("WebPush").ValidateOnStart();

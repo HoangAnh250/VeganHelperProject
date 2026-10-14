@@ -85,6 +85,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.Id).HasColumnName("id").HasColumnType("bigint").IsRequired().UseIdentityByDefaultColumn();
             entity.Property(x => x.FollowerId).HasColumnName("follower_id").HasColumnType("bigint").IsRequired();
             entity.Property(x => x.FollowingId).HasColumnName("following_id").HasColumnType("bigint").IsRequired();
+            entity.Property(x => x.NotifyOnNewPost).HasColumnName("notify_on_new_post").HasDefaultValue(false);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasOne<User>().WithMany().HasForeignKey(x => x.FollowerId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_follows_follower");
             entity.HasOne<User>().WithMany().HasForeignKey(x => x.FollowingId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_follows_following");

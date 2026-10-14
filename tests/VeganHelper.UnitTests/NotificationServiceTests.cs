@@ -106,6 +106,32 @@ public sealed class NotificationServiceTests
         await service.DispatchAsync(default);
         repository.Verify(r => r.FinishPushAsync(delivery, expected, It.IsAny<string?>(), It.IsAny<DateTime>(), default), Times.Once);
     }
+    [Theory]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    public async Task FollowedPostPush_RechecksClaimAndEligibilityBeforeSending(bool currentClaim, bool allowed, bool shouldSend)
+    {
+        var delivery = new NotificationPushDelivery
+        {
+            Id = 1, Attempts = 1,
+            Notification = new Notification { UserId = 7, Type = "followed_post", SourceFollowId = 4, SourcePostId = 2 },
+            Subscription = new BrowserPushSubscription { UserId = 7, IsActive = true }
+        };
+        var tx = new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>();
+        repository.Setup(r => r.ClaimPushAsync(It.IsAny<DateTime>(), It.IsAny<Guid>(), default)).ReturnsAsync([delivery]);
+        repository.Setup(r => r.BeginNewPostPushTransactionAsync(delivery.Notification, default)).ReturnsAsync(tx.Object);
+        repository.Setup(r => r.IsPushClaimCurrentAsync(delivery, default)).ReturnsAsync(currentClaim);
+        repository.Setup(r => r.NewPostPushAllowedAsync(delivery.Notification, default)).ReturnsAsync(allowed);
+        var transport = new Mock<IWebPushTransport>();
+        transport.Setup(t => t.SendAsync(delivery.Subscription, delivery.Notification, It.IsAny<WebPushSettings>(), default)).ReturnsAsync(201);
+        await new NotificationPushDispatcher(repository.Object, transport.Object, Options.Create(new WebPushSettings { Enabled = true }),
+            TimeProvider.System, NullLogger<NotificationPushDispatcher>.Instance).DispatchAsync(default);
+        transport.Verify(t => t.SendAsync(It.IsAny<BrowserPushSubscription>(), It.IsAny<Notification>(), It.IsAny<WebPushSettings>(), default), shouldSend ? Times.Once() : Times.Never());
+        repository.Verify(r => r.FinishPushAsync(delivery, shouldSend ? "sent" : "cancelled", It.IsAny<string?>(), It.IsAny<DateTime>(), default), Times.Once);
+        tx.Verify(t => t.CommitAsync(default), Times.Once);
+    }
+
     [Fact]
     public async Task CancelledDispatch_DoesNotAcknowledgeOrHideCancellation()
     {

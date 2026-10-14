@@ -1,9 +1,12 @@
 using VeganHelper.DAL.Entities;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace VeganHelper.DAL.Repositories;
 
 public interface IFollowRepository
 {
+    Task<IDbContextTransaction> BeginTransactionAsync(long followerId, long followingId, CancellationToken cancellationToken = default);
+    Task CancelNewPostDeliveriesAsync(long followId, CancellationToken cancellationToken = default);
     Task<bool> IsEligibleUserAsync(long userId, CancellationToken cancellationToken = default);
     Task<UserFollow?> FindAsync(long followerId, long followingId, CancellationToken cancellationToken = default);
     Task AddAsync(UserFollow follow, CancellationToken cancellationToken = default);

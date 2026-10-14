@@ -15,7 +15,7 @@ public sealed class FollowServiceTests
         repository.Setup(x => x.IsEligibleUserAsync(7, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            new FollowService(repository.Object).FollowAsync(7, 7));
+            new FollowService(repository.Object, Mock.Of<VeganHelper.BLL.Contracts.INotificationPublisher>()).FollowAsync(7, 7));
 
         repository.Verify(x => x.FindAsync(It.IsAny<long>(), It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
         repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -29,7 +29,7 @@ public sealed class FollowServiceTests
         repository.Setup(x => x.IsEligibleUserAsync(8, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            new FollowService(repository.Object).FollowAsync(7, 8));
+            new FollowService(repository.Object, Mock.Of<VeganHelper.BLL.Contracts.INotificationPublisher>()).FollowAsync(7, 8));
 
         repository.Verify(x => x.AddAsync(It.IsAny<UserFollow>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -44,7 +44,7 @@ public sealed class FollowServiceTests
             .ReturnsAsync(new UserFollow { FollowerId = 7, FollowingId = 8 });
 
         await Assert.ThrowsAsync<ConflictException>(() =>
-            new FollowService(repository.Object).FollowAsync(7, 8));
+            new FollowService(repository.Object, Mock.Of<VeganHelper.BLL.Contracts.INotificationPublisher>()).FollowAsync(7, 8));
 
         repository.Verify(x => x.AddAsync(It.IsAny<UserFollow>(), It.IsAny<CancellationToken>()), Times.Never);
         repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -62,7 +62,7 @@ public sealed class FollowServiceTests
         repository.Setup(x => x.CountFollowersAsync(8, It.IsAny<CancellationToken>())).ReturnsAsync(4);
         repository.Setup(x => x.CountFollowingAsync(8, It.IsAny<CancellationToken>())).ReturnsAsync(3);
 
-        var result = await new FollowService(repository.Object).FollowAsync(7, 8);
+        var result = await new FollowService(repository.Object, Mock.Of<VeganHelper.BLL.Contracts.INotificationPublisher>()).FollowAsync(7, 8);
 
         Assert.True(result.IsFollowing);
         Assert.Equal(8, result.UserId);
@@ -84,7 +84,7 @@ public sealed class FollowServiceTests
             .ReturnsAsync((UserFollow?)null);
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            new FollowService(repository.Object).UnfollowAsync(7, 8));
+            new FollowService(repository.Object, Mock.Of<VeganHelper.BLL.Contracts.INotificationPublisher>()).UnfollowAsync(7, 8));
 
         repository.Verify(x => x.Remove(It.IsAny<UserFollow>()), Times.Never);
         repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -103,7 +103,7 @@ public sealed class FollowServiceTests
         repository.Setup(x => x.CountFollowersAsync(8, It.IsAny<CancellationToken>())).ReturnsAsync(3);
         repository.Setup(x => x.CountFollowingAsync(8, It.IsAny<CancellationToken>())).ReturnsAsync(2);
 
-        var result = await new FollowService(repository.Object).UnfollowAsync(7, 8);
+        var result = await new FollowService(repository.Object, Mock.Of<VeganHelper.BLL.Contracts.INotificationPublisher>()).UnfollowAsync(7, 8);
 
         Assert.False(result.IsFollowing);
         Assert.Equal(3, result.FollowersCount);
@@ -122,7 +122,7 @@ public sealed class FollowServiceTests
                 new() { Id = 7, Username = "tofu_user", DisplayName = "Tofu User", FollowedAt = new DateTime(2026, 1, 1) }
             }));
 
-        var result = await new FollowService(repository.Object).GetFollowersAsync(8, 0, 100);
+        var result = await new FollowService(repository.Object, Mock.Of<VeganHelper.BLL.Contracts.INotificationPublisher>()).GetFollowersAsync(8, 0, 100);
 
         Assert.Equal(1, result.PageIndex);
         Assert.Equal(50, result.PageSize);

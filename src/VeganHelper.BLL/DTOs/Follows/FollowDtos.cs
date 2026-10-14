@@ -4,7 +4,10 @@ public sealed record FollowStatusDto(
     long UserId,
     bool IsFollowing,
     long FollowersCount,
-    long FollowingCount);
+    long FollowingCount,
+    bool NotifyOnNewPost = false);
+
+public sealed record UpdateFollowNotificationsRequest([property: System.Text.Json.Serialization.JsonRequired] bool NotifyOnNewPost);
 
 public sealed record FollowUserDto(
     long Id,

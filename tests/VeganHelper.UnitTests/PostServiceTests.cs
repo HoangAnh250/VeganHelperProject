@@ -320,24 +320,30 @@ public class PostServiceTests
                 Status = "published",
                 CreatedAt = DateTime.UtcNow,
                 Media = new List<PostMedia> { new PostMedia { MediaUrl = "thumb.jpg", IsPrimary = true } }
-            }
+            },
+            new Post { Id = 2, Title = "Unliked post", Status = "pending_review", CreatedAt = DateTime.UtcNow }
         };
 
         _mockGetMyPostsValidator.Setup(v => v.ValidateAsync(It.IsAny<IValidationContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ValidationResult());
 
         _mockPostRepository.Setup(r => r.GetMyPostsAsync(authorId, null, 1, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((posts, 1));
+            .ReturnsAsync((posts, 2));
+        _mockPostInteractionRepository.Setup(r => r.CountLikesForPostsAsync(It.Is<long[]>(ids => ids.SequenceEqual(new long[] { 1, 2 })), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<long, long> { [1] = 17 });
 
         // Act
         var result = await _postService.GetMyPostsAsync(authorId, request);
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.TotalCount);
-        Assert.Single(result.Items);
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(2, result.Items.Count());
         Assert.Equal("Test Post", result.Items.First().Title);
         Assert.Equal("thumb.jpg", result.Items.First().ThumbnailUrl);
+        Assert.Equal(17, result.Items.First().LikeCount);
+        Assert.Equal(0, result.Items.Last().LikeCount);
+        _mockPostInteractionRepository.Verify(r => r.CountLikesForPostsAsync(It.IsAny<long[]>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.Equal(1, result.TotalPages);
     }
 

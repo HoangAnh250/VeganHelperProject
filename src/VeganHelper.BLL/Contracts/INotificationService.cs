@@ -13,6 +13,8 @@ public interface INotificationService
 }
 public interface INotificationPublisher
 {
+    Task<long?> NotifyPostLikeAsync(long actorId, long postId, CancellationToken ct = default);
+    Task<long?> NotifyFollowAsync(long followerId, long followingId, CancellationToken ct = default);
     Task<long?> NotifyModerationHoldAsync(long postId, long authorId, int revision, string reason, CancellationToken ct = default);
     Task<long?> NotifyModerationDecisionAsync(long decisionId, CancellationToken ct = default);
     Task<long?> NotifyCommentAsync(long commentId, CancellationToken ct = default);

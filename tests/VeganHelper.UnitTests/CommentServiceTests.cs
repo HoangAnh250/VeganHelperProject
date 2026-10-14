@@ -44,7 +44,8 @@ public sealed class CommentServiceTests
                 AuthorName = "Member"
             });
 
-        var service = CreateService(repository);
+        var notifications = new Mock<INotificationPublisher>();
+        var service = CreateService(repository, notifications);
         var result = await service.CreateCommentAsync(10, 7, new CreateCommentRequest
         {
             Content = "  A useful comment  "
@@ -53,6 +54,7 @@ public sealed class CommentServiceTests
         Assert.Equal(100, result.Id);
         Assert.Equal(1, result.Depth);
         Assert.Equal("visible", result.Status);
+        notifications.Verify(x => x.NotifyCommentAsync(100, It.IsAny<CancellationToken>()), Times.Once);
         repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

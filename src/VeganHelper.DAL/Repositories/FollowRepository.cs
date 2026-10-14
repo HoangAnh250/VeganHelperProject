@@ -6,6 +6,26 @@ namespace VeganHelper.DAL.Repositories;
 
 public sealed class FollowRepository(AppDbContext context) : IFollowRepository
 {
+    public async Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> BeginTransactionAsync(long followerId, long followingId, CancellationToken cancellationToken = default)
+    {
+        var tx = await context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var key = $"follow:{followerId}:{followingId}";
+            await context.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", cancellationToken);
+            await context.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM user_follows WHERE follower_id = {followerId} AND following_id = {followingId} FOR UPDATE", cancellationToken);
+            return tx;
+        }
+        catch { await tx.DisposeAsync(); throw; }
+    }
+    public async Task CancelNewPostDeliveriesAsync(long followId, CancellationToken cancellationToken = default)
+    {
+        // Preserve inbox history; discard pending fan-out and browser delivery for this relationship.
+        await context.Set<PostFollowerNotification>().Where(n => n.FollowId == followId).ExecuteDeleteAsync(cancellationToken);
+        await context.Set<NotificationPushDelivery>().Where(d => d.Notification.SourceFollowId == followId
+            && (d.State == "pending" || d.State == "processing"))
+            .ExecuteUpdateAsync(u => u.SetProperty(d => d.State, "cancelled"), cancellationToken);
+    }
     public Task<bool> IsEligibleUserAsync(long userId, CancellationToken cancellationToken = default) =>
         context.Users.AnyAsync(
             user => user.Id == userId

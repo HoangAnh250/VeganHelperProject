@@ -7,7 +7,7 @@ using VeganHelper.DAL.Repositories;
 
 namespace VeganHelper.BLL.Services;
 
-public sealed class FollowService(IFollowRepository repository) : IFollowService
+public sealed class FollowService(IFollowRepository repository, INotificationPublisher notifications) : IFollowService
 {
     private const int MaxPageSize = 50;
 
@@ -20,6 +20,7 @@ public sealed class FollowService(IFollowRepository repository) : IFollowService
         await EnsureEligibleTargetAsync(followingId, cancellationToken);
         EnsureNotSelf(followerId, followingId);
 
+        await using var transaction = await repository.BeginTransactionAsync(followerId, followingId, cancellationToken);
         var existing = await repository.FindAsync(followerId, followingId, cancellationToken);
         if (existing is not null)
             throw new ConflictException("You are already following this user.");
@@ -31,6 +32,8 @@ public sealed class FollowService(IFollowRepository repository) : IFollowService
             CreatedAt = DateTime.UtcNow
         }, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
+        await notifications.NotifyFollowAsync(followerId, followingId, cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
 
         return await BuildStatusAsync(followerId, followingId, cancellationToken);
     }
@@ -44,13 +47,31 @@ public sealed class FollowService(IFollowRepository repository) : IFollowService
         await EnsureEligibleTargetAsync(followingId, cancellationToken);
         EnsureNotSelf(followerId, followingId);
 
+        await using var transaction = await repository.BeginTransactionAsync(followerId, followingId, cancellationToken);
         var existing = await repository.FindAsync(followerId, followingId, cancellationToken);
         if (existing is null)
             throw new NotFoundException("Follow relationship was not found.");
 
+        await repository.CancelNewPostDeliveriesAsync(existing.Id, cancellationToken);
         repository.Remove(existing);
         await repository.SaveChangesAsync(cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
 
+        return await BuildStatusAsync(followerId, followingId, cancellationToken);
+    }
+
+    public async Task<FollowStatusDto> SetNewPostNotificationsAsync(long followerId, long followingId, bool enabled, CancellationToken cancellationToken = default)
+    {
+        await EnsureEligibleActorAsync(followerId, cancellationToken);
+        await EnsureEligibleTargetAsync(followingId, cancellationToken);
+        EnsureNotSelf(followerId, followingId);
+        await using var transaction = await repository.BeginTransactionAsync(followerId, followingId, cancellationToken);
+        var follow = await repository.FindAsync(followerId, followingId, cancellationToken)
+            ?? throw new NotFoundException("Follow this user before enabling new-post notifications.");
+        follow.NotifyOnNewPost = enabled;
+        await repository.SaveChangesAsync(cancellationToken);
+        if (!enabled) await repository.CancelNewPostDeliveriesAsync(follow.Id, cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return await BuildStatusAsync(followerId, followingId, cancellationToken);
     }
 
@@ -115,7 +136,8 @@ public sealed class FollowService(IFollowRepository repository) : IFollowService
             followingId,
             existing is not null,
             followersCount,
-            followingCount);
+            followingCount,
+            existing?.NotifyOnNewPost ?? false);
     }
 
     private async Task EnsureEligibleActorAsync(long userId, CancellationToken cancellationToken)
