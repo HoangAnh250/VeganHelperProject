@@ -14,7 +14,8 @@ public sealed class AuthService(
     IGoogleTokenValidator googleTokenValidator,
     IJwtTokenService jwtTokenService,
     IOptions<JwtOptions> jwtOptions,
-    ILogger<AuthService> logger) : IAuthService
+    ILogger<AuthService> logger,
+    IOptions<FrontendOptions> frontendOptions) : IAuthService
 {
     private const int EmailTokenLifetimeMinutes = 15;
     private const int PasswordResetLifetimeMinutes = 15;
@@ -24,6 +25,7 @@ public sealed class AuthService(
     private const string EmailChangeCurrentPurpose = "email_change_current";
     private const string EmailChangeNewPurpose = "email_change_new";
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
+    private readonly string _frontendBaseUrl = new Uri(frontendOptions.Value.BaseUrl).GetLeftPart(UriPartial.Authority);
 
     public async Task<ServiceResult<MessageResponseDto>> RegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken)
     {
@@ -604,7 +606,7 @@ public sealed class AuthService(
                 CreatedAt = now
             }, cancellationToken);
             await repository.SaveChangesAsync(cancellationToken);
-            var resetLink = $"http://localhost:3000/forgot-password?token={rawToken}&email={System.Net.WebUtility.UrlEncode(email)}";
+            var resetLink = $"{_frontendBaseUrl}/forgot-password?token={rawToken}&email={System.Net.WebUtility.UrlEncode(email)}";
             await TrySendEmailAsync(
                 AuthEmailTemplates.PasswordReset(email, resetLink, PasswordResetLifetimeMinutes),
                 cancellationToken);

@@ -117,6 +117,14 @@ builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SendGridOptions>(builder.Configuration.GetSection("SendGrid"));
 builder.Services.Configure<GoogleOptions>(builder.Configuration.GetSection("Google"));
+builder.Services.AddOptions<FrontendOptions>().BindConfiguration("Frontend")
+    .Validate(options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var url)
+        && (url.Scheme is "http" or "https") && !string.IsNullOrEmpty(url.Host)
+        && string.IsNullOrEmpty(url.UserInfo) && url.AbsolutePath == "/"
+        && string.IsNullOrEmpty(url.Query) && string.IsNullOrEmpty(url.Fragment)
+        && (!builder.Environment.IsProduction() || url.Scheme == "https" && !url.IsLoopback && url.Host != "0.0.0.0"),
+        "Frontend:BaseUrl must be an HTTP(S) origin without credentials, path, query or fragment. Production requires a public HTTPS origin; configure Frontend__BaseUrl with the frontend website URL.")
+    .ValidateOnStart();
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Jwt configuration is missing.");
