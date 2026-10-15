@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VeganHelper.BLL\VeganHelper.BLL.csproj" />
+    <ProjectReference Include="..\..\src\VeganHelper.API\VeganHelper.API.csproj" />
   </ItemGroup>
 
 </Project>
