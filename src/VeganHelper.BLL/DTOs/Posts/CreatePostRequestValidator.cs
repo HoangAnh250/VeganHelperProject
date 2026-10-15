@@ -10,11 +10,6 @@ public class CreatePostRequestValidator : AbstractValidator<CreatePostRequest>
             .NotEmpty().WithMessage("Title is required.")
             .MaximumLength(255).WithMessage("Title cannot exceed 255 characters.");
 
-        RuleFor(x => x.PostType)
-            .NotEmpty().WithMessage("PostType is required.")
-            .Must(x => x == "article" || x == "video" || x == "recipe" || x == "community")
-            .WithMessage("Invalid PostType.");
-
         RuleFor(x => x.CategoryId)
             .GreaterThan(0).WithMessage("CategoryId is required and must be greater than 0.");
 

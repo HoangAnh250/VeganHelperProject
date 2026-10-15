@@ -185,7 +185,7 @@ public sealed class NotificationPushContractTests(Member2ApiFixture fixture)
         long postId, commentId;
         await using (var db = fixture.Context())
         {
-            var post = new Post { AuthorId = owner, Title = "Recipe", PostType = "recipe", Status = "published", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
+            var post = new Post { AuthorId = owner, Title = "Recipe", Status = "published", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
             db.Posts.Add(post); await db.SaveChangesAsync(); postId = post.Id;
             var comment = new Comment { PostId = post.Id, UserId = commenter, Content = "Comment", Status = "visible", CreatedAt = DateTime.UtcNow };
             db.Comments.Add(comment); await db.SaveChangesAsync(); commentId = comment.Id;

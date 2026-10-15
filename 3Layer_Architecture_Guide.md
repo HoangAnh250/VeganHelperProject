@@ -67,7 +67,6 @@ namespace VeganHelper.DAL.Entities
     {
         public long Id { get; set; }
         public long AuthorId { get; set; }
-        public string PostType { get; set; } = "recipe"; // article, video, recipe, community
         public string Title { get; set; } = string.Empty;
         public string? Content { get; set; }
         public string Status { get; set; } = "draft";
@@ -192,7 +191,6 @@ namespace VeganHelper.BLL.DTOs
         public long Id { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Content { get; set; }
-        public string PostType { get; set; } = string.Empty;
         public string AuthorName { get; set; } = string.Empty; // Phẳng hóa dữ liệu tác giả
         public DateTime CreatedAt { get; set; }
     }
@@ -208,7 +206,6 @@ namespace VeganHelper.BLL.DTOs
 
         [Required]
         [RegularExpression("^(article|video|recipe|community)$")] // Ràng buộc y như DB của bạn
-        public string PostType { get; set; } = "article";
         
         [Required]
         public long AuthorId { get; set; } 
@@ -251,7 +248,6 @@ namespace VeganHelper.BLL.Services
                 Id = p.Id,
                 Title = p.Title,
                 Content = p.Content,
-                PostType = p.PostType,
                 AuthorName = p.Author?.Username ?? "Unknown",
                 CreatedAt = p.CreatedAt
             });
@@ -263,7 +259,6 @@ namespace VeganHelper.BLL.Services
             {
                 Title = dto.Title,
                 Content = dto.Content,
-                PostType = dto.PostType,
                 AuthorId = dto.AuthorId,
                 Status = "draft",
                 CreatedAt = DateTime.UtcNow,
@@ -277,7 +272,6 @@ namespace VeganHelper.BLL.Services
                 Id = created.Id,
                 Title = created.Title,
                 Content = created.Content,
-                PostType = created.PostType,
                 CreatedAt = created.CreatedAt
             };
         }

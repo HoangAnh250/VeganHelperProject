@@ -163,7 +163,6 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         {
             Id = post.Id,
             Title = post.Title,
-            PostType = post.PostType,
             ThumbnailUrl = post.ThumbnailUrl,
             AuthorName = post.AuthorName,
             AvatarUrl = post.AvatarUrl,

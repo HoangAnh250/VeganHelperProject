@@ -30,7 +30,7 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         Assert.Equal(1, result.GetProperty("totalCount").GetInt64());
         var item = Assert.Single(result.GetProperty("items").EnumerateArray());
         Assert.Equal(recipe.Id, item.GetProperty("id").GetInt64());
-        Assert.Equal("recipe", item.GetProperty("postType").GetString());
+        Assert.False(item.TryGetProperty("postType", out _));
     }
 
     [Theory]
@@ -50,23 +50,77 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         Assert.Equal(HttpStatusCode.OK, (await author.GetAsync($"/api/posts/{recipe.Id}")).StatusCode);
     }
 
-    [Fact]
-    public async Task CreatePost_IsPublicImmediatelyAndQueuesRevisionOne()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CreatePost_WithoutClassification_PreservesOptionalCookingDetails(bool cookingDetails)
     {
         var recipe = await RecipeAsync(); var storage = new RecordingStorage(); using var factory = Factory(storage);
         using var client = Client(factory, recipe.AuthorId);
         using var form = new MultipartFormDataContent
         {
-            { new StringContent("New public recipe"), "Title" }, { new StringContent("recipe"), "PostType" },
+            { new StringContent("New public post"), "Title" },
             { new StringContent(recipe.CategoryId.ToString()), "CategoryId" }, { new StringContent("Plant-based ingredients"), "Content" }
         };
+        if (cookingDetails)
+        {
+            form.Add(new StringContent("easy"), "DifficultyLevel");
+            form.Add(new StringContent("vegan"), "DietType");
+            form.Add(new StringContent("10"), "PrepTimeMins");
+            form.Add(new StringContent("0"), "CookingTimeMins");
+            form.Add(new StringContent("[{\"Name\":\"Cucumber\"}]"), "IngredientsJson");
+            form.Add(new StringContent("[{\"StepNumber\":1,\"Description\":\"Slice cucumber\"}]"), "StepsJson");
+        }
         var image = new ByteArrayContent(Jpeg()); image.Headers.ContentType = new("image/jpeg"); form.Add(image, "MediaFiles", "new.jpg");
         var response = await client.PostAsync("/api/posts", form); Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<JsonElement>(); var id = result.GetProperty("id").GetInt64();
         Assert.Equal("published", result.GetProperty("status").GetString());
-        using var guest = fixture.Factory.Client(); Assert.Equal(HttpStatusCode.OK, (await guest.GetAsync($"/api/posts/{id}")).StatusCode);
+        using var guest = fixture.Factory.Client();
+        var detail = await guest.GetFromJsonAsync<JsonElement>($"/api/posts/{id}");
+        Assert.False(detail.TryGetProperty("postType", out _));
+        Assert.Equal(cookingDetails ? "easy" : null, detail.GetProperty("difficultyLevel").GetString());
+        Assert.Equal(cookingDetails ? "vegan" : null, detail.GetProperty("dietType").GetString());
+        Assert.Equal(cookingDetails ? 1 : 0, detail.GetProperty("ingredients").GetArrayLength());
+        Assert.Equal(cookingDetails ? 1 : 0, detail.GetProperty("steps").GetArrayLength());
+        Assert.Equal(cookingDetails ? (int?)10 : null, detail.GetProperty("prepTimeMins").Deserialize<int?>());
+        Assert.Equal(cookingDetails ? (int?)0 : null, detail.GetProperty("cookingTimeMins").Deserialize<int?>());
         await using var db = fixture.Context(); var scan = await db.Set<PostModerationScan>().SingleAsync(s => s.PostId == id);
         Assert.Equal(1, scan.Revision); Assert.Equal("queued", scan.State);
+    }
+
+    [Fact]
+    public async Task UpdatePost_CookingFieldsCanBeZeroOrCleared()
+    {
+        var recipe = await RecipeAsync();
+        using var client = fixture.Factory.Client(recipe.AuthorId);
+        foreach (var includeCooking in new[] { true, false })
+        {
+            using var form = new MultipartFormDataContent
+            {
+                { new StringContent("Updated post"), "Title" },
+                { new StringContent("Updated content"), "Content" },
+                { new StringContent(recipe.CategoryId.ToString()), "CategoryId" },
+                { new StringContent(includeCooking ? "[{\"Name\":\"Cucumber\"}]" : "[]"), "IngredientsJson" },
+                { new StringContent(includeCooking ? "[{\"StepNumber\":1,\"Description\":\"Slice cucumber\"}]" : "[]"), "StepsJson" }
+            };
+            if (includeCooking)
+            {
+                form.Add(new StringContent("easy"), "DifficultyLevel");
+                form.Add(new StringContent("vegan"), "DietType");
+                form.Add(new StringContent("0"), "PrepTimeMins");
+                form.Add(new StringContent("0"), "CookingTimeMins");
+            }
+            var response = await client.PutAsync($"/api/posts/{recipe.Id}", form);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            await using var db = fixture.Context();
+            var post = await db.Posts.Include(p => p.PostIngredients).Include(p => p.PostSteps).SingleAsync(p => p.Id == recipe.Id);
+            Assert.Equal(includeCooking ? (int?)0 : null, post.PrepTimeMins);
+            Assert.Equal(includeCooking ? (int?)0 : null, post.CookingTimeMins);
+            Assert.Equal(includeCooking ? "easy" : null, post.DifficultyLevel);
+            Assert.Equal(includeCooking ? "vegan" : null, post.DietType);
+            Assert.Equal(includeCooking ? 1 : 0, post.PostIngredients.Count);
+            Assert.Equal(includeCooking ? 1 : 0, post.PostSteps.Count);
+        }
     }
 
     [Fact]
@@ -136,7 +190,7 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         db.AddRange(categories);
         db.AddRange(ingredients);
         await db.SaveChangesAsync();
-        var post = new Post { AuthorId = owner, Title = "Original recipe", Content = "Recipe", PostType = "recipe", Status = "published", CreatedAt = DateTime.UtcNow };
+        var post = new Post { AuthorId = owner, Title = "Original recipe", Content = "Recipe", Status = "published", CreatedAt = DateTime.UtcNow };
         post.PostCategories.Add(new PostCategory { CategoryId = categories[0].Id });
         foreach (var ingredient in ingredients)
             post.PostIngredients.Add(new PostIngredient { IngredientId = ingredient.Id, Quantity = 1, Unit = "g" });

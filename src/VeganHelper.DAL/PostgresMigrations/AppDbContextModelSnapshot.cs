@@ -1254,11 +1254,6 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasDefaultValue(false)
                         .HasColumnName("moderation_hold");
 
-                    b.Property<string>("PostType")
-                        .IsRequired()
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("post_type");
-
                     b.Property<int?>("PrepTimeMins")
                         .HasColumnType("integer")
                         .HasColumnName("prep_time_mins");
@@ -1300,8 +1295,6 @@ namespace VeganHelper.DAL.PostgresMigrations
 
                     b.ToTable("posts", null, t =>
                         {
-                            t.HasCheckConstraint("CK_posts_1", "post_type IN ('article','video','recipe','community')");
-
                             t.HasCheckConstraint("CK_posts_10", "(is_deleted = false AND deleted_at IS NULL) OR (is_deleted = true AND deleted_at IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_posts_2", "meal_type IN ('breakfast','lunch','dinner','snack')");

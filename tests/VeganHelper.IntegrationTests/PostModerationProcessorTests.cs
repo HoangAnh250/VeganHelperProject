@@ -628,7 +628,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         await using var db = fixture.Context();
         var post = new Post
         {
-            AuthorId = authorId, PostType = "community", Title = "Vegan community post", Content = "Full vegan content",
+            AuthorId = authorId, Title = "Vegan community post", Content = "Full vegan content",
             Status = "pending_review", ContentRevision = 1, CreatedAt = Now.UtcDateTime
         };
         var scan = new PostModerationScan

@@ -128,7 +128,6 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
             {
                 Id = post.Id,
                 Title = post.Title,
-                PostType = post.PostType,
                 ThumbnailUrl = post.Media
                     .Where(media => media.IsPrimary)
                     .Select(media => media.MediaUrl)

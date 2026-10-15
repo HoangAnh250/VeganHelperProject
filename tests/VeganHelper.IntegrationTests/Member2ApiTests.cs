@@ -370,7 +370,7 @@ public sealed class Member2ApiTests(Member2ApiFixture fixture)
         await using var db = fixture.Context();
         var ingredient = new Ingredient { Name = "Peanut " + Guid.NewGuid().ToString("N"), DefaultUnit = "g" };
         db.Ingredients.Add(ingredient);
-        var post = new Post { AuthorId = userId, Title = "Allergy check", PostType = "recipe", Status = "published", CreatedAt = DateTime.UtcNow };
+        var post = new Post { AuthorId = userId, Title = "Allergy check", Status = "published", CreatedAt = DateTime.UtcNow };
         db.Posts.Add(post);
         await db.SaveChangesAsync();
         db.PostIngredients.Add(new PostIngredient { PostId = post.Id, IngredientId = ingredient.Id, Quantity = 1, Unit = "g" });

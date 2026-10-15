@@ -23,7 +23,7 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
         }
         var count = await query.LongCountAsync(ct);
         var items = await query.OrderBy(p => p.CreatedAt).ThenBy(p => p.Id).Skip((page - 1) * size).Take(size)
-            .Select(p => new ModerationPostProjection { Id = p.Id, AuthorId = p.AuthorId, Title = p.Title, PostType = p.PostType,
+            .Select(p => new ModerationPostProjection { Id = p.Id, AuthorId = p.AuthorId, Title = p.Title,
                 Status = p.Status, ContentRevision = p.ContentRevision, CreatedAt = p.CreatedAt,
                 ScanState = db.Set<PostModerationScan>().Where(s => s.PostId == p.Id && s.Revision == p.ContentRevision).Select(s => s.State).FirstOrDefault(),
                 ConfidenceScore = db.Set<PostModerationScan>().Where(s => s.PostId == p.Id && s.Revision == p.ContentRevision).Select(s => s.Confidence).FirstOrDefault() }).ToListAsync(ct);

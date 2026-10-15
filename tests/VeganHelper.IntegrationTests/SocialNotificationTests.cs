@@ -46,7 +46,7 @@ public sealed class SocialNotificationTests(Member2ApiFixture fixture)
         await using var db = fixture.Context();
         var repo = new PostRepository(db);
         await repo.BeginTransactionAsync();
-        var post = await repo.CreatePostAsync(new Post { AuthorId = author, PostType = "article", Title = "Plant-based ideas", Status = "published", CreatedAt = DateTime.UtcNow });
+        var post = await repo.CreatePostAsync(new Post { AuthorId = author, Title = "Plant-based ideas", Status = "published", CreatedAt = DateTime.UtcNow });
         await repo.CommitTransactionAsync(); return post.Id;
     }
     private async Task DispatchAsync()
@@ -355,7 +355,7 @@ public sealed class SocialNotificationTests(Member2ApiFixture fixture)
         await using (var db = fixture.Context())
         {
             var repo = new PostRepository(db); await repo.BeginTransactionAsync();
-            rolledBack = (await repo.CreatePostAsync(new Post { AuthorId = author, PostType = "article", Title = "Rollback", Status = "published", CreatedAt = DateTime.UtcNow })).Id;
+            rolledBack = (await repo.CreatePostAsync(new Post { AuthorId = author, Title = "Rollback", Status = "published", CreatedAt = DateTime.UtcNow })).Id;
             await repo.RollbackTransactionAsync();
         }
         var post = await PostAsync(author);

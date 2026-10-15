@@ -110,7 +110,6 @@ public sealed class PostRepository : IPostRepository
             {
                 Id = p.Id,
                 Title = p.Title,
-                PostType = p.PostType,
                 ThumbnailUrl = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaUrl).FirstOrDefault(),
                 AuthorName = _context.UserProfiles.Where(up => up.UserId == p.AuthorId).Select(up => up.DisplayName).FirstOrDefault() 
                              ?? _context.Users.Where(u => u.Id == p.AuthorId).Select(u => u.Username).FirstOrDefault() ?? "Unknown",
@@ -135,7 +134,6 @@ public sealed class PostRepository : IPostRepository
             .AsNoTracking()
             .Where(p => !p.IsDeleted
                 && p.Status == "published"
-                && (p.PostType == "article" || p.PostType == "video" || p.PostType == "recipe")
                 && (EF.Functions.ILike(p.Title, pattern)
                     || (p.Content != null && EF.Functions.ILike(p.Content, pattern))));
 
@@ -150,7 +148,6 @@ public sealed class PostRepository : IPostRepository
             {
                 Id = p.Id,
                 Title = p.Title,
-                PostType = p.PostType,
                 ThumbnailUrl = p.Media.Where(m => m.IsPrimary).Select(m => m.MediaUrl).FirstOrDefault(),
                 AuthorName = _context.UserProfiles
                     .Where(up => up.UserId == p.AuthorId)

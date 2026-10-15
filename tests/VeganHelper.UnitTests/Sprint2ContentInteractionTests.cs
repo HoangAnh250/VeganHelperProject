@@ -72,7 +72,7 @@ public sealed class Sprint2ContentInteractionTests
                 ReceivedLikeCount = 9,
                 Posts = new List<PostFeedProjection>
                 {
-                    new() { Id = 101, Title = "Tofu Bowl", PostType = "recipe" }
+                    new() { Id = 101, Title = "Tofu Bowl" }
                 }
             });
 
@@ -97,7 +97,6 @@ public sealed class Sprint2ContentInteractionTests
             {
                 PostId = 50,
                 Title = "Saved Curry",
-                PostType = "recipe",
                 AuthorName = "Chef",
                 SavedAt = new DateTime(2026, 2, 1)
             }
@@ -142,7 +141,6 @@ public sealed class Sprint2ContentInteractionTests
             {
                 Id = 10,
                 Title = "Tofu Bowl",
-                PostType = "article",
                 AuthorName = "Vegan User"
             }
         };

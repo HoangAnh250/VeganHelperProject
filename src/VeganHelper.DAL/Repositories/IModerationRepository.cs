@@ -9,7 +9,6 @@ public sealed class ModerationPostProjection
     public long Id { get; init; }
     public long AuthorId { get; init; }
     public string Title { get; init; } = "";
-    public string PostType { get; init; } = "";
     public string Status { get; init; } = "";
     public int ContentRevision { get; init; }
     public DateTime CreatedAt { get; init; }

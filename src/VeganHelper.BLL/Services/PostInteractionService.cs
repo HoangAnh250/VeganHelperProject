@@ -98,7 +98,6 @@ public sealed class PostInteractionService(IPostInteractionRepository repository
             {
                 PostId = post.PostId,
                 Title = post.Title,
-                PostType = post.PostType,
                 ThumbnailUrl = post.ThumbnailUrl,
                 AuthorName = post.AuthorName,
                 AvatarUrl = post.AvatarUrl,
