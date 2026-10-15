@@ -17,7 +17,7 @@ BE restore → build Release → unit/integration test → publish → upload ar
 
 Manual run mặc định chỉ CI. Muốn deploy: chọn branch `main`, bật input `deploy` và đã đặt `AZURE_DEPLOY_ENABLED=true`. Thao tác này chạy lại kiểm thử/build rồi deploy đúng artifact của lần chạy đó. [GitHub Actions cho App Service](https://learn.microsoft.com/en-us/azure/app-service/deploy-github-actions)
 
-**Hạn chế nghiệp vụ đã biết:** email khôi phục mật khẩu của BE vẫn dùng link gắn cứng `http://localhost:3000/forgot-password`. Theo yêu cầu, lượt này không sửa chức năng đó. Hosting/pipeline có thể hoạt động nhưng người dùng online chưa dùng được link reset đúng website. Cấu hình CORS hoặc `VITE_API_BASE_URL` không sửa link này; cần thay đổi BE riêng trước khi phát hành chức năng reset password.
+**Reset password đã dùng URL cấu hình:** BE lấy `Frontend:BaseUrl` để tạo link `/forgot-password?token=...&email=...`. Local Development/Testing mặc định `http://localhost:3000`; Production phải cấu hình URL HTTPS của FE, không dùng localhost/loopback. URL chỉ là origin, không có path, credentials, query hoặc fragment; dấu `/` cuối được chuẩn hóa. BE kiểm tra cấu hình ngay khi startup để tránh gửi link sai. Token vẫn được lưu dạng hash, hết hạn sau 15 phút và chỉ dùng một lần; response không tiết lộ email có tồn tại hay không. CORS và `VITE_API_BASE_URL` không thay thế cấu hình URL trong email.
 
 ## 2. Chuẩn bị trước khi tạo tài nguyên
 
@@ -85,6 +85,7 @@ Vào Web App → **Settings → Environment variables → App settings → Add**
 | `Jwt__AccessTokenMinutes` | Ví dụ `30` |
 | `Jwt__RefreshTokenDays` | Ví dụ `7` |
 | `Google__ClientId` | Cùng Google Client ID mà FE dùng |
+| `Frontend__BaseUrl` | URL HTTPS của FE, ví dụ `https://<site>.azurestaticapps.net`; không thêm `/forgot-password` hoặc `/api` |
 | `SendGrid__ApiKey` | API key SendGrid |
 | `SendGrid__FromEmail` | Email người gửi đã verify với SendGrid |
 | `SendGrid__FromName` | Ví dụ `VeganHelper` |
@@ -114,6 +115,8 @@ Host=<session-pooler-host>;Port=5432;Database=postgres;Username=postgres.<projec
 ```
 
 Không mang đường dẫn certificate tuyệt đối từ máy D: lên Azure. Publish đã giữ certificate Supabase có sẵn trong dự án. Giữ xác minh TLS; dùng đúng host/connection của Supabase. [Kết nối PostgreSQL](https://supabase.com/docs/guides/database/connecting-to-postgres)
+
+Trước khi deploy phiên bản BE này, phải đặt `Frontend__BaseUrl` bằng origin FE lấy từ Static Web App Overview. Nếu chưa tạo FE resource, tạo resource để lấy URL trước; chưa cần deploy giao diện. Khi Production còn dùng mặc định localhost hoặc URL không hợp lệ, BE sẽ không khởi động và health check của pipeline sẽ thất bại.
 
 User-secrets, `.env`, `supabase.local.json` và appsettings private trên máy không được pipeline đưa lên Azure. Gói BE publish không chứa các appsettings local; phải nhập cấu hình runtime trên Azure/Key Vault. Thiếu JWT/DB có thể khiến app không start; thiếu R2/email có thể làm API liên quan lỗi dù `/health/live` vẫn trả 200.
 
@@ -239,7 +242,8 @@ Khi deploy bật, pipeline chặn API URL trống, localhost, HTTP, URL có cred
 2. Google Cloud OAuth Client: thêm FE origin HTTPS vào **Authorized JavaScript origins**; giữ `http://localhost:3000` nếu vẫn phát triển local. Với flow GoogleLogin hiện tại dùng credential callback trong JS, không tự invent redirect URI; chỉ thêm redirect URI khi flow thực tế yêu cầu.
 3. Goong dashboard: cập nhật hạn chế domain/referrer nếu key đang giới hạn localhost.
 4. Kiểm tra ảnh/video R2 public qua HTTPS và hostname ảnh có trong allowlist moderation.
-5. Apply cấu hình BE; thay đổi `VITE_*` cần build/deploy FE lại.
+5. Đặt `Frontend__BaseUrl` bằng origin FE ở BE để link reset password dẫn đúng website; giá trị này độc lập với CORS và các `VITE_*`.
+6. Apply cấu hình BE; thay đổi `Frontend__BaseUrl` cần restart BE (Azure Apply thực hiện restart), không cần build FE. Thay đổi `VITE_*` cần build/deploy FE lại.
 
 Không chạy `npm start`/Vite dev server trên hosting FE. Pipeline build ra HTML/CSS/JS, Static Web Apps phục vụ các file đó. `public/staticwebapp.config.json` được copy vào build để URL React Router mở trực tiếp và trang 404 hoạt động. Với prebuilt upload, app_location=`build`, output_location trống, skip_app_build=true. [Cấu hình prebuilt](https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration#skip-building-front-end-app)
 
@@ -273,7 +277,7 @@ Trong **Settings → Branches/Rulesets** nếu nhóm có quyền: yêu cầu che
 | AI/push worker | Chỉ kiểm tra khi đã bật và đủ config/schema/quota |
 | URL trực tiếp `/profile`, `/posts/...` | Không bị 404 của hosting; auth/resource xử lý đúng |
 | URL không tồn tại | Hiển thị trang 404 React |
-| Reset password email | **Hiện chưa đạt cho hosting: link vẫn localhost**, cần tác vụ BE riêng |
+| Reset password email | Email chứa URL FE HTTPS đúng `/forgot-password`; reset thành công với token mới, token đã dùng/hết hạn bị từ chối |
 
 Swagger hiện chỉ có ở Development, nên `/swagger` không hoạt động khi production là hành vi có chủ đích; không đổi production sang Development để mở Swagger.
 
@@ -294,7 +298,9 @@ Swagger hiện chỉ có ở Development, nên `/swagger` không hoạt động 
 | Ảnh/upload lỗi | R2 endpoint/keys/bucket/PublicUrl và HTTPS |
 | Worker ngừng khi ít truy cập | Gói có Always On, Always On bật, process/log khỏe |
 | Hangfire lock timeout | Schema đã chuẩn bị, session pooler/direct và các process đang dùng database chung; không xóa lock tùy tiện |
-| Không nhận email | SendGrid key/sender verified và log BE; reset link localhost là hạn chế riêng cần sửa code |
+| Không nhận email | SendGrid key/sender verified và log BE; email gửi thất bại không làm response tiết lộ tài khoản |
+| BE không start sau cập nhật reset password | Kiểm tra lỗi `Frontend:BaseUrl`; đặt `Frontend__BaseUrl` là origin FE HTTPS không có path/query/fragment, không dùng localhost trong Production |
+| Link reset dẫn sai website | Kiểm tra `Frontend__BaseUrl` tại App Service, Apply/restart và yêu cầu email mới. Link trong email cũ không tự đổi |
 | Không thấy repo hoặc không thêm được secret | Chủ repo/organization hỗ trợ quyền GitHub; quyền Azure không tự cấp quyền GitHub |
 | Azure báo quota 0/SKU không hỗ trợ | Subscription Student/quota/region; xem giá và chọn vùng/gói hợp lệ hoặc yêu cầu hỗ trợ |
 
@@ -316,5 +322,5 @@ Actions được ghim commit chính thức đã xác minh để tránh tag dịc
 - FE URL và BE URL truy cập HTTPS; CORS/Google/Goong đã cập nhật.
 - Supabase, R2, SendGrid và worker được kiểm tra theo các chức năng đã bật.
 - Không có secret local trong Git hoặc artifact BE.
-- Các hạn chế nghiệp vụ, đặc biệt reset-password localhost, được nhóm biết trước khi demo/phát hành.
+- `Frontend__BaseUrl` đúng FE production; kiểm tra email reset thật, đường dẫn trực tiếp `/forgot-password`, token hết hạn và token không tái sử dụng.
 - Đã ghi lại commit FE/BE đang phát hành và theo dõi credit/chi phí thực tế.
