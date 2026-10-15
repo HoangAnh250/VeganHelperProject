@@ -10,7 +10,15 @@ public sealed record AiChatResponseDto(
     Guid? GuestSessionId,
     string Answer,
     DateTime CreatedAt,
-    string Model);
+    string Model)
+{
+    public int? GuestQuestionsRemaining { get; init; }
+}
+
+public sealed record AiChatErrorDto(
+    string Error,
+    string Code,
+    bool RequiresRegistration);
 
 public sealed record AiChatMessageDto(
     long Id,

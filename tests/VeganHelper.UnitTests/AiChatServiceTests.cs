@@ -31,6 +31,7 @@ public sealed class AiChatServiceTests
 
         var service = new AiChatService(
             repository.Object,
+            Mock.Of<IHealthProfileRepository>(),
             gemini.Object,
             NullLogger<AiChatService>.Instance);
         var guestId = Guid.NewGuid();
@@ -62,6 +63,7 @@ public sealed class AiChatServiceTests
         var gemini = new Mock<IGeminiChatClient>();
         var service = new AiChatService(
             repository.Object,
+            Mock.Of<IHealthProfileRepository>(),
             gemini.Object,
             NullLogger<AiChatService>.Instance);
 
@@ -87,6 +89,7 @@ public sealed class AiChatServiceTests
             .ReturnsAsync((ChatSession?)null);
         var service = new AiChatService(
             repository.Object,
+            Mock.Of<IHealthProfileRepository>(),
             Mock.Of<IGeminiChatClient>(),
             NullLogger<AiChatService>.Instance);
 

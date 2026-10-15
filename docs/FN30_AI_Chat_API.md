@@ -33,7 +33,30 @@ Successful response:
   "guestSessionId": "00000000-0000-0000-0000-000000000000",
   "answer": "...",
   "createdAt": "2026-10-15T00:00:00Z",
-  "model": "gemini-2.5-flash-lite"
+  "model": "gemini-2.5-flash-lite",
+  "guestQuestionsRemaining": 2
+}
+```
+
+For an authenticated member, `guestQuestionsRemaining` is `null`. Guests may
+complete three chatbot requests per `guestSessionId`; successful responses
+report the remaining count (`2`, `1`, then `0`). The fourth request is rejected
+before calling Gemini. Failed Gemini requests do not consume a guest question.
+The guest client must retain and reuse the returned `guestSessionId`.
+
+For authenticated requests, the Backend supplies available profile context to
+the chatbot: stored meal type, current BMI (calculated from height and weight
+when available), and declared allergies. The current chat request can override
+the saved meal-type preference, but declared allergies remain safety
+constraints. Missing profile data is not inferred.
+
+Guest limit response (`HTTP 429`):
+
+```json
+{
+  "error": "Guest chatbot limit reached. Please register or sign in to continue.",
+  "code": "GUEST_CHAT_LIMIT_REACHED",
+  "requiresRegistration": true
 }
 ```
 
@@ -53,7 +76,7 @@ The API checks that the session belongs to the authenticated member or that the 
 | 400 | Empty/overlong message or missing guest session identifier |
 | 404 | Session does not exist or is not owned by the caller |
 | 422 | Gemini blocked the request or returned no answer |
-| 429 | Gemini quota/rate limit |
+| 429 | Guest trial limit (`code: GUEST_CHAT_LIMIT_REACHED`) or Gemini quota/rate limit |
 | 503 | Gemini is disabled, misconfigured, timed out, or unavailable |
 
-Every request stores the user message, AI message, and `AiUsage` record. Existing `ChatSession`, `ChatMessage`, and `AiUsage` tables are reused; FN30 does not require a new migration.
+Successful requests store the user message, AI message, and completed `AiUsage` record. Failed Gemini calls are recorded as failed usage and do not count toward the guest trial. Existing `ChatSession`, `ChatMessage`, `AiUsage`, `UserProfile`, and `UserAllergies` tables are reused; FN31/FN35 do not require a new migration.

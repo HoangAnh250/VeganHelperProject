@@ -17,7 +17,7 @@ public sealed class AiChatController(IAiChatService service) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(typeof(AiChatErrorDto), StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Send(
         [FromBody] AiChatRequestDto request,
@@ -57,8 +57,17 @@ public sealed class AiChatController(IAiChatService service) : ControllerBase
         return long.TryParse(value, out var userId) ? userId : null;
     }
 
-    private IActionResult ToActionResult<T>(ServiceResult<T> result) =>
-        result.Succeeded
-            ? StatusCode(result.StatusCode, result.Data)
-            : StatusCode(result.StatusCode, new { error = result.Error });
+    private IActionResult ToActionResult<T>(ServiceResult<T> result)
+    {
+        if (result.Succeeded)
+            return StatusCode(result.StatusCode, result.Data);
+
+        if (result.ErrorCode == "GUEST_CHAT_LIMIT_REACHED")
+            return StatusCode(result.StatusCode, new AiChatErrorDto(
+                result.Error ?? "Guest chatbot limit reached.",
+                result.ErrorCode,
+                RequiresRegistration: true));
+
+        return StatusCode(result.StatusCode, new { error = result.Error });
+    }
 }

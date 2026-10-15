@@ -46,6 +46,18 @@ public sealed class ChatRepository(AppDbContext db) : IChatRepository
         return messages;
     }
 
+    public Task<long> CountCompletedGuestChatRequestsAsync(
+        Guid guestSessionId,
+        CancellationToken cancellationToken = default) =>
+        db.AiUsage
+            .AsNoTracking()
+            .LongCountAsync(usage =>
+                usage.GuestSessionId == guestSessionId &&
+                usage.UserId == null &&
+                usage.FeatureType == "chatbot" &&
+                usage.Status == "completed",
+                cancellationToken);
+
     public void AddSession(ChatSession session) => db.ChatSessions.Add(session);
 
     public void AddMessage(ChatMessage message) => db.ChatMessages.Add(message);

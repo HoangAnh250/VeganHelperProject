@@ -15,6 +15,10 @@ public interface IChatRepository
         int maximum,
         CancellationToken cancellationToken = default);
 
+    Task<long> CountCompletedGuestChatRequestsAsync(
+        Guid guestSessionId,
+        CancellationToken cancellationToken = default);
+
     void AddSession(ChatSession session);
     void AddMessage(ChatMessage message);
     void AddUsage(AiUsage usage);
