@@ -33,3 +33,18 @@ docs/Background_Job_Processing_Skill.md
 supabase.local.json
 .local-data/
 .superpowers/
+
+# Generated codebase knowledge graph
+graphify-out/
+
+# Runtime-generated uploads (store production media in R2/object storage)
+src/VeganHelper.API/wwwroot/uploads/
+
+# Local scratch image; not referenced by the application or tests
+/dummy.jpg
+
+# Runtime logs and temporary files
+logs/
+*.log
+*.tmp
+*.bak
