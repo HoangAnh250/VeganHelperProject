@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -72,7 +74,7 @@ public class GeminiModerationClientTests
             Assert.Equal("private-key", Assert.Single(request.Headers.GetValues("x-goog-api-key")));
             using var json = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
             var root = json.RootElement;
-            Assert.Equal("gemini-3.8-flash", root.GetProperty("model").GetString());
+            Assert.Equal("gemini-3.5-flash-lite", root.GetProperty("model").GetString());
             Assert.False(root.GetProperty("store").GetBoolean());
             Assert.Equal("System policy", root.GetProperty("system_instruction").GetString());
             Assert.Equal("application/json", root.GetProperty("response_format").GetProperty("mime_type").GetString());
@@ -445,6 +447,75 @@ public class GeminiModerationClientTests
         }));
         var result = await Client(http).ReviewAsync(Input() with { Media = [Media(1)] }, default);
         Assert.Equal("safe", result.Verdict);
+    }
+
+    [Theory]
+    [InlineData("INVALID_ARGUMENT", "API_KEY_INVALID", "thinking_level")]
+    [InlineData("private-key", "private-key", "not_a_request_field")]
+    public async Task Review_Provider400_LogsOnlySafeDiagnosticMetadata(string providerStatus, string providerReason, string parameter)
+    {
+        var logger = new DiagnosticLogger();
+        using var services = new ServiceCollection().AddSingleton<ILogger<GeminiPostModerationClient>>(logger).BuildServiceProvider();
+        var body = JsonSerializer.Serialize(new { error = new { status = providerStatus, message = $"Invalid {parameter}; private-key; confidential post content", details = new[] { new { reason = providerReason } } } });
+        using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent(body) })));
+        var client = ActivatorUtilities.CreateInstance<GeminiPostModerationClient>(services, http,
+            Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "private-key" }), Prompt());
+        var error = await Assert.ThrowsAsync<ModerationAiException>(() => client.ReviewAsync(Input(), default));
+        Assert.Equal("provider_error", error.Code); Assert.False(error.Retryable);
+        var log = Assert.Single(logger.Messages);
+        Assert.Contains("400", log); Assert.Contains("gemini-3.5-flash-lite", log);
+        Assert.DoesNotContain("private-key", log); Assert.DoesNotContain("confidential", log);
+        Assert.DoesNotContain("private-key", error.ToString());
+        if (providerStatus == "INVALID_ARGUMENT")
+        {
+            Assert.Contains("INVALID_ARGUMENT", log); Assert.Contains("API_KEY_INVALID", log); Assert.Contains("thinking_level", log);
+        }
+    }
+
+    [Theory]
+    [InlineData("not JSON")]
+    [InlineData("{\"error\":[]}")]
+    [InlineData("{\"error\":{\"status\":{},\"details\":[null,3,{}]}}")]
+    public async Task Review_MalformedErrorBody_DoesNotMaskProviderFailure(string body)
+    {
+        using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent(body) })));
+        var logger = new DiagnosticLogger();
+        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "private-key" }), Prompt(), logger);
+        var error = await Assert.ThrowsAsync<ModerationAiException>(() => client.ReviewAsync(Input(), default));
+        Assert.Equal("provider_error", error.Code); Assert.False(error.Retryable);
+        Assert.Contains("400", Assert.Single(logger.Messages));
+    }
+
+    [Fact]
+    public async Task Review_StalledErrorBody_PreservesKnownHttpFailure()
+    {
+        using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StalledContent() })));
+        var logger = new DiagnosticLogger();
+        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "private-key", TimeoutSeconds = 1 }), Prompt(), logger);
+        var error = await Assert.ThrowsAsync<ModerationAiException>(() => client.ReviewAsync(Input(), default));
+        Assert.Equal("provider_error", error.Code); Assert.False(error.Retryable);
+        Assert.Contains("400", Assert.Single(logger.Messages));
+    }
+
+    private sealed class StalledContent : HttpContent
+    {
+        protected override bool TryComputeLength(out long length) { length = 0; return false; }
+        protected override Task<Stream> CreateContentReadStreamAsync(CancellationToken ct) => Task.FromResult<Stream>(new StalledStream());
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) => throw new NotSupportedException();
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken ct) => Task.Delay(Timeout.Infinite, ct);
+    }
+
+    private sealed class StalledStream : MemoryStream
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default) { await Task.Delay(Timeout.Infinite, ct); return 0; }
+    }
+
+    private sealed class DiagnosticLogger : ILogger<GeminiPostModerationClient>
+    {
+        public List<string> Messages { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel level) => true;
+        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? error, Func<TState, Exception?, string> format) => Messages.Add(format(state, error));
     }
 
     private static ModerationAiInput Input() => new(10, 2, "Vegan recipe", "Content", [], [], []);

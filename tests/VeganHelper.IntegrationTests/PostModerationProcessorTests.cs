@@ -72,10 +72,10 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         await using (var setup = fixture.Context())
             await setup.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s =>
                 s.SetProperty(p => p.Status, held ? "pending_review" : "published").SetProperty(p => p.ModerationHold, held));
-        var reason = result == "PASS" ? "Nội dung phù hợp." : "Nguyên liệu thịt; cần Admin kiểm tra.";
+        var reason = result == "PASS" ? "The content complies with community guidelines." : "The ingredients include meat; Admin review is required.";
         using var http = new HttpClient(new CompactResponseHandler(result, reason));
         var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "fake-test-key" }),
-            new ModerationPromptDefinition { Version = "post-moderation.v2", SystemInstruction = "Test policy", ResponseSchema = JsonSerializer.SerializeToElement(new { type = "object" }) });
+            new ModerationPromptDefinition { Version = "post-moderation.v2.1", SystemInstruction = "Test policy", ResponseSchema = JsonSerializer.SerializeToElement(new { type = "object" }) });
         await RunAsync(client);
         await using var db = fixture.Context();
         var post = await db.Posts.SingleAsync(p => p.Id == job.PostId);
@@ -85,8 +85,10 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         Assert.Equal(result == "PASS" ? "safe" : "flagged", scan.State);
         Assert.Null(scan.Confidence);
         Assert.Equal(reason, scan.Summary);
-        Assert.Equal("post-moderation.v2", scan.PromptVersion);
-        Assert.Equal(notify, await db.Set<Notification>().AnyAsync(n => n.UserId == job.AuthorId));
+        Assert.Equal("post-moderation.v2.1", scan.PromptVersion);
+        var notification = await db.Set<Notification>().SingleOrDefaultAsync(n => n.UserId == job.AuthorId);
+        Assert.Equal(notify, notification is not null);
+        if (notify) Assert.Equal("Your post needs an Admin review. " + reason, notification!.Message);
         Assert.Equal(result == "FAIL", await db.Flags.AnyAsync(f => f.PostId == job.PostId));
         var history = await db.Set<PostModerationAssessment>().SingleAsync(a => a.PostId == job.PostId);
         Assert.Contains(reason, JsonDocument.Parse(history.ResultJson).RootElement.GetProperty("result").GetProperty("summary").GetString());

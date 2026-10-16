@@ -29,7 +29,7 @@ public sealed class ModerationAiOptions
 {
     public bool Enabled { get; set; }
     public string ApiKey { get; set; } = "";
-    public string Model { get; set; } = "gemini-3.8-flash";
+    public string Model { get; set; } = "gemini-3.5-flash-lite";
     // Legacy scored results only; the PASS/FAIL Gemini contract does not supply confidence.
     public double MinAutoPublishConfidence { get; set; } = .9;
     public string[] AllowedMediaHosts { get; set; } = [];

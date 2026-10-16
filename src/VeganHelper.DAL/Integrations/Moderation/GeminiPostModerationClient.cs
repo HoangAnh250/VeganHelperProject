@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
@@ -9,7 +10,7 @@ using Microsoft.Extensions.Options;
 namespace VeganHelper.DAL.Integrations.Moderation;
 
 public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<ModerationAiOptions> options,
-    ModerationPromptDefinition prompt) : IPostModerationAiClient
+    ModerationPromptDefinition prompt, ILogger<GeminiPostModerationClient>? logger = null) : IPostModerationAiClient
 {
     private const int MaxImageBytes = 5 * 1024 * 1024;
     private const int MaxTotalImageBytes = 20 * 1024 * 1024;
@@ -80,6 +81,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
             if (!response.IsSuccessStatusCode)
             {
+                await LogProviderFailureAsync(response, settings.Model, token, ct);
                 if (response.StatusCode == HttpStatusCode.TooManyRequests)
                     throw new ModerationAiException("provider_quota", true,
                         response.Headers.RetryAfter?.Delta?.TotalSeconds ??
@@ -107,6 +109,48 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         {
             throw new ModerationAiException("invalid_response", false);
         }
+    }
+
+    private async Task LogProviderFailureAsync(HttpResponseMessage response, string model, CancellationToken requestToken, CancellationToken callerToken)
+    {
+        if (logger is null || !logger.IsEnabled(LogLevel.Warning)) return;
+        using var diagnosticTimeout = CancellationTokenSource.CreateLinkedTokenSource(requestToken);
+        diagnosticTimeout.CancelAfter(TimeSpan.FromSeconds(2));
+        var status = "unknown"; var reason = "unknown"; var parameter = "unknown";
+        try
+        {
+            var bytes = await ReadBoundedAsync(response.Content, 16 * 1024, "diagnostic_too_large", diagnosticTimeout.Token);
+            using var json = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 16 });
+            if (json.RootElement.ValueKind == JsonValueKind.Object && json.RootElement.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.Object)
+            {
+                // Log only known metadata. Provider messages can echo credentials or user content.
+                if (error.TryGetProperty("status", out var value) && value.ValueKind == JsonValueKind.String)
+                    status = value.GetString() is "INVALID_ARGUMENT" or "FAILED_PRECONDITION" or "UNAUTHENTICATED" or "PERMISSION_DENIED" or
+                        "NOT_FOUND" or "RESOURCE_EXHAUSTED" or "INTERNAL" or "UNAVAILABLE" or "DEADLINE_EXCEEDED" ? value.GetString()! : "unknown";
+                if (error.TryGetProperty("details", out var details) && details.ValueKind == JsonValueKind.Array)
+                    foreach (var detail in details.EnumerateArray())
+                        if (detail.ValueKind == JsonValueKind.Object && detail.TryGetProperty("reason", out value) && value.ValueKind == JsonValueKind.String &&
+                            value.GetString() is "API_KEY_INVALID" or "API_KEY_SERVICE_BLOCKED" or "API_KEY_HTTP_REFERRER_BLOCKED" or "API_KEY_IP_ADDRESS_BLOCKED" or
+                            "API_KEY_API_TARGET_BLOCKED" or "SERVICE_DISABLED" or "BILLING_DISABLED" or "CONSUMER_INVALID")
+                            reason = value.GetString()!;
+                if (error.TryGetProperty("message", out value) && value.ValueKind == JsonValueKind.String)
+                {
+                    var message = value.GetString()!;
+                    parameter = new[] { "thinking_level", "thinking_summaries", "max_output_tokens", "response_format", "mime_type", "schema", "system_instruction", "model", "input", "store" }
+                        .FirstOrDefault(name => message.Contains(name, StringComparison.OrdinalIgnoreCase)) ?? "unknown";
+                }
+            }
+        }
+        catch (OperationCanceledException) when (!callerToken.IsCancellationRequested)
+        {
+            // Headers already establish the failure; diagnostic timeout must not change retries.
+        }
+        catch (Exception error) when (error is JsonException or ModerationAiException or IOException or HttpRequestException)
+        {
+            // A malformed/truncated diagnostic must not hide the original HTTP status.
+        }
+        logger.LogWarning("Gemini moderation HTTP {HttpStatusCode}; model {Model}; provider status {ProviderStatus}; reason {ProviderReason}; parameter hint {ParameterHint}.",
+            (int)response.StatusCode, model, status, reason, parameter);
     }
 
     private void ValidateConfiguration(ModerationAiOptions settings)
