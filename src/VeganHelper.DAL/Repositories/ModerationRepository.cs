@@ -77,11 +77,18 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
     public Task<IDbContextTransaction> BeginAsync(CancellationToken ct) => db.Database.BeginTransactionAsync(ct);
 
-    public async Task<PostModerationScan?> ClaimAsync(DateTime now, Guid lease, CancellationToken ct)
+    public async Task<PostModerationScan?> ClaimAsync(DateTime now, Guid lease, string model, CancellationToken ct)
     {
         // A recurring job can process multiple posts; locks must refresh rows rather than reuse prior tracked snapshots.
         db.ChangeTracker.Clear();
-        if (await db.Set<PostModerationSettings>().AnyAsync(s => s.ProviderRetryAfter > now, ct)) return null;
+        if (await db.Set<PostModerationSettings>().AnyAsync(s => s.ProviderRetryAfter > now, ct))
+        {
+            var deferredModels = await db.Set<PostModerationScan>().AsNoTracking()
+                .Where(s => s.State == "queued" && s.ErrorCode == "provider_quota" && s.NextAttemptAt > now)
+                .Select(s => s.Model).Distinct().ToListAsync(ct);
+            if (deferredModels.Any(deferredModel => ModerationQuotaDeferral.AppliesTo(deferredModel, model)))
+                return null;
+        }
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.Set<PostModerationScan>().Where(s => s.State == "processing" && s.LeaseUntil <= now && s.Attempts >= 5)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.State, "failed").SetProperty(x => x.ErrorCode, "lease_exhausted")

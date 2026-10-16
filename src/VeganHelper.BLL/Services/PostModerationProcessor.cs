@@ -17,7 +17,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
         for (var i = 0; i < 2; i++)
         {
             ct.ThrowIfCancellationRequested();
-            var scan = await repository.ClaimAsync(clock.GetUtcNow().UtcDateTime, Guid.NewGuid(), ct);
+            var scan = await repository.ClaimAsync(clock.GetUtcNow().UtcDateTime, Guid.NewGuid(), options.Value.Model, ct);
             if (scan is null) return;
             ModerationAiResult? result = null;
             ModerationAiException? failure = null;

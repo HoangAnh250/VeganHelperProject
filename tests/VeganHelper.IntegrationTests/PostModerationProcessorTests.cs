@@ -120,6 +120,28 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     }
 
     [Fact]
+    public async Task QuotaDeferralFromDifferentModel_DoesNotBlockConfiguredModel()
+    {
+        var oldModelJob = await SeedAsync();
+        var currentModelJob = await SeedAsync();
+        await using (var setup = fixture.Context())
+        {
+            await setup.Set<PostModerationScan>().Where(s => s.Id == oldModelJob.ScanId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Model, "gemini-3.8-flash")
+                    .SetProperty(x => x.ErrorCode, "provider_quota")
+                    .SetProperty(x => x.NextAttemptAt, Now.UtcDateTime.AddHours(12)));
+            await setup.Set<PostModerationSettings>()
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.ProviderRetryAfter, Now.UtcDateTime.AddHours(12)));
+        }
+
+        await RunAsync(new FakeClient((_, _) => Task.FromResult(Result())), model: "gemini-3.5-flash-lite");
+
+        await using var verify = fixture.Context();
+        Assert.Equal("queued", (await verify.Set<PostModerationScan>().SingleAsync(s => s.Id == oldModelJob.ScanId)).State);
+        Assert.Equal("safe", (await verify.Set<PostModerationScan>().SingleAsync(s => s.Id == currentModelJob.ScanId)).State);
+    }
+
+    [Fact]
     public async Task DisabledProvider_LeavesQueuedScanUnclaimed()
     {
         var job = await SeedAsync();
@@ -613,14 +635,15 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         await AssertNoDecisionOrNotificationAsync(db, job);
     }
 
-    private async Task RunAsync(IPostModerationAiClient client, bool enabled = true, DbCommandInterceptor? interceptor = null, CancellationToken ct = default)
+    private async Task RunAsync(IPostModerationAiClient client, bool enabled = true, DbCommandInterceptor? interceptor = null,
+        CancellationToken ct = default, string model = "gemini-3.8-flash")
     {
         await using var db = interceptor is null ? fixture.Context() : new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(fixture.Connection).AddInterceptors(interceptor).Options);
         var mapper = new MapperConfiguration(c => c.AddProfile<MappingProfile>(), NullLoggerFactory.Instance).CreateMapper();
         var notifications = new NotificationService(new NotificationRepository(db), mapper, Clock);
         var processor = new PostModerationProcessor(new ModerationRepository(db), client, notifications,
-            Options.Create(new ModerationAiOptions { Enabled = enabled, MinAutoPublishConfidence = .9 }), Clock);
+            Options.Create(new ModerationAiOptions { Enabled = enabled, MinAutoPublishConfidence = .9, Model = model }), Clock);
         await processor.RunAsync(ct);
     }
 
