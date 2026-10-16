@@ -16,6 +16,10 @@ Project references follow `API -> BLL -> DAL`; API also references DAL to compos
 
 `GET /health/live` tests API availability without SQL. Development-only `GET /api/status` exercises Controller -> Service -> Repository and returns 503 if SQL is unavailable.
 
+## Posts
+
+Posts no longer use recipe/article/video/community classification. Cooking details are optional. See [API contract and database rollout](docs/UNIFIED_POSTS.md) before applying the breaking migration to a shared database.
+
 ## Database
 
 The 27-table schema matches the approved revised design, with member/admin role seed data. No database is created or migrated on application startup.

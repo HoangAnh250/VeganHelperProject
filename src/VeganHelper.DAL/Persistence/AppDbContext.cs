@@ -193,7 +193,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         {
             entity.ToTable("posts", table =>
             {
-                table.HasCheckConstraint("CK_posts_1", "post_type IN ('article','video','recipe','community')");
                 table.HasCheckConstraint("CK_posts_2", "meal_type IN ('breakfast','lunch','dinner','snack')");
                 table.HasCheckConstraint("CK_posts_3", "diet_type IN ('vegan','lacto_ovo_vegetarian')");
                 table.HasCheckConstraint("CK_posts_4", "status IN ('draft','pending_review','published','rejected','hidden')");
@@ -207,7 +206,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasKey(x => new { x.Id }).HasName("PK_posts");
             entity.Property(x => x.Id).HasColumnName("id").HasColumnType("bigint").IsRequired(true).UseIdentityByDefaultColumn();
             entity.Property(x => x.AuthorId).HasColumnName("author_id").HasColumnType("bigint").IsRequired(true);
-            entity.Property(x => x.PostType).HasColumnName("post_type").HasColumnType("character varying(20)").IsRequired(true);
             entity.Property(x => x.Title).HasColumnName("title").HasColumnType("character varying(255)").IsRequired(true);
             entity.Property(x => x.Content).HasColumnName("content").HasColumnType("text").IsRequired(false);
             entity.Property(x => x.MealType).HasColumnName("meal_type").HasColumnType("character varying(20)").IsRequired(false);

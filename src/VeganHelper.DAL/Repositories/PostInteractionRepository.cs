@@ -75,7 +75,6 @@ public sealed class PostInteractionRepository(AppDbContext context) : IPostInter
             {
                 PostId = item.post.Id,
                 Title = item.post.Title,
-                PostType = item.post.PostType,
                 ThumbnailUrl = item.post.Media
                     .Where(media => media.IsPrimary)
                     .Select(media => media.MediaUrl)

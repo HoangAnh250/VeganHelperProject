@@ -110,7 +110,7 @@ public sealed class AdminCategoryTests(Member2ApiFixture fixture)
         var category = await CategoryAsync();
         await using (var db = fixture.Context())
         {
-            var post = new Post { AuthorId = admin, Title = "Linked", Content = "Test", PostType = "recipe", Status = status == "deleted" ? "published" : status,
+            var post = new Post { AuthorId = admin, Title = "Linked", Content = "Test", Status = status == "deleted" ? "published" : status,
                 IsDeleted = status == "deleted", DeletedAt = status == "deleted" ? DateTime.UtcNow : null, CreatedAt = DateTime.UtcNow };
             post.PostCategories.Add(new PostCategory { CategoryId = category.Id });
             db.Posts.Add(post);
@@ -213,7 +213,7 @@ public sealed class AdminCategoryTests(Member2ApiFixture fixture)
         var category = await CategoryAsync();
         await using (var db = fixture.Context())
         {
-            var post = new Post { AuthorId = admin, Title = "Linked", Content = "Test", PostType = "recipe", Status = "published", CreatedAt = DateTime.UtcNow };
+            var post = new Post { AuthorId = admin, Title = "Linked", Content = "Test", Status = "published", CreatedAt = DateTime.UtcNow };
             post.PostCategories.Add(new PostCategory { CategoryId = category.Id });
             db.Posts.Add(post);
             await db.SaveChangesAsync();

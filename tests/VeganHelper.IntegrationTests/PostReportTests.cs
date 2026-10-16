@@ -35,7 +35,7 @@ public sealed class PostReportTests(Member2ApiFixture fixture)
     {
         await using var db = fixture.Context();
         var post = new Post { AuthorId = author, Title = "Original tofu recipe", Content = "Reported content",
-            PostType = "article", Status = "published", CreatedAt = DateTime.UtcNow };
+            Status = "published", CreatedAt = DateTime.UtcNow };
         db.Posts.Add(post); await db.SaveChangesAsync(); return post;
     }
     [Fact]

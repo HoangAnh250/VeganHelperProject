@@ -6,7 +6,6 @@ public sealed class Post
     public int ContentRevision { get; set; } = 1;
     public long Id { get; set; }
     public long AuthorId { get; set; }
-    public string PostType { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Content { get; set; }
     public string? DifficultyLevel { get; set; }

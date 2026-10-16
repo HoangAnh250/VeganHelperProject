@@ -50,7 +50,6 @@ public sealed class PostService : IPostService
         {
             AuthorId = authorId,
             Title = request.Title,
-            PostType = request.PostType,
             Content = request.Content,
             DifficultyLevel = string.IsNullOrEmpty(request.DifficultyLevel) ? null : request.DifficultyLevel,
             PrepTimeMins = request.PrepTimeMins,
@@ -131,7 +130,6 @@ public sealed class PostService : IPostService
         {
             Id = p.Id,
             Title = p.Title,
-            PostType = p.PostType,
             ThumbnailUrl = p.ThumbnailUrl,
             AuthorName = p.AuthorName,
             AvatarUrl = p.AvatarUrl,
@@ -172,7 +170,6 @@ public sealed class PostService : IPostService
         {
             Id = p.Id,
             Title = p.Title,
-            PostType = p.PostType,
             ThumbnailUrl = p.ThumbnailUrl,
             AuthorName = p.AuthorName,
             AvatarUrl = p.AvatarUrl,
@@ -227,7 +224,6 @@ public sealed class PostService : IPostService
             Id = post.Id,
             AuthorId = post.AuthorId,
             AuthorName = authorName,
-            PostType = post.PostType,
             Title = post.Title,
             Content = post.Content,
             CategoryId = post.PostCategories.FirstOrDefault()?.CategoryId ?? 0,
@@ -288,7 +284,6 @@ public sealed class PostService : IPostService
             CreatedAt = p.CreatedAt,
             ThumbnailUrl = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaUrl).FirstOrDefault(),
             Content = p.Content,
-            PostType = p.PostType,
             CategoryName = null,
             CategoryId = p.PostCategories.OrderBy(c => c.CategoryId).Select(c => c.CategoryId).FirstOrDefault(),
             ViewCount = p.ViewCount,

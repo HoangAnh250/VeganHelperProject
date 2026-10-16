@@ -60,7 +60,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                     ? Math.Clamp(requested, 60, 86400) : 900;
                 scan.State = "queued"; scan.Attempts = Math.Max(0, scan.Attempts - 1);
                 scan.ErrorCode = "provider_quota"; scan.NextAttemptAt = now.AddSeconds(seconds);
-                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2"; scan.CompletedAt = null;
+                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.1"; scan.CompletedAt = null;
                 await repository.DeferProviderAsync(scan.NextAttemptAt, ct);
             }
             else
@@ -68,7 +68,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                 var retry = failure?.Retryable == true && scan.Attempts < 5;
                 scan.State = retry ? "queued" : failure?.Retryable == true ? "failed" : "manual_required";
                 scan.ErrorCode = SafeCode(failure?.Code);
-                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2";
+                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.1";
                 scan.NextAttemptAt = now.AddSeconds(30 * Math.Pow(3, Math.Max(0, scan.Attempts - 1)));
                 scan.CompletedAt = retry ? null : now;
             }

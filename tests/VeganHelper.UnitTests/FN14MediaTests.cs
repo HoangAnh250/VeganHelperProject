@@ -15,7 +15,7 @@ public class FN14MediaTests
 {
     private readonly Mock<IPostRepository> repository = new();
     private readonly Mock<IMediaStorageService> storage = new();
-    private readonly Post post = new() { Id = 10, AuthorId = 1, Title = "Original", PostType = "recipe" };
+    private readonly Post post = new() { Id = 10, AuthorId = 1, Title = "Original" };
     private readonly PostService service;
 
     public FN14MediaTests()

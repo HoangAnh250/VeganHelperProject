@@ -10,7 +10,6 @@ public class MyPostItemDto
     public DateTime CreatedAt { get; set; }
     public string? ThumbnailUrl { get; set; }
     public string? Content { get; set; }
-    public string? PostType { get; set; }
     public string? CategoryName { get; set; }
     public int CategoryId { get; set; }
     public long ViewCount { get; set; }

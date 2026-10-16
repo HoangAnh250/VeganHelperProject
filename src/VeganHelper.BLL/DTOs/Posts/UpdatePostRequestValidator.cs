@@ -25,9 +25,9 @@ public class UpdatePostRequestValidator : AbstractValidator<UpdatePostRequest>
             .WithMessage("DietType must be vegan or lacto_ovo_vegetarian.");
             
         RuleFor(x => x.PrepTimeMins)
-            .GreaterThan(0).When(x => x.PrepTimeMins.HasValue).WithMessage("PrepTimeMins must be greater than 0.");
+            .GreaterThanOrEqualTo(0).When(x => x.PrepTimeMins.HasValue).WithMessage("PrepTimeMins must be greater than or equal to 0.");
 
         RuleFor(x => x.CookingTimeMins)
-            .GreaterThan(0).When(x => x.CookingTimeMins.HasValue).WithMessage("CookingTimeMins must be greater than 0.");
+            .GreaterThanOrEqualTo(0).When(x => x.CookingTimeMins.HasValue).WithMessage("CookingTimeMins must be greater than or equal to 0.");
     }
 }

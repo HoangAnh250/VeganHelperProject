@@ -84,7 +84,6 @@ public static class PostSeeder
                 var post = new Post
                 {
                     AuthorId = seederUser.Id,
-                    PostType = "recipe",
                     Title = newTitle,
                     Content = $"This is a beautifully crafted vegan recipe for {data.Title}. It is rich in flavor and completely plant-based. Perfect for family dinners or a healthy meal prep.",
                     DifficultyLevel = i % 3 == 0 ? "Hard" : i % 2 == 0 ? "Medium" : "Easy",

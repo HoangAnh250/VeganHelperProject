@@ -97,7 +97,7 @@ Vào Web App → **Settings → Environment variables → App settings → Add**
 | `Cors__AllowedOrigins__0` | URL HTTPS FE, không thêm dấu `/` cuối hoặc path |
 | `ModerationAi__Enabled` | Khởi đầu `false`; bật khi đã xác nhận schema Hangfire và cấu hình AI |
 | `ModerationAi__ApiKey` | Gemini key dùng cho moderation |
-| `ModerationAi__Model` | Model thực tế đã được nhóm kiểm thử và tài khoản cho phép |
+| `ModerationAi__Model` | `gemini-3.5-flash-lite` (cần quota trong project Google đang dùng) |
 | `ModerationAi__TimeoutSeconds` | Ví dụ `60` |
 | `ModerationAi__MinAutoPublishConfidence` | `0.9` theo cấu hình hiện tại |
 | `ModerationAi__AllowedMediaHosts__0` | **Hostname** media R2 public, không phải full URL; thêm __1, __2 nếu cần |

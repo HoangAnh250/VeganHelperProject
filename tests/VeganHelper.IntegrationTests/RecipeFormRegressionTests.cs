@@ -14,18 +14,13 @@ namespace VeganHelper.IntegrationTests;
 public partial class PostRepositoryTests
 {
     [Theory]
-    [InlineData("recipe", true)]
-    [InlineData("recipe", false)]
-    [InlineData("article", true)]
-    [InlineData("article", false)]
-    [InlineData("video", true)]
-    [InlineData("video", false)]
-    public async Task PostSearch_FindsEveryPublishedType_ByTitleOrContent(string postType, bool matchTitle)
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PostSearch_FindsPublishedPosts_ByTitleOrContent(bool matchTitle)
     {
         var user = await AddUser();
         var keyword = "Matcha " + Guid.NewGuid().ToString("N");
         var post = NewPost(user.Id);
-        post.PostType = postType;
         post.Title = matchTitle ? keyword + " Vegan Cheesecake" : "Another title";
         post.Content = matchTitle ? "Plant-based ingredients" : keyword + " in content";
         _context.Posts.Add(post);
@@ -34,11 +29,10 @@ public partial class PostRepositoryTests
         Assert.Equal(1, result.TotalCount);
         var item = Assert.Single(result.Items);
         Assert.Equal(post.Id, item.Id);
-        Assert.Equal(postType, item.PostType);
     }
 
     [Fact]
-    public async Task PostSearch_RecipesPreserveVisibilityPaginationAndCount()
+    public async Task PostSearch_PreservesVisibilityPaginationAndCount()
     {
         var user = await AddUser();
         var keyword = Guid.NewGuid().ToString("N");
@@ -46,7 +40,6 @@ public partial class PostRepositoryTests
         {
             var post = NewPost(user.Id);
             post.Title = keyword;
-            post.PostType = "recipe";
             post.CreatedAt = DateTime.UtcNow.AddMinutes(i);
             return post;
         }).ToArray();
@@ -78,7 +71,6 @@ public partial class PostRepositoryTests
         var user = await AddUser();
         var post = NewPost(user.Id);
         post.Title = "Đậu hũ " + Guid.NewGuid().ToString("N");
-        post.PostType = "article";
         post.Status = "published";
         _context.Posts.Add(post);
         await _context.SaveChangesAsync();
@@ -133,7 +125,7 @@ public partial class PostRepositoryTests
         using var image = new MemoryStream([1, 2, 3]);
         var request = new CreatePostRequest
         {
-            Title = "Recipe form regression", PostType = "recipe", CategoryId = category.Id, Content = "Nấu món chay",
+            Title = "Recipe form regression", CategoryId = category.Id, Content = "Nấu món chay",
             IngredientsJson = JsonSerializer.Serialize(new[] { new { Name = ingredientName } }),
             StepsJson = "[{\"StepNumber\":1,\"Description\":\"Rửa nguyên liệu\"},{\"StepNumber\":2,\"Description\":\"Nấu chín\"}]",
             MediaFiles = new FormFileCollection { new FormFile(image, 0, image.Length, "MediaFiles", "probe.jpg") { Headers = new HeaderDictionary(), ContentType = "image/jpeg" } }

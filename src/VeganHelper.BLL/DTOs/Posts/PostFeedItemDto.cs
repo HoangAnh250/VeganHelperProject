@@ -6,7 +6,6 @@ public class PostFeedItemDto
 {
     public long Id { get; set; }
     public string Title { get; set; } = string.Empty;
-    public string PostType { get; set; } = string.Empty;
     public string? ThumbnailUrl { get; set; }
     public string AuthorName { get; set; } = string.Empty;
     public string? AvatarUrl { get; set; }

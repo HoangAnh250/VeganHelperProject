@@ -10,7 +10,6 @@ public class PostDetailDto
     public long Id { get; set; }
     public long AuthorId { get; set; }
     public string AuthorName { get; set; } = string.Empty;
-    public string PostType { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Content { get; set; }
     public int CategoryId { get; set; }

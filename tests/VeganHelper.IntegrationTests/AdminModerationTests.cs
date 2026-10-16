@@ -42,7 +42,7 @@ public sealed class AdminModerationTests(Member2ApiFixture fixture)
     {
         var author = await UserAsync(1);
         await using var db = fixture.Context();
-        var post = new Post { AuthorId = author, Title = "Đậu " + Guid.NewGuid().ToString("N"), Content = "Plant-based recipe", PostType = "recipe", Status = status, CreatedAt = DateTime.UtcNow };
+        var post = new Post { AuthorId = author, Title = "Đậu " + Guid.NewGuid().ToString("N"), Content = "Plant-based recipe", Status = status, CreatedAt = DateTime.UtcNow };
         db.Posts.Add(post); await db.SaveChangesAsync(); return post;
     }
     private async Task<long> FlagAsync(Post post)

@@ -29,6 +29,8 @@ using VeganHelper.API.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using System.Text.Json;
 using VeganHelper.DAL.Integrations.Moderation;
+using VeganHelper.API.Configuration;
+using VeganHelper.API.Infrastructure.AI;
 
 if (args.Contains("--generate-vapid-keys"))
 {
@@ -98,6 +100,7 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddDal(builder.Configuration);
 builder.Services.AddScoped<IStatusService, StatusService>();
+builder.Services.AddScoped<IAiChatService, AiChatService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
@@ -176,6 +179,19 @@ if (string.IsNullOrWhiteSpace(moderationPrompt.Version) || moderationPrompt.Vers
 builder.Services.AddSingleton(moderationPrompt);
 builder.Services.AddHttpClient<IPostModerationAiClient, GeminiPostModerationClient>(client => client.Timeout = Timeout.InfiniteTimeSpan)
     .ConfigurePrimaryHttpMessageHandler(GeminiModerationHttpHandlerFactory.Create)
+    .RedactLoggedHeaders(["x-goog-api-key"]);
+builder.Services.AddOptions<GeminiOptions>().BindConfiguration("Gemini");
+var aiChatPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "VeganNutrition.v2.json");
+var aiChatPrompt = JsonSerializer.Deserialize<AiChatPromptDefinition>(
+    File.ReadAllText(aiChatPromptPath),
+    JsonSerializerOptions.Web)
+    ?? throw new InvalidOperationException("AI chat prompt is missing.");
+if (string.IsNullOrWhiteSpace(aiChatPrompt.Version) ||
+    string.IsNullOrWhiteSpace(aiChatPrompt.SystemInstruction))
+    throw new InvalidOperationException("AI chat prompt is invalid.");
+builder.Services.AddSingleton(aiChatPrompt);
+builder.Services.AddHttpClient<IGeminiChatClient, GeminiChatClient>(client =>
+    client.Timeout = Timeout.InfiniteTimeSpan)
     .RedactLoggedHeaders(["x-goog-api-key"]);
 builder.Services.AddScoped<IAccountAccessService, AccountAccessService>();
 builder.Services.AddScoped<IAuthorizationHandler, ActiveAdminHandler>();

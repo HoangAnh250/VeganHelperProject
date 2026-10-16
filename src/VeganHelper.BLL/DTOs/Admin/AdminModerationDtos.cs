@@ -42,7 +42,6 @@ public class ModerationPostDto
     public long Id { get; set; }
     public long AuthorId { get; set; }
     public string Title { get; set; } = "";
-    public string PostType { get; set; } = "";
     public string Status { get; set; } = "";
     public int ContentRevision { get; set; }
     public DateTime CreatedAt { get; set; }

@@ -89,7 +89,6 @@ public partial class PostRepositoryTests : IAsyncLifetime
         {
             AuthorId = user.Id,
             Title = "Integration Test Post",
-            PostType = "article",
             Content = "Testing database insertion",
             Status = "pending_review",
             CreatedAt = System.DateTime.UtcNow
@@ -103,7 +102,6 @@ public partial class PostRepositoryTests : IAsyncLifetime
         var savedPost = await _context.Posts.FirstOrDefaultAsync(p => p.Id == createdPost.Id);
         Assert.NotNull(savedPost);
         Assert.Equal("Integration Test Post", savedPost.Title);
-        Assert.Equal("article", savedPost.PostType);
     }
 
     [Fact]
@@ -238,6 +236,6 @@ public partial class PostRepositoryTests : IAsyncLifetime
 
     private static Post NewPost(long authorId) => new()
     {
-        AuthorId = authorId, Title = "PostgreSQL test", PostType = "article", Status = "published", CreatedAt = DateTime.UtcNow
+        AuthorId = authorId, Title = "PostgreSQL test", Status = "published", CreatedAt = DateTime.UtcNow
     };
 }

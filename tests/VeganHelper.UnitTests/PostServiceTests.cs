@@ -58,7 +58,7 @@ public class PostServiceTests
 
         await _postService.CreatePostAsync(new CreatePostRequest
         {
-            Title = "Recipe", PostType = "recipe", CategoryId = 6, Content = "Recipe content",
+            Title = "Recipe", CategoryId = 6, Content = "Recipe content",
             IngredientsJson = "[{\"Name\":\"Đậu hũ\"}]",
             StepsJson = "[{\"StepNumber\":1,\"Description\":\"Rửa nguyên liệu\"}]"
         }, 1);
@@ -106,7 +106,6 @@ public class PostServiceTests
         var request = new CreatePostRequest
         {
             Title = "Valid Post",
-            PostType = "recipe",
             CategoryId = 1,
             Content = "Test content",
             IngredientsJson = "[{\"IngredientId\": 1, \"Quantity\": 2.5, \"Unit\": \"kg\"}]"
