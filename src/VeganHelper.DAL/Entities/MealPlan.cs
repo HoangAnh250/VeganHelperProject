@@ -15,6 +15,7 @@ public sealed class MealPlan
     public string AllergiesSnapshot { get; set; } = string.Empty;
     public string AvailableIngredientsSnapshot { get; set; } = string.Empty;
     public string GenerationSource { get; set; } = string.Empty;
+    public bool IsTrialGeneration { get; set; }
     public string? ModelName { get; set; }
     public string? GenerationSnapshot { get; set; }
     public string Status { get; set; } = string.Empty;

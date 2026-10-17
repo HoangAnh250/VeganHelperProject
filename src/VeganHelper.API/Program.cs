@@ -31,6 +31,7 @@ using System.Text.Json;
 using VeganHelper.DAL.Integrations.Moderation;
 using VeganHelper.API.Configuration;
 using VeganHelper.API.Infrastructure.AI;
+using VeganHelper.API.Infrastructure;
 
 if (args.Contains("--generate-vapid-keys"))
 {
@@ -201,6 +202,14 @@ builder.Services.AddAuthorization(options => options.AddPolicy(AdminPolicies.Adm
 builder.Services.AddScoped<IHealthProfileService, HealthProfileService>();
 builder.Services.AddScoped<VeganHelper.BLL.Services.MealPlanning.IMealPlanningService, VeganHelper.BLL.Services.MealPlanning.MealPlanningService>();
 builder.Services.AddScoped<IMealPlanningRepository, MealPlanningRepository>();
+builder.Services.AddScoped<IMealPlanPaymentRepository, MealPlanPaymentRepository>();
+builder.Services.AddScoped<IMealPlanPaymentService, MealPlanPaymentService>();
+builder.Services.AddScoped<IPayOSGateway, PayOSGateway>();
+builder.Services.AddOptions<PayOSOptions>().BindConfiguration("PayOS")
+    .Validate(options => !builder.Environment.IsProduction() ||
+        (IsPublicHttpsUrl(options.ReturnUrl) && IsPublicHttpsUrl(options.CancelUrl)),
+        "Production PayOS return and cancel URLs must be public HTTPS URLs.")
+    .ValidateOnStart();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
@@ -323,5 +332,12 @@ static string? FindEnvironmentFile(string startPath)
 
     return null;
 }
+
+static bool IsPublicHttpsUrl(string value) =>
+    Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+    uri.Scheme == Uri.UriSchemeHttps &&
+    !string.IsNullOrWhiteSpace(uri.Host) &&
+    !uri.IsLoopback &&
+    string.IsNullOrEmpty(uri.UserInfo);
 
 public partial class Program { }

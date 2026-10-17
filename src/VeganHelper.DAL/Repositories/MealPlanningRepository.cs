@@ -54,12 +54,54 @@ public sealed class MealPlanningRepository(AppDbContext db) : IMealPlanningRepos
         await tx.CommitAsync(ct);
     }
 
-    public Task<MealPlan?> GetAsync(long userId,long id,CancellationToken ct)=>db.MealPlans.AsNoTracking()
-        .SingleOrDefaultAsync(p=>p.Id==id && p.UserId==userId && !p.IsTemplate,ct);
+    public async Task<bool> TrySaveTrialAsync(
+        MealPlan plan,
+        IReadOnlyList<MealPlanSchedule> schedule,
+        int generationLimit,
+        CancellationToken ct)
+    {
+        if (plan.UserId is not long userId || userId <= 0)
+            throw new ArgumentException("A trial meal plan must belong to a user.", nameof(plan));
+        if (generationLimit <= 0)
+            throw new ArgumentOutOfRangeException(nameof(generationLimit));
 
-    public async Task<DatabasePage<MealPlan>> ListAsync(long userId,int pageIndex,int pageSize,CancellationToken ct)
+        await using var tx=await db.Database.BeginTransactionAsync(ct);
+
+        // Serialize quota checks per user so concurrent requests cannot exceed the limit.
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT id FROM public.users WHERE id = {userId} FOR UPDATE", ct);
+
+        var used=await db.MealPlans.CountAsync(p=>p.UserId==userId && p.IsTrialGeneration,ct);
+        if(used>=generationLimit)
+        {
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
+        plan.IsTrialGeneration=true;
+        db.MealPlans.Add(plan);
+        await db.SaveChangesAsync(ct);
+        foreach(var slot in schedule) slot.MealPlanId=plan.Id;
+        db.MealPlanSchedule.AddRange(schedule);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return true;
+    }
+
+    public Task<int> CountTrialGenerationsAsync(long userId,CancellationToken ct)=>
+        db.MealPlans.CountAsync(p=>p.UserId==userId && p.IsTrialGeneration,ct);
+
+    public Task<MealPlan?> GetAsync(long userId,long id,bool trialOnly,CancellationToken ct)
+    {
+        var query=db.MealPlans.AsNoTracking().Where(p=>p.Id==id && p.UserId==userId && !p.IsTemplate);
+        if(trialOnly) query=query.Where(p=>p.IsTrialGeneration);
+        return query.SingleOrDefaultAsync(ct);
+    }
+
+    public async Task<DatabasePage<MealPlan>> ListAsync(long userId,int pageIndex,int pageSize,bool trialOnly,CancellationToken ct)
     {
         var query=db.MealPlans.AsNoTracking().Where(p=>p.UserId==userId && !p.IsTemplate);
+        if(trialOnly) query=query.Where(p=>p.IsTrialGeneration);
         var count=await query.LongCountAsync(ct);
         var items=await query.OrderByDescending(p=>p.CreatedAt).ThenByDescending(p=>p.Id)
             .Skip((pageIndex-1)*pageSize).Take(pageSize).ToListAsync(ct);

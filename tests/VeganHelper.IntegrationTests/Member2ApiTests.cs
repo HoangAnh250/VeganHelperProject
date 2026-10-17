@@ -20,6 +20,7 @@ using VeganHelper.DAL.Storage;
 using VeganHelper.DAL.Persistence;
 using VeganHelper.DAL.Repositories;
 using VeganHelper.BLL.Services.Media;
+using VeganHelper.BLL.Contracts;
 using Microsoft.AspNetCore.Http;
 
 namespace VeganHelper.IntegrationTests;
@@ -99,6 +100,8 @@ public sealed class Member2ApiFactory(string connection) : WebApplicationFactory
             services.AddSingleton<IMediaStorageService, NoCloudMediaStorage>();
             services.RemoveAll<IAvatarStorage>();
             services.AddSingleton<IAvatarStorage, NoCloudAvatarStorage>();
+            services.RemoveAll<IPayOSGateway>();
+            services.AddSingleton<IPayOSGateway, TestPayOSGateway>();
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
             services.RemoveAll<AppDbContext>();

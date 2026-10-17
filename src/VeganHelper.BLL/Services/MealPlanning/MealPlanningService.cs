@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AutoMapper;
 using FluentValidation;
+using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.MealPlanning;
 using VeganHelper.BLL.Exceptions;
@@ -17,13 +18,16 @@ public interface IMealPlanningService
 }
 
 public sealed class MealPlanningService(IMealPlanningRepository repository,IMapper mapper,
-    IValidator<GenerateMealPlanRequest> validator,TimeProvider clock) : IMealPlanningService
+    IValidator<GenerateMealPlanRequest> validator,TimeProvider clock,IMealPlanPaymentService payments) : IMealPlanningService
 {
     private static readonly JsonSerializerOptions JsonOptions=new(JsonSerializerDefaults.Web);
 
     public async Task<MealPlanDto> GenerateAsync(long userId,GenerateMealPlanRequest request,CancellationToken ct)
     {
         await validator.ValidateAndThrowAsync(request,ct);
+        var access=await payments.GetAccessAsync(userId,ct);
+        if(!access.CanGenerate)
+            throw new MealPlanAccessRequiredException("Your three free meal-plan trials have been used. Purchase a package to generate more plans.","MEAL_PLAN_TRIAL_LIMIT_REACHED");
         var today=DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
         if(request.StartDate<today || request.StartDate>today.AddYears(1))
             throw new ArgumentException("Start date must be today or within the next year (UTC).");
@@ -40,22 +44,33 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
             UserId=userId, IsTemplate=false, StartDate=request.StartDate, EndDate=request.StartDate.AddDays(6),
             HeightCm=input.Profile!.HeightCm, WeightKg=input.Profile.WeightKg, BmiValue=menu.Bmi, DietType=menu.DietType,
             AllergiesSnapshot=JsonSerializer.Serialize(input.Allergies,JsonOptions), AvailableIngredientsSnapshot="[]",
-            GenerationSource="manual", GenerationSnapshot=JsonSerializer.Serialize(menu,JsonOptions),
+            GenerationSource="manual", IsTrialGeneration=access.Status!="active", GenerationSnapshot=JsonSerializer.Serialize(menu,JsonOptions),
             Status="completed", CreatedAt=now, UpdatedAt=now
         };
         var slots=menu.Days.SelectMany(day=>day.Meals.Select(meal=>new MealPlanSchedule
         { DayOfWeek=day.DayOfWeek, MealId=meal.MealId, MealTime=meal.MealTime, PortionMultiplier=meal.PortionMultiplier })).ToList();
-        await repository.SaveAsync(plan,slots,ct);
+        if(access.Status=="active")
+        {
+            await repository.SaveAsync(plan,slots,ct);
+        }
+        else if(!await repository.TrySaveTrialAsync(plan,slots,MealPlanAccessPolicy.TrialGenerationLimit,ct))
+        {
+            throw new MealPlanAccessRequiredException("Your three free meal-plan trials have been used. Purchase a package to generate more plans.","MEAL_PLAN_TRIAL_LIMIT_REACHED");
+        }
         return ToDto(plan);
     }
 
-    public async Task<MealPlanDto> GetAsync(long userId,long id,CancellationToken ct)=>ToDto(
-        await repository.GetAsync(userId,id,ct) ?? throw new NotFoundException("Meal plan not found."));
+    public async Task<MealPlanDto> GetAsync(long userId,long id,CancellationToken ct)
+    {
+        var access=await EnsureCanViewAsync(userId,ct);
+        return ToDto(await repository.GetAsync(userId,id,!access.CanViewExistingPlans,ct) ?? throw new NotFoundException("Meal plan not found."));
+    }
 
     public async Task<PagedResult<MealPlanDto>> ListAsync(long userId,int pageIndex,int pageSize,CancellationToken ct)
     {
         Pagination.Validate(pageIndex,pageSize);
-        var page=await repository.ListAsync(userId,pageIndex,pageSize,ct);
+        var access=await EnsureCanViewAsync(userId,ct);
+        var page=await repository.ListAsync(userId,pageIndex,pageSize,!access.CanViewExistingPlans,ct);
         return new PagedResult<MealPlanDto>
         {
             Items=page.Items.Select(ToDto).ToList(), TotalItems=page.TotalCount,TotalCount=checked((int)page.TotalCount),
@@ -68,5 +83,13 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         var dto=mapper.Map<MealPlanDto>(plan);
         dto.Menu=plan.GenerationSnapshot is null ? null : JsonSerializer.Deserialize<WeeklyMenuDto>(plan.GenerationSnapshot,JsonOptions);
         return dto;
+    }
+
+    private async Task<MealPlanAccessDto> EnsureCanViewAsync(long userId,CancellationToken ct)
+    {
+        var access=await payments.GetAccessAsync(userId,ct);
+        if(!access.CanViewExistingPlans && !access.CanViewTrialPlans)
+            throw new MealPlanAccessRequiredException("Your meal-plan viewing period has ended. Purchase or renew a package to continue viewing saved plans.","MEAL_PLAN_VIEW_ACCESS_ENDED");
+        return access;
     }
 }
