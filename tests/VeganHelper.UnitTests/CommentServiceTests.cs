@@ -253,14 +253,42 @@ public sealed class CommentServiceTests
         };
         repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(comment);
 
+        var reason = new string('x', DeleteCommentRequest.MaxReasonLength);
         await CreateService(repository).DeleteCommentAsync(10, 100, 8, true, new DeleteCommentRequest
         {
-            Reason = "Community guideline violation"
+            Reason = reason
         });
 
         Assert.True(comment.IsDeleted);
         Assert.Equal("hidden", comment.Status);
         repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_RejectsAdministratorReasonOver500Characters()
+    {
+        var repository = CreateRepository();
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Comment
+            {
+                Id = 100,
+                PostId = 10,
+                UserId = 7,
+                Content = "Comment",
+                Status = "visible"
+            });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            CreateService(repository).DeleteCommentAsync(
+                10,
+                100,
+                8,
+                true,
+                new DeleteCommentRequest { Reason = new string('x', DeleteCommentRequest.MaxReasonLength + 1) }));
+
+        Assert.Contains("500", exception.Message);
+        repository.Verify(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
