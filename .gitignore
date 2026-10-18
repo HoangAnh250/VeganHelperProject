@@ -48,3 +48,6 @@ logs/
 *.log
 *.tmp
 *.bak
+
+# Local dashboard demo import receipt
+/docs/data/dashboard-demo/import-verification.json

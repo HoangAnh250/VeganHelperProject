@@ -10,7 +10,7 @@ public sealed class MealPlanningRepository(AppDbContext db) : IMealPlanningRepos
     public async Task<MealPlanningInput> LoadAsync(long userId, CancellationToken ct)
     {
         // A consistent input snapshot; persistence stores exactly this version of the inputs/output.
-        await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead,ct);
+        await using var tx=db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead,ct) : null;
         var input=new MealPlanningInput
         {
             Profile=await db.UserProfiles.AsNoTracking().SingleOrDefaultAsync(p=>p.UserId==userId,ct),
@@ -39,19 +39,19 @@ public sealed class MealPlanningRepository(AppDbContext db) : IMealPlanningRepos
             meal.SuitableTimes=timeLookup[meal.Id].Select(t=>t.MealTime).ToList();
             meal.Ingredients=ingredientLookup[meal.Id].Select(i=>i.Ingredient).OrderBy(i=>i.IngredientId).ToList();
         }
-        await tx.CommitAsync(ct);
+        if(tx is not null) await tx.CommitAsync(ct);
         return input;
     }
 
     public async Task SaveAsync(MealPlan plan,IReadOnlyList<MealPlanSchedule> schedule,CancellationToken ct)
     {
-        await using var tx=await db.Database.BeginTransactionAsync(ct);
+        await using var tx=db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(ct) : null;
         db.MealPlans.Add(plan);
         await db.SaveChangesAsync(ct);
         foreach(var slot in schedule) slot.MealPlanId=plan.Id;
         db.MealPlanSchedule.AddRange(schedule);
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        if(tx is not null) await tx.CommitAsync(ct);
     }
 
     public Task<MealPlan?> GetAsync(long userId,long id,CancellationToken ct)=>db.MealPlans.AsNoTracking()

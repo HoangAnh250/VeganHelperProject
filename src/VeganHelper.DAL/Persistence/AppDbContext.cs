@@ -671,6 +671,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 .HasFilter("source_type = 'user' AND comment_id IS NOT NULL AND reporter_id IS NOT NULL");
         });
         Member2ModelConfiguration.Configure(modelBuilder);
+        MealPlanRoutineConfiguration.Configure(modelBuilder);
         NotificationModelConfiguration.Configure(modelBuilder);
         AdminAuditModelConfiguration.Configure(modelBuilder);
         AdminMemberModelConfiguration.Configure(modelBuilder);

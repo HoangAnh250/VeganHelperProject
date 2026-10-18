@@ -11,12 +11,14 @@ public sealed class MappingProfile : Profile
     public MappingProfile()
     {
         CreateMap<MealPlan, VeganHelper.BLL.DTOs.MealPlanning.MealPlanDto>()
+            .ForMember(d=>d.Routine,o=>o.Ignore())
             .ForMember(d=>d.Menu,o=>o.Ignore());
         CreateMap<Flag, VeganHelper.BLL.DTOs.Posts.AdminPostReportDto>();
         CreateMap<PostModerationAssessment, VeganHelper.BLL.DTOs.Posts.ModerationAssessmentDto>();
         CreateMap<AdminAuditLog, VeganHelper.BLL.DTOs.Admin.AdminAuditLogDto>();
         CreateMap<AdminMemberProjection, VeganHelper.BLL.DTOs.Admin.AdminMemberDto>();
         CreateMap<AdminCategoryProjection, VeganHelper.BLL.DTOs.Admin.AdminCategoryDto>();
+        CreateMap<AdminCommentReportProjection, VeganHelper.BLL.DTOs.Admin.AdminCommentReportDto>();
         CreateMap<ModerationPostProjection, VeganHelper.BLL.DTOs.Admin.ModerationPostDto>();
         CreateMap<ModerationFlagProjection, VeganHelper.BLL.DTOs.Admin.ModerationFlagDto>()
             .ForMember(d => d.Findings, o => o.MapFrom(s => ModerationMapping.FlagFindings(s.ReportedSnapshotJson, s.FindingsJson)))
@@ -35,6 +37,8 @@ public sealed class MappingProfile : Profile
         CreateMap<Notification, VeganHelper.BLL.DTOs.Notifications.NotificationDto>();
         CreateMap<UpdateHealthProfileRequest, UserProfile>(MemberList.None);
         CreateMap<UserProfile, HealthProfileDto>(MemberList.None);
+        CreateMap<MealPlanRoutine, VeganHelper.BLL.DTOs.MealPlanning.MealRoutineDto>(MemberList.None);
+        CreateMap<MealPlanEntry, VeganHelper.BLL.DTOs.MealPlanning.MealEntryDto>();
         CreateMap<AllergyProjection, AllergyDto>();
         CreateMap<Ingredient, IngredientOptionDto>();
         CreateMap<BmiHistory, BmiHistoryDto>()

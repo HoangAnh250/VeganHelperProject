@@ -17,18 +17,35 @@ public interface IMealPlanningService
 }
 
 public sealed class MealPlanningService(IMealPlanningRepository repository,IMapper mapper,
-    IValidator<GenerateMealPlanRequest> validator,TimeProvider clock) : IMealPlanningService
+    IValidator<GenerateMealPlanRequest> validator,TimeProvider clock,MealRoutineService routines,
+    IMealRoutineRepository routineRepository,IMealPlanAccessPolicy access) : IMealPlanningService
 {
     private static readonly JsonSerializerOptions JsonOptions=new(JsonSerializerDefaults.Web);
 
     public async Task<MealPlanDto> GenerateAsync(long userId,GenerateMealPlanRequest request,CancellationToken ct)
     {
         await validator.ValidateAndThrowAsync(request,ct);
-        var today=DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        await access.EnsureAsync(userId,ct);
+        MealRoutineService.ValidateSettings(request);
+        var today=MealRoutineService.LocalToday(clock,request.TimeZoneId);
         if(request.StartDate<today || request.StartDate>today.AddYears(1))
-            throw new ArgumentException("Start date must be today or within the next year (UTC).");
+            throw new ArgumentException("Start date must be today or within the next year in your selected timezone.");
+        await using var tx=await routineRepository.BeginAsync(ct);
+        await routineRepository.LockProfileAsync(userId,ct);
         var input=await repository.LoadAsync(userId,ct);
-        var menu=MealPlanGenerator.Generate(input,today,new Random(Random.Shared.Next()),ct);
+        GoalSafetyResult? safety=null;
+        if(request.Mode=="weight_goal")
+        {
+            safety=WeightGoalSafety.Evaluate(input.Profile,request.StartDate,request.TargetWeightKg ?? 0,
+                request.TargetDate ?? default,request.EligibilityConfirmed);
+            if(!safety.Allowed) throw new ArgumentException(string.Join(" ",safety.Reasons));
+        }
+        var menu=MealPlanGenerator.Generate(input,today,new Random(Random.Shared.Next()),ct,safety?.TargetCalories);
+        if(safety is not null)
+        {
+            WeightGoalSafety.ValidateGeneratedDays(menu.Days,safety,input.Profile!.BiologicalSex!);
+            menu.Goal="weight_goal"; menu.Notes=MealRoutineService.GoalNotes();
+        }
         foreach(var day in menu.Days)
         {
             day.Date=request.StartDate.AddDays(day.DayIndex-1);
@@ -46,21 +63,28 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         var slots=menu.Days.SelectMany(day=>day.Meals.Select(meal=>new MealPlanSchedule
         { DayOfWeek=day.DayOfWeek, MealId=meal.MealId, MealTime=meal.MealTime, PortionMultiplier=meal.PortionMultiplier })).ToList();
         await repository.SaveAsync(plan,slots,ct);
-        return ToDto(plan);
+        await routines.SaveRoutineAsync(plan,menu,request,ct);
+        await tx.CommitAsync(ct);
+        var dto=ToDto(plan); await routines.EnrichAsync(userId,dto,ct); return dto;
     }
 
-    public async Task<MealPlanDto> GetAsync(long userId,long id,CancellationToken ct)=>ToDto(
-        await repository.GetAsync(userId,id,ct) ?? throw new NotFoundException("Meal plan not found."));
+    public async Task<MealPlanDto> GetAsync(long userId,long id,CancellationToken ct)
+    {
+        var dto=ToDto(await repository.GetAsync(userId,id,ct) ?? throw new NotFoundException("Meal plan not found."));
+        await routines.EnrichAsync(userId,dto,ct); return dto;
+    }
 
     public async Task<PagedResult<MealPlanDto>> ListAsync(long userId,int pageIndex,int pageSize,CancellationToken ct)
     {
         Pagination.Validate(pageIndex,pageSize);
         var page=await repository.ListAsync(userId,pageIndex,pageSize,ct);
-        return new PagedResult<MealPlanDto>
+        var result=new PagedResult<MealPlanDto>
         {
             Items=page.Items.Select(ToDto).ToList(), TotalItems=page.TotalCount,TotalCount=checked((int)page.TotalCount),
             PageIndex=pageIndex,PageSize=pageSize,TotalPages=Pagination.TotalPages(page.TotalCount,pageSize)
         };
+        foreach(var dto in result.Items) await routines.EnrichAsync(userId,dto,ct);
+        return result;
     }
 
     private MealPlanDto ToDto(MealPlan plan)

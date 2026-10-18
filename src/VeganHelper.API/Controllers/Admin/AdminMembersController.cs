@@ -16,6 +16,8 @@ public sealed class AdminMembersController(IAdminMemberService service) : Contro
         HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.TraceIdentifier);
     [HttpGet]
     public Task<PagedResult<AdminMemberDto>> List([FromQuery] AdminMemberListRequest request, CancellationToken ct) => service.ListAsync(Actor, request, ct);
+    [HttpGet("summary")]
+    public Task<AdminMemberSummaryDto> Summary(CancellationToken ct) => service.SummaryAsync(Actor, ct);
     [HttpGet("{id:long:min(1)}")]
     public Task<AdminMemberDto> Get(long id, CancellationToken ct) => service.GetAsync(Actor, id, ct);
     [HttpPost("{id:long:min(1)}/ban")]
