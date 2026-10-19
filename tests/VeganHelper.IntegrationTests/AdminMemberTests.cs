@@ -383,7 +383,7 @@ public sealed class AdminMemberTests(Member2ApiFixture fixture)
         public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct) => inner.BeginTransactionAsync(ct);
         public Task AppendAsync(AdminAuditLog entry, CancellationToken ct) => throw new InvalidOperationException("Injected audit failure");
         public Task<DatabasePage<AdminAuditLog>> ListAsync(long? id, string? action, string? type, string? target,
-            DateTime? from, DateTime? to, int index, int size, CancellationToken ct) => inner.ListAsync(id, action, type, target, from, to, index, size, ct);
+            DateTime? from, DateTime? to, int index, int size, CancellationToken ct, bool importantOnly = false) => inner.ListAsync(id, action, type, target, from, to, index, size, ct, importantOnly);
         public Task<AdminAuditLog?> FindAsync(long id, CancellationToken ct) => inner.FindAsync(id, ct);
     }
 

@@ -45,6 +45,8 @@ public sealed class AdminCategoryRepository(AppDbContext db) : IAdminCategoryRep
         (!exceptId.HasValue || c.Id != exceptId.Value) &&
         ((c.CategoryType == "post" && EF.Functions.Collate(c.Name, "veganhelper_ci") == name)
             || EF.Functions.Collate(c.Slug, "veganhelper_ci") == slug), ct);
+    public Task<bool> SlugExistsAsync(string slug, CancellationToken ct) => db.Categories
+        .AnyAsync(c => EF.Functions.Collate(c.Slug, "veganhelper_ci") == slug, ct);
     public async Task<bool> IsReferencedAsync(int id, CancellationToken ct) =>
         await db.PostCategories.AnyAsync(p => p.CategoryId == id, ct) || await db.ShopCategories.AnyAsync(s => s.CategoryId == id, ct);
     public async Task<int> CreateAsync(Category category, CancellationToken ct)
