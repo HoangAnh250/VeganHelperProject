@@ -13,6 +13,7 @@ namespace VeganHelper.DAL.PostgresMigrations
     [DbContext(typeof(AppDbContext))]
     partial class AppDbContextModelSnapshot : ModelSnapshot
     {
+        /// <inheritdoc />
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -859,17 +860,17 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("height_cm");
 
-                    b.Property<bool>("IsTrialGeneration")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_trial_generation");
-
                     b.Property<bool>("IsTemplate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
                         .HasColumnName("is_template");
+
+                    b.Property<bool>("IsTrialGeneration")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_trial_generation");
 
                     b.Property<string>("ModelName")
                         .HasColumnType("character varying(100)")
@@ -930,6 +931,57 @@ namespace VeganHelper.DAL.PostgresMigrations
                             t.HasCheckConstraint("CK_meal_plans_6", "generation_source IN ('ai','manual','template')");
 
                             t.HasCheckConstraint("CK_meal_plans_7", "status IN ('pending','generating','completed','failed','saved','archived')");
+                        });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("DueAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LoggedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("MealPlanId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("MealTime")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DueAt");
+
+                    b.HasIndex("MealPlanId", "Date", "MealTime")
+                        .IsUnique();
+
+                    b.ToTable("meal_plan_entries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_entry_log", "(\"Status\" = 'unlogged') = (\"LoggedAt\" IS NULL)");
+
+                            t.HasCheckConstraint("CK_entry_slot", "\"MealTime\" IN ('breakfast','lunch','dinner')");
+
+                            t.HasCheckConstraint("CK_entry_status", "\"Status\" IN ('unlogged','followed','changed','skipped')");
                         });
                 });
 
@@ -1112,6 +1164,82 @@ namespace VeganHelper.DAL.PostgresMigrations
                             t.HasCheckConstraint("CK_meal_plan_payment_orders_duration", "duration_months_snapshot IN (1, 6, 12)");
 
                             t.HasCheckConstraint("CK_meal_plan_payment_orders_status", "status IN ('pending','paid','failed')");
+                        });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanRoutine", b =>
+                {
+                    b.Property<long>("MealPlanId")
+                        .HasColumnType("bigint");
+
+                    b.Property<TimeOnly>("BreakfastTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<TimeOnly>("DinnerTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<bool>("EligibilityConfirmed")
+                        .HasColumnType("boolean");
+
+                    b.Property<TimeOnly>("LunchTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<long?>("PreviousPlanId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("RemindersEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("RootPlanId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateOnly?>("TargetDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("TargetWeightKg")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("MealPlanId");
+
+                    b.HasIndex("PreviousPlanId")
+                        .IsUnique()
+                        .HasFilter("\"PreviousPlanId\" IS NOT NULL");
+
+                    b.HasIndex("UserId", "State");
+
+                    b.ToTable("meal_plan_routines", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_routine_goal", "(\"Mode\" = 'maintenance' AND \"TargetWeightKg\" IS NULL AND \"TargetDate\" IS NULL AND NOT \"RemindersEnabled\") OR (\"Mode\" = 'weight_goal' AND \"TargetWeightKg\" BETWEEN 30 AND 200 AND \"TargetDate\" IS NOT NULL AND \"EligibilityConfirmed\")");
+
+                            t.HasCheckConstraint("CK_routine_mode", "\"Mode\" IN ('maintenance','weight_goal')");
+
+                            t.HasCheckConstraint("CK_routine_state", "\"State\" IN ('active','continued','superseded')");
                         });
                 });
 
@@ -3056,6 +3184,15 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasConstraintName("FK_meal_plans_1");
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanEntry", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.MealPlan", null)
+                        .WithMany()
+                        .HasForeignKey("MealPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanPaymentOrder", b =>
                 {
                     b.HasOne("VeganHelper.DAL.Entities.MealPlanPackage", null)
@@ -3071,6 +3208,26 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_meal_plan_payment_orders_user");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanRoutine", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.MealPlan", null)
+                        .WithMany()
+                        .HasForeignKey("MealPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("VeganHelper.DAL.Entities.MealPlan", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousPlanId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanSchedule", b =>

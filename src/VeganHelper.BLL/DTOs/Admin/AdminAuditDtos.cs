@@ -7,6 +7,8 @@ public sealed record AdminActor(long UserId, string? IpAddress, string TraceId);
 
 public sealed class AdminAuditListRequest
 {
+    // Display only administrative changes to a specific target; retain all stored events.
+    public bool ImportantOnly { get; set; }
     public int PageIndex { get; set; } = 1;
     public int PageSize { get; set; } = 20;
     [Range(1, long.MaxValue)] public long? AdminId { get; set; }

@@ -20,6 +20,7 @@ public interface IAdminCategoryRepository
     Task AcquireWriteLockAsync(CancellationToken ct);
     Task<Category?> LockAsync(int id, CancellationToken ct);
     Task<bool> HasConflictAsync(int? exceptId, string name, string slug, CancellationToken ct);
+    Task<bool> SlugExistsAsync(string slug, CancellationToken ct);
     Task<bool> IsReferencedAsync(int id, CancellationToken ct);
     Task<int> CreateAsync(Category category, CancellationToken ct);
     Task UpdateAsync(int id, string name, string slug, string kind, CancellationToken ct);

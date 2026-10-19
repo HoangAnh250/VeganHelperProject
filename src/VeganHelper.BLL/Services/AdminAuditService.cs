@@ -25,7 +25,7 @@ public sealed class AdminAuditService(IAdminAuditRepository repository, IMapper 
         return await ExecuteAsync(actor, "audit.list", "audit_log", null, async token =>
         {
             var page = await repository.ListAsync(request.AdminId, action, targetType, targetId,
-                request.From?.UtcDateTime, request.To?.UtcDateTime, request.PageIndex, request.PageSize, token);
+                request.From?.UtcDateTime, request.To?.UtcDateTime, request.PageIndex, request.PageSize, token, request.ImportantOnly);
             return Pagination.Map<AdminAuditLog, AdminAuditLogDto>(page, request.PageIndex, request.PageSize, mapper);
         }, null, ct);
     }

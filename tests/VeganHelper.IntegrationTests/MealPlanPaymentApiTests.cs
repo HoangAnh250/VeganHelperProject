@@ -129,7 +129,9 @@ public sealed class MealPlanPaymentApiTests(Member2ApiFixture fixture)
         Assert.Equal(3, duringGrace.TrialGenerationsRemaining);
         Assert.True(duringGrace.CanViewExistingPlans);
         Assert.Equal(HttpStatusCode.OK, readablePlans.StatusCode);
-        Assert.Equal(HttpStatusCode.PaymentRequired, generation.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, generation.StatusCode);
+        // Unused trials remain available during grace; this user has no health profile.
+        Assert.Contains("health profile", await generation.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
 
         await using (var db = fixture.Context())
         {

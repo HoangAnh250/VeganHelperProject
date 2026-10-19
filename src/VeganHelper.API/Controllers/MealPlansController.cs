@@ -9,9 +9,41 @@ namespace VeganHelper.API.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public sealed class MealPlansController(IMealPlanningService service) : ControllerBase
+public sealed class MealPlansController(IMealPlanningService service,MealRoutineService routines) : ControllerBase
 {
     private long? UserId=>long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier)??User.FindFirstValue("sub"),out var id)&&id>0?id:null;
+
+    [HttpPost("goal-preview")]
+    public async Task<IActionResult> PreviewGoal(GenerateMealPlanRequest request,CancellationToken ct)
+    {
+        if(UserId is not long userId) return Unauthorized();
+        return Ok(await routines.PreviewGoalAsync(userId,request,ct));
+    }
+    [HttpPut("{id:long:min(1)}/tracking")]
+    public async Task<IActionResult> Log(long id,LogMealRequest request,CancellationToken ct)
+    {
+        if(UserId is not long userId) return Unauthorized();
+        return Ok(await routines.LogAsync(userId,id,request,ct));
+    }
+    [HttpPut("{id:long:min(1)}/reminders")]
+    public async Task<IActionResult> Reminders(long id,MealReminderSettingsRequest request,CancellationToken ct)
+    {
+        if(UserId is not long userId) return Unauthorized();
+        return Ok(await routines.UpdateRemindersAsync(userId,id,request,ct));
+    }
+    [HttpPost("{id:long:min(1)}/revision-preview")]
+    public async Task<IActionResult> PreviewRevision(long id,RevisionRequest request,CancellationToken ct)
+    {
+        if(UserId is not long userId) return Unauthorized();
+        return Ok(await routines.PreviewRevisionAsync(userId,id,request.NextWeek,ct,request.TargetWeightKg,request.TargetDate,request.EligibilityConfirmed));
+    }
+    [HttpPost("{id:long:min(1)}/revisions")]
+    public async Task<IActionResult> Revise(long id,RevisionRequest request,CancellationToken ct)
+    {
+        if(UserId is not long userId) return Unauthorized();
+        var result=await routines.ConfirmRevisionAsync(userId,id,request,ct);
+        return CreatedAtAction(nameof(Get),new{id=result.Id},result);
+    }
 
     [HttpPost("generate")]
     public async Task<IActionResult> Generate([FromBody] GenerateMealPlanRequest request,CancellationToken ct)

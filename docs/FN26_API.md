@@ -1,5 +1,7 @@
 # FN26 — rule-based weekly meal generation
 
+> This document describes the original maintenance contract. For weight goals, calendar tracking, reminders, safety checks and confirmed revisions, see [FN26_GOAL_TRACKING.md](FN26_GOAL_TRACKING.md). Existing maintenance requests remain supported.
+
 Backend only, branch `feature/meal-plan`. No Gemini/API key, frontend changes or Git publication are required. The endpoint generates and persists a menu in one request. It supports adult maintenance-calorie estimates, not automated weight-loss/gain treatment or a guarantee of healthy BMI. Recipes and weekly examples remain unreviewed sample data.
 
 ## API contract

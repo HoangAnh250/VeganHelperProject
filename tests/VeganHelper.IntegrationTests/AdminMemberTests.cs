@@ -81,6 +81,44 @@ public sealed class AdminMemberTests(Member2ApiFixture fixture)
         await using var db = fixture.Context();
         Assert.True(await db.AdminAuditLogs.AnyAsync(a => a.AdminId == admin.Id && a.Action == "member.list"));
     }
+
+    [Fact]
+    public async Task MemberDetailAndSummary_ReturnProfileCountsAndPlatformTotals()
+    {
+        var admin = await UserAsync(2);
+        var member = await UserAsync();
+        var reporter = await UserAsync();
+        await using (var db = fixture.Context())
+        {
+            var savedMember = await db.Users.SingleAsync(user => user.Id == member.Id);
+            savedMember.PhoneNumber = "+84 912 345 678";
+            var post = new Post { AuthorId = member.Id, Title = "Member post", Content = "Content",
+                Status = "published", CreatedAt = DateTime.UtcNow };
+            db.Posts.Add(post);
+            await db.SaveChangesAsync();
+            var comment = new Comment { PostId = post.Id, UserId = member.Id, Content = "Member comment", Status = "visible", CreatedAt = DateTime.UtcNow };
+            db.Comments.Add(comment);
+            await db.SaveChangesAsync();
+            db.Flags.AddRange(
+                new Flag { PostId = post.Id, ReporterId = reporter.Id, SourceType = "user", Status = "pending", Reason = "Post report", CreatedAt = DateTime.UtcNow },
+                new Flag { CommentId = comment.Id, ReporterId = reporter.Id, SourceType = "user", Status = "pending", Reason = "Comment report", CreatedAt = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        }
+        using var client = Client(admin.Id);
+
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/admin/members/{member.Id}");
+        var summary = await client.GetFromJsonAsync<JsonElement>("/api/admin/members/summary");
+
+        Assert.Equal("+84 912 345 678", detail.GetProperty("phoneNumber").GetString());
+        Assert.Equal("vegan", detail.GetProperty("dietType").GetString());
+        Assert.Equal(1, detail.GetProperty("postCount").GetInt64());
+        Assert.Equal(2, detail.GetProperty("reportCount").GetInt64());
+        Assert.True(summary.GetProperty("totalMembers").GetInt64() >= 3);
+        Assert.True(summary.GetProperty("activeMembers").GetInt64() >= 3);
+        Assert.True(summary.GetProperty("administrators").GetInt64() >= 1);
+        await using var verify = fixture.Context();
+        Assert.True(await verify.AdminAuditLogs.AnyAsync(log => log.AdminId == admin.Id && log.Action == "member.summary"));
+    }
     [Theory]
     [InlineData("PageIndex=0")]
     [InlineData("PageSize=101")]
@@ -345,7 +383,7 @@ public sealed class AdminMemberTests(Member2ApiFixture fixture)
         public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct) => inner.BeginTransactionAsync(ct);
         public Task AppendAsync(AdminAuditLog entry, CancellationToken ct) => throw new InvalidOperationException("Injected audit failure");
         public Task<DatabasePage<AdminAuditLog>> ListAsync(long? id, string? action, string? type, string? target,
-            DateTime? from, DateTime? to, int index, int size, CancellationToken ct) => inner.ListAsync(id, action, type, target, from, to, index, size, ct);
+            DateTime? from, DateTime? to, int index, int size, CancellationToken ct, bool importantOnly = false) => inner.ListAsync(id, action, type, target, from, to, index, size, ct, importantOnly);
         public Task<AdminAuditLog?> FindAsync(long id, CancellationToken ct) => inner.FindAsync(id, ct);
     }
 

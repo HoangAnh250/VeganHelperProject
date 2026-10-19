@@ -93,7 +93,11 @@ public sealed class PasswordResetLinkTests(Member2ApiFixture fixture)
         fixture.Factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
-                new Dictionary<string, string?> { ["Frontend:BaseUrl"] = baseUrl }));
+                new Dictionary<string, string?> {
+                    ["Frontend:BaseUrl"] = baseUrl,
+                    ["PayOS:ReturnUrl"] = "https://frontend.example.test/meal-plan-payment/success",
+                    ["PayOS:CancelUrl"] = "https://frontend.example.test/meal-plan-payment/cancel"
+                }));
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IEmailSender>();

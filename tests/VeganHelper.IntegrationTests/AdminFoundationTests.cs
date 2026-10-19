@@ -19,6 +19,51 @@ namespace VeganHelper.IntegrationTests;
 public sealed class AdminFoundationTests(Member2ApiFixture fixture)
 {
     [Fact]
+    public async Task ListAuditLogs_ImportantOnly_FiltersBeforePagingAndPreservesHistory()
+    {
+        var admin = await UserAsync();
+        string[] changes = [
+            "member.ban", "member.unban", "category.create", "category.update", "category.delete",
+            "post.approve", "post.reject", "ai_flag.keep", "ai_flag.remove",
+            "report.keep", "report.remove", "report.dismiss",
+            "comment_report.keep", "comment_report.remove", "moderation.settings.update"
+        ];
+        string[] reads = ["audit.list", "audit.view", "member.view", "member.summary",
+            "category.list", "moderation.settings.view", "dashboard.overview", "dashboard.activity"];
+        await using (var db = fixture.Context())
+        {
+            foreach (var action in changes.Concat(reads))
+                db.AdminAuditLogs.Add(new AdminAuditLog {
+                    AdminId = admin, Action = action, TargetType = "test", TargetId = "42",
+                    TraceId = "important-filter", CreatedAt = DateTime.UtcNow
+                });
+            // A mutation with no identified target must not appear in this view.
+            db.AdminAuditLogs.Add(new AdminAuditLog {
+                AdminId = admin, Action = "category.create", TargetType = "category",
+                TraceId = "no-target", CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+        using var client = Client(admin.ToString());
+        var received = new List<string>();
+        for (var index = 1; index <= 3; index++)
+        {
+            var result = await client.GetFromJsonAsync<JsonElement>(
+                $"/api/admin/audit-logs?AdminId={admin}&ImportantOnly=true&PageSize=6&PageIndex={index}");
+            Assert.Equal(changes.Length, result.GetProperty("totalCount").GetInt32());
+            Assert.Equal(3, result.GetProperty("totalPages").GetInt32());
+            received.AddRange(result.GetProperty("items").EnumerateArray()
+                .Select(item => item.GetProperty("action").GetString()!));
+        }
+        Assert.Equal(changes.OrderBy(a => a), received.OrderBy(a => a));
+        var readOnly = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/admin/audit-logs?AdminId={admin}&ImportantOnly=true&Action=member.view");
+        Assert.Equal(0, readOnly.GetProperty("totalCount").GetInt32());
+        var history = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/admin/audit-logs?AdminId={admin}&Action=member.view");
+        Assert.Equal(1, history.GetProperty("totalCount").GetInt32());
+    }
+    [Fact]
     public async Task ListAuditLogs_WhenAnonymous_ReturnsUnauthorized()
     {
         using var client = fixture.Factory.Client();

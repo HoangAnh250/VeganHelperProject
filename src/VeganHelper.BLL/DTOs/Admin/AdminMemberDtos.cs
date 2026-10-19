@@ -26,6 +26,8 @@ public sealed class AdminMemberDto
     public string Email { get; init; } = "";
     public string? DisplayName { get; init; }
     public string? AvatarUrl { get; init; }
+    public string? PhoneNumber { get; init; }
+    public string? DietType { get; init; }
     public string Role { get; init; } = "";
     public string Status { get; init; } = "";
     public bool IsActive { get; init; }
@@ -36,4 +38,8 @@ public sealed class AdminMemberDto
     public long? BanId { get; init; }
     public string? BanReason { get; init; }
     public DateTime? BanExpiresAt { get; init; }
+    public long PostCount { get; init; }
+    public long ReportCount { get; init; }
 }
+
+public sealed record AdminMemberSummaryDto(long TotalMembers, long ActiveMembers, long BannedMembers, long Administrators);

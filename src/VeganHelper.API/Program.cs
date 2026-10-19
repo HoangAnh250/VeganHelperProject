@@ -159,6 +159,11 @@ builder.Services.AddScoped<IAdminAuditRepository, AdminAuditRepository>();
 builder.Services.AddScoped<IAdminAuditService, AdminAuditService>();
 builder.Services.AddScoped<IAdminMemberRepository, AdminMemberRepository>();
 builder.Services.AddScoped<IAdminMemberService, AdminMemberService>();
+builder.Services.AddScoped<IAdminDashboardRepository, AdminDashboardRepository>();
+builder.Services.AddScoped<IAdminDashboardService, AdminDashboardService>();
+builder.Services.AddSingleton<AdminDashboardCache>();
+builder.Services.AddScoped<IAdminCommentReportRepository, AdminCommentReportRepository>();
+builder.Services.AddScoped<IAdminCommentReportService, AdminCommentReportService>();
 builder.Services.AddScoped<IAdminCategoryRepository, AdminCategoryRepository>();
 builder.Services.AddScoped<IAdminCategoryService, AdminCategoryService>();
 builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
@@ -210,6 +215,11 @@ builder.Services.AddOptions<PayOSOptions>().BindConfiguration("PayOS")
         (IsPublicHttpsUrl(options.ReturnUrl) && IsPublicHttpsUrl(options.CancelUrl)),
         "Production PayOS return and cancel URLs must be public HTTPS URLs.")
     .ValidateOnStart();
+builder.Services.AddScoped<IMealRoutineRepository, MealRoutineRepository>();
+builder.Services.AddScoped<VeganHelper.BLL.Services.MealPlanning.MealRoutineService>();
+builder.Services.AddScoped<VeganHelper.BLL.Services.MealPlanning.MealRoutineReview>();
+builder.Services.AddScoped<MealRoutineJob>();
+builder.Services.AddScoped<VeganHelper.BLL.Services.MealPlanning.IMealPlanAccessPolicy, VeganHelper.BLL.Services.MealPlanning.ExistingMealPlanAccessPolicy>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
@@ -225,15 +235,20 @@ builder.Services.AddHttpClient<IWebPushTransport, WebPushTransport>(client => cl
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 var pushWorkerConfigured = builder.Configuration.GetValue<bool>("WebPush:Enabled");
 var moderationWorkerConfigured = builder.Configuration.GetValue<bool>("ModerationAi:Enabled");
+var mealWorkerConfigured = builder.Configuration.GetValue<bool>("MealPlanning:WorkerEnabled");
 var prepareJobs = args.Contains("--prepare-push-jobs") || args.Contains("--prepare-background-jobs");
-if (pushWorkerConfigured || moderationWorkerConfigured)
+if (pushWorkerConfigured || moderationWorkerConfigured || mealWorkerConfigured)
 {
     var jobConnection = DatabaseConnection.Validate(builder.Configuration.GetConnectionString("HangfireConnection")
         ?? builder.Configuration.GetConnectionString("DefaultConnection"));
     builder.Services.AddHangfire(config => config.UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings()
         .UsePostgreSqlStorage(storage => storage.UseNpgsqlConnection(jobConnection),
             new PostgreSqlStorageOptions { PrepareSchemaIfNecessary = prepareJobs }));
-    builder.Services.AddHangfireServer(options => options.WorkerCount = 2);
+    builder.Services.AddHangfireServer(options =>
+    {
+        options.WorkerCount = 2;
+        options.Queues = mealWorkerConfigured ? ["default", "meal-planning"] : ["default"];
+    });
 }
 builder.Services.AddScoped<IHealthProfileRepository, HealthProfileRepository>();
 builder.Services.AddScoped<IShopRepository, ShopRepository>();
@@ -250,7 +265,7 @@ var app = builder.Build();
 
 if (prepareJobs)
 {
-    if (!pushWorkerConfigured && !moderationWorkerConfigured)
+    if (!pushWorkerConfigured && !moderationWorkerConfigured && !mealWorkerConfigured)
         throw new InvalidOperationException("Enable WebPush or ModerationAi before preparing Hangfire storage.");
     _ = app.Services.GetRequiredService<JobStorage>();
     // Hangfire uses a private schema; never expose its serialized job data through Data API roles.
@@ -310,6 +325,9 @@ if (pushWorkerConfigured &&
     app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<NotificationPushJob>(
         "notifications-web-push", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
 }
+if (mealWorkerConfigured)
+    app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<MealRoutineJob>(
+        "meal-routine-review", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
 if (moderationWorkerConfigured)
     app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<PostModerationJob>(
         "posts-ai-moderation", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
