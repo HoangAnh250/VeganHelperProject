@@ -16,11 +16,16 @@ public sealed class AdminMemberRepository(AppDbContext db) : IAdminMemberReposit
         select new AdminMemberProjection
         {
             Id = user.Id, Username = user.Username, Email = user.Email, DisplayName = profile == null ? null : profile.DisplayName,
-            AvatarUrl = profile == null ? null : profile.AvatarUrl, Role = role.RoleName, IsActive = user.IsActive,
+            AvatarUrl = profile == null ? null : profile.AvatarUrl, PhoneNumber = user.PhoneNumber,
+            DietType = profile == null ? null : profile.DietType, Role = role.RoleName, IsActive = user.IsActive,
             EmailVerifiedAt = user.EmailVerifiedAt, CreatedAt = user.CreatedAt, LastLoginAt = user.LastLoginAt, LockedUntil = user.LockedUntil,
             Status = user.DeletedAt != null ? "deleted" : ban != null ? "banned" : user.EmailVerifiedAt == null ? "pending_verification"
                 : !user.IsActive ? "inactive" : user.LockedUntil > now ? "locked" : "active",
-            BanId = ban == null ? null : ban.Id, BanReason = ban == null ? null : ban.Reason, BanExpiresAt = ban == null ? null : ban.ExpiresAt
+            BanId = ban == null ? null : ban.Id, BanReason = ban == null ? null : ban.Reason, BanExpiresAt = ban == null ? null : ban.ExpiresAt,
+            PostCount = db.Posts.LongCount(post => post.AuthorId == user.Id && !post.IsDeleted),
+            ReportCount = db.Flags.LongCount(flag => flag.SourceType == "user" &&
+                (flag.PostId != null && db.Posts.Any(post => post.Id == flag.PostId && post.AuthorId == user.Id)
+                 || flag.CommentId != null && db.Comments.Any(comment => comment.Id == flag.CommentId && comment.UserId == user.Id)))
         };
 
     public async Task<DatabasePage<AdminMemberProjection>> ListAsync(string? keyword, string? role, string? status, DateTime now, int pageIndex, int pageSize, CancellationToken ct)
@@ -42,6 +47,15 @@ public sealed class AdminMemberRepository(AppDbContext db) : IAdminMemberReposit
         return new(count, items);
     }
     public Task<AdminMemberProjection?> FindAsync(long id, DateTime now, CancellationToken ct) => Query(now).SingleOrDefaultAsync(u => u.Id == id, ct);
+    public async Task<AdminMemberSummaryProjection> SummaryAsync(DateTime now, CancellationToken ct)
+    {
+        var users = Query(now);
+        return new(
+            await users.LongCountAsync(ct),
+            await users.LongCountAsync(user => user.Status == "active", ct),
+            await users.LongCountAsync(user => user.Status == "banned", ct),
+            await users.LongCountAsync(user => user.Role == "admin", ct));
+    }
     public Task<User?> LockUserAsync(long id, CancellationToken ct)
     {
         if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("Member changes require an audited transaction.");

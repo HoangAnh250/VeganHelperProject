@@ -33,6 +33,8 @@ public interface IMealPlanningRepository
 {
     Task<MealPlanningInput> LoadAsync(long userId, CancellationToken ct);
     Task SaveAsync(MealPlan plan, IReadOnlyList<MealPlanSchedule> schedule, CancellationToken ct);
-    Task<MealPlan?> GetAsync(long userId, long id, CancellationToken ct);
-    Task<DatabasePage<MealPlan>> ListAsync(long userId, int pageIndex, int pageSize, CancellationToken ct);
+    Task<bool> TrySaveTrialAsync(MealPlan plan, IReadOnlyList<MealPlanSchedule> schedule, int generationLimit, CancellationToken ct);
+    Task<int> CountTrialGenerationsAsync(long userId, CancellationToken ct);
+    Task<MealPlan?> GetAsync(long userId, long id, bool trialOnly, CancellationToken ct);
+    Task<DatabasePage<MealPlan>> ListAsync(long userId, int pageIndex, int pageSize, bool trialOnly, CancellationToken ct);
 }

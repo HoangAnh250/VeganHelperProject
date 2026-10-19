@@ -26,6 +26,12 @@ public sealed class AdminMemberService(IAdminMemberRepository repository, IAuthR
             Pagination.Map<AdminMemberProjection, AdminMemberDto>(await repository.ListAsync(keyword, role, status,
                 clock.GetUtcNow().UtcDateTime, request.PageIndex, request.PageSize, token), request.PageIndex, request.PageSize, mapper), null, ct);
     }
+    public Task<AdminMemberSummaryDto> SummaryAsync(AdminActor actor, CancellationToken ct) =>
+        audit.ExecuteAsync(actor, "member.summary", "user", null, async token =>
+        {
+            var summary = await repository.SummaryAsync(clock.GetUtcNow().UtcDateTime, token);
+            return new AdminMemberSummaryDto(summary.TotalMembers, summary.ActiveMembers, summary.BannedMembers, summary.Administrators);
+        }, null, ct);
     public Task<AdminMemberDto> GetAsync(AdminActor actor, long id, CancellationToken ct) =>
         audit.ExecuteAsync(actor, "member.view", "user", Target(id), token => DetailAsync(id, token), null, ct);
     public Task<AdminMemberDto> BanAsync(AdminActor actor, long id, BanMemberRequest request, CancellationToken ct)

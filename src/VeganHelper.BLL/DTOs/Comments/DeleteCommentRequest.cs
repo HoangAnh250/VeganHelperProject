@@ -4,6 +4,8 @@ namespace VeganHelper.BLL.DTOs.Comments;
 
 public sealed class DeleteCommentRequest
 {
-    [StringLength(300, MinimumLength = 1)]
+    public const int MaxReasonLength = 500;
+
+    [StringLength(MaxReasonLength, MinimumLength = 1)]
     public string? Reason { get; set; }
 }

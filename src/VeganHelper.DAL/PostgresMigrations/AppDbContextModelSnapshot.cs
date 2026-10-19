@@ -13,6 +13,7 @@ namespace VeganHelper.DAL.PostgresMigrations
     [DbContext(typeof(AppDbContext))]
     partial class AppDbContextModelSnapshot : ModelSnapshot
     {
+        /// <inheritdoc />
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -22,6 +23,9 @@ namespace VeganHelper.DAL.PostgresMigrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.HasSequence("meal_plan_payment_order_code_seq")
+                .StartsAt(1000000000L);
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.AdminAuditLog", b =>
                 {
@@ -862,6 +866,12 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasDefaultValue(false)
                         .HasColumnName("is_template");
 
+                    b.Property<bool>("IsTrialGeneration")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_trial_generation");
+
                     b.Property<string>("ModelName")
                         .HasColumnType("character varying(100)")
                         .HasColumnName("model_name");
@@ -903,6 +913,9 @@ namespace VeganHelper.DAL.PostgresMigrations
                     b.HasIndex("UserId", "StartDate")
                         .HasDatabaseName("IX_meal_plans_1");
 
+                    b.HasIndex("UserId", "IsTrialGeneration", "CreatedAt")
+                        .HasDatabaseName("IX_meal_plans_user_trial_created");
+
                     b.ToTable("meal_plans", null, t =>
                         {
                             t.HasCheckConstraint("CK_meal_plans_1", "start_date IS NULL OR (end_date - start_date) = 6");
@@ -918,6 +931,315 @@ namespace VeganHelper.DAL.PostgresMigrations
                             t.HasCheckConstraint("CK_meal_plans_6", "generation_source IN ('ai','manual','template')");
 
                             t.HasCheckConstraint("CK_meal_plans_7", "status IN ('pending','generating','completed','failed','saved','archived')");
+                        });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("DueAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LoggedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("MealPlanId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("MealTime")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DueAt");
+
+                    b.HasIndex("MealPlanId", "Date", "MealTime")
+                        .IsUnique();
+
+                    b.ToTable("meal_plan_entries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_entry_log", "(\"Status\" = 'unlogged') = (\"LoggedAt\" IS NULL)");
+
+                            t.HasCheckConstraint("CK_entry_slot", "\"MealTime\" IN ('breakfast','lunch','dinner')");
+
+                            t.HasCheckConstraint("CK_entry_status", "\"Status\" IN ('unlogged','followed','changed','skipped')");
+                        });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanPackage", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AmountVnd")
+                        .HasColumnType("integer")
+                        .HasColumnName("amount_vnd");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DurationMonths")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_months");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("PK_meal_plan_packages");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_meal_plan_packages_code");
+
+                    b.ToTable("meal_plan_packages", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_meal_plan_packages_amount", "amount_vnd > 0");
+
+                            t.HasCheckConstraint("CK_meal_plan_packages_duration", "duration_months IN (1, 6, 12)");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            AmountVnd = 100000,
+                            Code = "monthly",
+                            CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DurationMonths = 1,
+                            IsActive = true,
+                            Name = "1 month"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            AmountVnd = 500000,
+                            Code = "half_year",
+                            CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DurationMonths = 6,
+                            IsActive = true,
+                            Name = "6 months"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            AmountVnd = 1000000,
+                            Code = "yearly",
+                            CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DurationMonths = 12,
+                            IsActive = true,
+                            Name = "12 months"
+                        });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanPaymentOrder", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AmountVnd")
+                        .HasColumnType("integer")
+                        .HasColumnName("amount_vnd");
+
+                    b.Property<string>("CheckoutUrl")
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("checkout_url");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DurationMonthsSnapshot")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_months_snapshot");
+
+                    b.Property<int>("MealPlanPackageId")
+                        .HasColumnType("integer")
+                        .HasColumnName("meal_plan_package_id");
+
+                    b.Property<long>("OrderCode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("order_code")
+                        .HasDefaultValueSql("nextval('meal_plan_payment_order_code_seq')");
+
+                    NpgsqlPropertyBuilderExtensions.UseSequence(b.Property<long>("OrderCode"), "meal_plan_payment_order_code_seq");
+
+                    b.Property<string>("PackageCodeSnapshot")
+                        .IsRequired()
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("package_code_snapshot");
+
+                    b.Property<string>("PackageNameSnapshot")
+                        .IsRequired()
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("package_name_snapshot");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_at");
+
+                    b.Property<string>("PaymentLinkId")
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("payment_link_id");
+
+                    b.Property<string>("ProviderReference")
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("provider_reference");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("pending")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("PK_meal_plan_payment_orders");
+
+                    b.HasIndex("MealPlanPackageId");
+
+                    b.HasIndex("OrderCode")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_meal_plan_payment_orders_order_code");
+
+                    b.HasIndex("PaymentLinkId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_meal_plan_payment_orders_payment_link")
+                        .HasFilter("payment_link_id IS NOT NULL");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("IX_meal_plan_payment_orders_user_created");
+
+                    b.ToTable("meal_plan_payment_orders", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_meal_plan_payment_orders_amount", "amount_vnd > 0");
+
+                            t.HasCheckConstraint("CK_meal_plan_payment_orders_duration", "duration_months_snapshot IN (1, 6, 12)");
+
+                            t.HasCheckConstraint("CK_meal_plan_payment_orders_status", "status IN ('pending','paid','failed')");
+                        });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanRoutine", b =>
+                {
+                    b.Property<long>("MealPlanId")
+                        .HasColumnType("bigint");
+
+                    b.Property<TimeOnly>("BreakfastTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<TimeOnly>("DinnerTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<bool>("EligibilityConfirmed")
+                        .HasColumnType("boolean");
+
+                    b.Property<TimeOnly>("LunchTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<long?>("PreviousPlanId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("RemindersEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("RootPlanId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateOnly?>("TargetDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("TargetWeightKg")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("MealPlanId");
+
+                    b.HasIndex("PreviousPlanId")
+                        .IsUnique()
+                        .HasFilter("\"PreviousPlanId\" IS NOT NULL");
+
+                    b.HasIndex("UserId", "State");
+
+                    b.ToTable("meal_plan_routines", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_routine_goal", "(\"Mode\" = 'maintenance' AND \"TargetWeightKg\" IS NULL AND \"TargetDate\" IS NULL AND NOT \"RemindersEnabled\") OR (\"Mode\" = 'weight_goal' AND \"TargetWeightKg\" BETWEEN 30 AND 200 AND \"TargetDate\" IS NOT NULL AND \"EligibilityConfirmed\")");
+
+                            t.HasCheckConstraint("CK_routine_mode", "\"Mode\" IN ('maintenance','weight_goal')");
+
+                            t.HasCheckConstraint("CK_routine_state", "\"State\" IN ('active','continued','superseded')");
                         });
                 });
 
@@ -2574,6 +2896,60 @@ namespace VeganHelper.DAL.PostgresMigrations
                         });
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserMealPlanAccess", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<int>("MealPlanPackageId")
+                        .HasColumnType("integer")
+                        .HasColumnName("meal_plan_package_id");
+
+                    b.Property<long>("PaymentOrderId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("payment_order_id");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("PK_user_meal_plan_access");
+
+                    b.HasIndex("MealPlanPackageId");
+
+                    b.HasIndex("PaymentOrderId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_user_meal_plan_access_payment_order");
+
+                    b.HasIndex("UserId", "ExpiresAt")
+                        .HasDatabaseName("IX_user_meal_plan_access_user_expires");
+
+                    b.HasIndex("UserId", "StartsAt", "ExpiresAt")
+                        .HasDatabaseName("IX_user_meal_plan_access_user_period");
+
+                    b.ToTable("user_meal_plan_access", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_user_meal_plan_access_period", "expires_at > starts_at");
+                        });
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.UserProfile", b =>
                 {
                     b.Property<long>("UserId")
@@ -2806,6 +3182,52 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_meal_plans_1");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanEntry", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.MealPlan", null)
+                        .WithMany()
+                        .HasForeignKey("MealPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanPaymentOrder", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.MealPlanPackage", null)
+                        .WithMany()
+                        .HasForeignKey("MealPlanPackageId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_meal_plan_payment_orders_package");
+
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_meal_plan_payment_orders_user");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanRoutine", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.MealPlan", null)
+                        .WithMany()
+                        .HasForeignKey("MealPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("VeganHelper.DAL.Entities.MealPlan", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousPlanId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.MealPlanSchedule", b =>
@@ -3225,6 +3647,30 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_user_identities_1");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.UserMealPlanAccess", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.MealPlanPackage", null)
+                        .WithMany()
+                        .HasForeignKey("MealPlanPackageId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_user_meal_plan_access_package");
+
+                    b.HasOne("VeganHelper.DAL.Entities.MealPlanPaymentOrder", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentOrderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_user_meal_plan_access_payment_order");
+
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_user_meal_plan_access_user");
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.UserProfile", b =>

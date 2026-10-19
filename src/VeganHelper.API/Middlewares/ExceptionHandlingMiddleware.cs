@@ -51,6 +51,22 @@ public class ExceptionHandlingMiddleware
             context.Response.Headers.RetryAfter = "3600";
             await context.Response.WriteAsJsonAsync(new { message = ex.Message });
         }
+        catch (VeganHelper.BLL.Exceptions.MealPlanAccessRequiredException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status402PaymentRequired;
+            await context.Response.WriteAsJsonAsync(new { error = ex.Message, errorCode = ex.ErrorCode });
+        }
+        catch (VeganHelper.BLL.Exceptions.PaymentProviderException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await context.Response.WriteAsJsonAsync(new { error = ex.Message, errorCode = ex.ErrorCode });
+        }
+        catch (VeganHelper.BLL.Exceptions.PayOSWebhookVerificationException ex)
+        {
+            _logger.LogWarning("Rejected an invalid PayOS webhook.");
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { error = ex.Message, errorCode = "INVALID_PAYOS_WEBHOOK" });
+        }
         catch (Microsoft.AspNetCore.Http.BadHttpRequestException ex)
         {
             _logger.LogWarning(ex, "Bad HTTP request error occurred.");

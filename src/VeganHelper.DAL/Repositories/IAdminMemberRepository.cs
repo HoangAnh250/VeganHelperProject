@@ -9,6 +9,8 @@ public sealed class AdminMemberProjection
     public string Email { get; init; } = "";
     public string? DisplayName { get; init; }
     public string? AvatarUrl { get; init; }
+    public string? PhoneNumber { get; init; }
+    public string? DietType { get; init; }
     public string Role { get; init; } = "";
     public string Status { get; init; } = "";
     public bool IsActive { get; init; }
@@ -19,12 +21,17 @@ public sealed class AdminMemberProjection
     public long? BanId { get; init; }
     public string? BanReason { get; init; }
     public DateTime? BanExpiresAt { get; init; }
+    public long PostCount { get; init; }
+    public long ReportCount { get; init; }
 }
+
+public sealed record AdminMemberSummaryProjection(long TotalMembers, long ActiveMembers, long BannedMembers, long Administrators);
 
 public interface IAdminMemberRepository
 {
     Task<DatabasePage<AdminMemberProjection>> ListAsync(string? keyword, string? role, string? status, DateTime now, int pageIndex, int pageSize, CancellationToken ct);
     Task<AdminMemberProjection?> FindAsync(long id, DateTime now, CancellationToken ct);
+    Task<AdminMemberSummaryProjection> SummaryAsync(DateTime now, CancellationToken ct);
     Task<User?> LockUserAsync(long id, CancellationToken ct);
     Task<UserBan?> FindActiveBanAsync(long id, DateTime now, CancellationToken ct);
     void AddBan(UserBan ban);

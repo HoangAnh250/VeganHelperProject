@@ -5,6 +5,15 @@ namespace VeganHelper.BLL.DTOs.MealPlanning;
 public sealed class GenerateMealPlanRequest
 {
     public DateOnly StartDate { get; set; }
+    public string Mode { get; set; }="maintenance";
+    public decimal? TargetWeightKg { get; set; }
+    public DateOnly? TargetDate { get; set; }
+    public bool EligibilityConfirmed { get; set; }
+    public string TimeZoneId { get; set; }="UTC";
+    public bool RemindersEnabled { get; set; }
+    public TimeOnly BreakfastTime { get; set; }=new(7,30);
+    public TimeOnly LunchTime { get; set; }=new(12,0);
+    public TimeOnly DinnerTime { get; set; }=new(18,30);
 }
 
 public sealed class GenerateMealPlanRequestValidator : AbstractValidator<GenerateMealPlanRequest>
@@ -25,7 +34,41 @@ public sealed class MealPlanDto
     public string DietType { get; set; } = "";
     public DateTime CreatedAt { get; set; }
     public WeeklyMenuDto? Menu { get; set; }
+    public MealRoutineDto? Routine { get; set; }
 }
+
+public sealed class MealRoutineDto
+{
+    public string Mode { get; set; }="maintenance";
+    public decimal? TargetWeightKg { get; set; }
+    public DateOnly? TargetDate { get; set; }
+    public long? PreviousPlanId { get; set; }
+    public string TimeZoneId { get; set; }="UTC";
+    public bool RemindersEnabled { get; set; }
+    public TimeOnly BreakfastTime { get; set; }
+    public TimeOnly LunchTime { get; set; }
+    public TimeOnly DinnerTime { get; set; }
+    public string State { get; set; }="active";
+    public int Version { get; set; }
+    public List<MealEntryDto> Entries { get; set; }=[];
+}
+
+public sealed class MealEntryDto
+{
+    public DateOnly Date { get; set; }
+    public string MealTime { get; set; }="";
+    public string Status { get; set; }="unlogged";
+    public string? Note { get; set; }
+    public DateTime DueAt { get; set; }
+}
+public sealed record LogMealRequest(DateOnly Date,string MealTime,string Status,string? Note,int ExpectedVersion);
+public sealed record MealReminderSettingsRequest(bool Enabled,string TimeZoneId,TimeOnly BreakfastTime,
+    TimeOnly LunchTime,TimeOnly DinnerTime,int ExpectedVersion);
+public sealed record RevisionRequest(int ExpectedVersion,string ProfileFingerprint,bool EligibilityConfirmed,
+    decimal? TargetWeightKg=null,DateOnly? TargetDate=null,bool NextWeek=false);
+public sealed record RevisionPreview(bool Allowed,List<string> Reasons,int Version,string ProfileFingerprint,
+    decimal PreviousCalories,decimal TargetCalories,decimal Tdee,decimal DailyAdjustment,DateOnly EffectiveFrom,
+    bool SignificantChange,bool NextWeek,string PolicyVersion);
 
 public sealed class WeeklyMenuDto
 {

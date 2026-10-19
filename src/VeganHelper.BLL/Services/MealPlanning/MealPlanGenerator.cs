@@ -8,11 +8,12 @@ public static class MealPlanGenerator
 {
     private static readonly (string Time, decimal Ratio)[] Slots = [("breakfast",.30m),("lunch",.35m),("dinner",.35m)];
 
-    public static WeeklyMenuDto Generate(MealPlanningInput input, DateOnly today, Random random, CancellationToken ct=default)
+    public static WeeklyMenuDto Generate(MealPlanningInput input, DateOnly today, Random random, CancellationToken ct=default, decimal? targetOverride=null)
     {
         var profile=input.Profile ?? throw new ArgumentException("Complete your health profile before generating a meal plan.");
-        var target=MaintenanceEnergy.Estimate(profile,today,20)
+        var maintenance=MaintenanceEnergy.Estimate(profile,today,20)
             ?? throw new ArgumentException("Generation requires age 20–120, valid height/weight, male/female energy inputs and a supported activity level.");
+        var target=targetOverride ?? maintenance;
         if (profile.DietType is not ("vegan" or "lacto_ovo_vegetarian")) throw new ArgumentException("Unsupported diet type.");
         var excluded=AllergyFilter.ExcludedIngredients(input.Allergies,input.Ingredients,
             input.Meals.SelectMany(m=>m.Ingredients).Select(i=>i.IngredientId).ToHashSet());

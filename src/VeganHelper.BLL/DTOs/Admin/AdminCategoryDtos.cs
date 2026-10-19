@@ -13,7 +13,8 @@ public sealed class AdminCategoryListRequest
 public sealed class AdminCategoryWriteRequest
 {
     [Required, StringLength(100)] public string Name { get; init; } = "";
-    [Required, StringLength(120)] public string Slug { get; init; } = "";
+    // Optional: generated on creation, preserved on update when omitted.
+    [StringLength(120)] public string? Slug { get; init; }
     [Required, StringLength(20)] public string PostCategoryKind { get; init; } = "";
 }
 public sealed class AdminCategoryDto

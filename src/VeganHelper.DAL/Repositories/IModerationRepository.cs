@@ -49,7 +49,7 @@ public interface IModerationRepository
     void AddUsage(AiUsage usage);
     Task SaveAsync(CancellationToken ct);
     Task<IDbContextTransaction> BeginAsync(CancellationToken ct);
-    Task<PostModerationScan?> ClaimAsync(DateTime now, Guid lease, CancellationToken ct);
+    Task<PostModerationScan?> ClaimAsync(DateTime now, Guid lease, string model, CancellationToken ct);
     Task<PostModerationScan?> LockScanAsync(long scanId, CancellationToken ct);
     Task<ModerationAiInput?> InputAsync(long postId, int revision, CancellationToken ct);
 }

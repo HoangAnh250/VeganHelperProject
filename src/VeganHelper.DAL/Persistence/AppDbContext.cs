@@ -27,6 +27,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<SavedPost> SavedPosts => Set<SavedPost>();
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<MealPlan> MealPlans => Set<MealPlan>();
+    public DbSet<MealPlanPackage> MealPlanPackages => Set<MealPlanPackage>();
+    public DbSet<MealPlanPaymentOrder> MealPlanPaymentOrders => Set<MealPlanPaymentOrder>();
+    public DbSet<UserMealPlanAccess> UserMealPlanAccesses => Set<UserMealPlanAccess>();
     public DbSet<Meal> Meals => Set<Meal>();
     public DbSet<MealSuitableTime> MealSuitableTimes => Set<MealSuitableTime>();
     public DbSet<MealPlanSchedule> MealPlanSchedule => Set<MealPlanSchedule>();
@@ -48,6 +51,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasCollation("veganhelper_ci", locale: "und-u-ks-level2", provider: "icu", deterministic: false);
+        modelBuilder.HasSequence<long>("meal_plan_payment_order_code_seq")
+            .StartsAt(1_000_000_000)
+            .IncrementsBy(1);
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("users", table =>
@@ -460,6 +466,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.AllergiesSnapshot).HasColumnName("allergies_snapshot").HasColumnType("jsonb").IsRequired(true).HasDefaultValueSql("'[]'");
             entity.Property(x => x.AvailableIngredientsSnapshot).HasColumnName("available_ingredients_snapshot").HasColumnType("jsonb").IsRequired(true).HasDefaultValueSql("'[]'");
             entity.Property(x => x.GenerationSource).HasColumnName("generation_source").HasColumnType("character varying(20)").IsRequired(true).HasDefaultValueSql("'ai'");
+            entity.Property(x => x.IsTrialGeneration).HasColumnName("is_trial_generation").HasColumnType("boolean").IsRequired(true).HasDefaultValue(false);
             entity.Property(x => x.ModelName).HasColumnName("model_name").HasColumnType("character varying(100)").IsRequired(false);
             entity.Property(x => x.Status).HasColumnName("status").HasColumnType("character varying(20)").IsRequired(true).HasDefaultValueSql("'pending'");
             entity.Property(x => x.ErrorMessage).HasColumnName("error_message").HasColumnType("character varying(2000)").IsRequired(false);
@@ -468,6 +475,78 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.SavedAt).HasColumnName("saved_at").HasColumnType("timestamp with time zone").IsRequired(false);
             entity.HasOne<User>().WithMany().HasForeignKey(x => new { x.UserId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_meal_plans_1");
             entity.HasIndex(x => new { x.UserId, x.StartDate }).HasDatabaseName("IX_meal_plans_1");
+            entity.HasIndex(x => new { x.UserId, x.IsTrialGeneration, x.CreatedAt }).HasDatabaseName("IX_meal_plans_user_trial_created");
+        });
+        modelBuilder.Entity<MealPlanPackage>(entity =>
+        {
+            entity.ToTable("meal_plan_packages", table =>
+            {
+                table.HasCheckConstraint("CK_meal_plan_packages_duration", "duration_months IN (1, 6, 12)");
+                table.HasCheckConstraint("CK_meal_plan_packages_amount", "amount_vnd > 0");
+            });
+            entity.HasKey(x => x.Id).HasName("PK_meal_plan_packages");
+            entity.Property(x => x.Id).HasColumnName("id").HasColumnType("integer").ValueGeneratedNever();
+            entity.Property(x => x.Code).HasColumnName("code").HasColumnType("character varying(40)").IsRequired();
+            entity.Property(x => x.Name).HasColumnName("name").HasColumnType("character varying(100)").IsRequired();
+            entity.Property(x => x.DurationMonths).HasColumnName("duration_months").HasColumnType("integer").IsRequired();
+            entity.Property(x => x.AmountVnd).HasColumnName("amount_vnd").HasColumnType("integer").IsRequired();
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasColumnType("boolean").IsRequired().HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired();
+            entity.HasIndex(x => x.Code).IsUnique().HasDatabaseName("UQ_meal_plan_packages_code");
+            entity.HasData(
+                new MealPlanPackage { Id = 1, Code = "monthly", Name = "1 month", DurationMonths = 1, AmountVnd = 100_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) },
+                new MealPlanPackage { Id = 2, Code = "half_year", Name = "6 months", DurationMonths = 6, AmountVnd = 500_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) },
+                new MealPlanPackage { Id = 3, Code = "yearly", Name = "12 months", DurationMonths = 12, AmountVnd = 1_000_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) });
+        });
+        modelBuilder.Entity<MealPlanPaymentOrder>(entity =>
+        {
+            entity.ToTable("meal_plan_payment_orders", table =>
+            {
+                table.HasCheckConstraint("CK_meal_plan_payment_orders_amount", "amount_vnd > 0");
+                table.HasCheckConstraint("CK_meal_plan_payment_orders_status", "status IN ('pending','paid','failed')");
+                table.HasCheckConstraint("CK_meal_plan_payment_orders_duration", "duration_months_snapshot IN (1, 6, 12)");
+            });
+            entity.HasKey(x => x.Id).HasName("PK_meal_plan_payment_orders");
+            entity.Property(x => x.Id).HasColumnName("id").HasColumnType("bigint").UseIdentityByDefaultColumn();
+            entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("bigint").IsRequired();
+            entity.Property(x => x.MealPlanPackageId).HasColumnName("meal_plan_package_id").HasColumnType("integer").IsRequired();
+            entity.Property(x => x.OrderCode).HasColumnName("order_code").HasColumnType("bigint")
+                .UseSequence("meal_plan_payment_order_code_seq").IsRequired();
+            entity.Property(x => x.PackageCodeSnapshot).HasColumnName("package_code_snapshot").HasColumnType("character varying(40)").IsRequired();
+            entity.Property(x => x.PackageNameSnapshot).HasColumnName("package_name_snapshot").HasColumnType("character varying(100)").IsRequired();
+            entity.Property(x => x.DurationMonthsSnapshot).HasColumnName("duration_months_snapshot").HasColumnType("integer").IsRequired();
+            entity.Property(x => x.AmountVnd).HasColumnName("amount_vnd").HasColumnType("integer").IsRequired();
+            entity.Property(x => x.Status).HasColumnName("status").HasColumnType("character varying(20)").IsRequired().HasDefaultValue("pending");
+            entity.Property(x => x.PaymentLinkId).HasColumnName("payment_link_id").HasColumnType("character varying(100)");
+            entity.Property(x => x.CheckoutUrl).HasColumnName("checkout_url").HasColumnType("character varying(2000)");
+            entity.Property(x => x.ProviderReference).HasColumnName("provider_reference").HasColumnType("character varying(100)");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired();
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasColumnType("timestamp with time zone");
+            entity.Property(x => x.PaidAt).HasColumnName("paid_at").HasColumnType("timestamp with time zone");
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_meal_plan_payment_orders_user");
+            entity.HasOne<MealPlanPackage>().WithMany().HasForeignKey(x => x.MealPlanPackageId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_meal_plan_payment_orders_package");
+            entity.HasIndex(x => x.OrderCode).IsUnique().HasDatabaseName("UQ_meal_plan_payment_orders_order_code");
+            entity.HasIndex(x => x.PaymentLinkId).IsUnique().HasDatabaseName("UQ_meal_plan_payment_orders_payment_link").HasFilter("payment_link_id IS NOT NULL");
+            entity.HasIndex(x => new { x.UserId, x.CreatedAt }).HasDatabaseName("IX_meal_plan_payment_orders_user_created");
+        });
+        modelBuilder.Entity<UserMealPlanAccess>(entity =>
+        {
+            entity.ToTable("user_meal_plan_access", table =>
+                table.HasCheckConstraint("CK_user_meal_plan_access_period", "expires_at > starts_at"));
+            entity.HasKey(x => x.Id).HasName("PK_user_meal_plan_access");
+            entity.Property(x => x.Id).HasColumnName("id").HasColumnType("bigint").UseIdentityByDefaultColumn();
+            entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("bigint").IsRequired();
+            entity.Property(x => x.MealPlanPackageId).HasColumnName("meal_plan_package_id").HasColumnType("integer").IsRequired();
+            entity.Property(x => x.PaymentOrderId).HasColumnName("payment_order_id").HasColumnType("bigint").IsRequired();
+            entity.Property(x => x.StartsAt).HasColumnName("starts_at").HasColumnType("timestamp with time zone").IsRequired();
+            entity.Property(x => x.ExpiresAt).HasColumnName("expires_at").HasColumnType("timestamp with time zone").IsRequired();
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired();
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_meal_plan_access_user");
+            entity.HasOne<MealPlanPackage>().WithMany().HasForeignKey(x => x.MealPlanPackageId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_meal_plan_access_package");
+            entity.HasOne<MealPlanPaymentOrder>().WithMany().HasForeignKey(x => x.PaymentOrderId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_meal_plan_access_payment_order");
+            entity.HasIndex(x => x.PaymentOrderId).IsUnique().HasDatabaseName("UQ_user_meal_plan_access_payment_order");
+            entity.HasIndex(x => new { x.UserId, x.ExpiresAt }).HasDatabaseName("IX_user_meal_plan_access_user_expires");
+            entity.HasIndex(x => new { x.UserId, x.StartsAt, x.ExpiresAt }).HasDatabaseName("IX_user_meal_plan_access_user_period");
         });
         modelBuilder.Entity<Meal>(entity =>
         {
@@ -671,6 +750,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 .HasFilter("source_type = 'user' AND comment_id IS NOT NULL AND reporter_id IS NOT NULL");
         });
         Member2ModelConfiguration.Configure(modelBuilder);
+        MealPlanRoutineConfiguration.Configure(modelBuilder);
         NotificationModelConfiguration.Configure(modelBuilder);
         AdminAuditModelConfiguration.Configure(modelBuilder);
         AdminMemberModelConfiguration.Configure(modelBuilder);

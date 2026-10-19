@@ -160,7 +160,14 @@ public sealed class CommentService(
         var targetComment = comment!;
         EnsureCanDeleteComment(targetComment, userId, isAdministrator);
 
-        var reason = request?.Reason?.Trim();
+        var rawReason = request?.Reason;
+        if (rawReason is { Length: > DeleteCommentRequest.MaxReasonLength })
+        {
+            throw new ArgumentException(
+                $"Deletion reason must not exceed {DeleteCommentRequest.MaxReasonLength} characters.");
+        }
+
+        var reason = rawReason?.Trim();
         if (isAdministrator && string.IsNullOrWhiteSpace(reason))
         {
             throw new ArgumentException("A deletion reason is required when an administrator removes a comment.");
