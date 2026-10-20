@@ -17,6 +17,7 @@ public sealed class MappingProfile : Profile
         CreateMap<AdminAuditLog, VeganHelper.BLL.DTOs.Admin.AdminAuditLogDto>();
         CreateMap<AdminMemberProjection, VeganHelper.BLL.DTOs.Admin.AdminMemberDto>();
         CreateMap<AdminCategoryProjection, VeganHelper.BLL.DTOs.Admin.AdminCategoryDto>();
+        CreateMap<AdminCommentReportProjection, VeganHelper.BLL.DTOs.Admin.AdminCommentReportDto>();
         CreateMap<ModerationPostProjection, VeganHelper.BLL.DTOs.Admin.ModerationPostDto>();
         CreateMap<ModerationFlagProjection, VeganHelper.BLL.DTOs.Admin.ModerationFlagDto>()
             .ForMember(d => d.Findings, o => o.MapFrom(s => ModerationMapping.FlagFindings(s.ReportedSnapshotJson, s.FindingsJson)))
