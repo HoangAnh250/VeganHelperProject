@@ -14,6 +14,14 @@ public sealed class CommentRepository(AppDbContext context) : ICommentRepository
             post => post.Id == postId && post.Status == "published" && !post.IsDeleted,
             cancellationToken);
 
+    public Task<long?> GetPostAuthorIdAsync(
+        long postId,
+        CancellationToken cancellationToken = default) =>
+        context.Posts.AsNoTracking()
+            .Where(post => post.Id == postId)
+            .Select(post => (long?)post.AuthorId)
+            .SingleOrDefaultAsync(cancellationToken);
+
     public Task<Comment?> GetCommentAsync(
         long commentId,
         CancellationToken cancellationToken = default) =>

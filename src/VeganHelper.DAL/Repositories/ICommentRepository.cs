@@ -6,6 +6,7 @@ namespace VeganHelper.DAL.Repositories;
 public interface ICommentRepository
 {
     Task<bool> IsPublishedPostAsync(long postId, CancellationToken cancellationToken = default);
+    Task<long?> GetPostAuthorIdAsync(long postId, CancellationToken cancellationToken = default);
     Task<Comment?> GetCommentAsync(long commentId, CancellationToken cancellationToken = default);
     Task<Comment?> GetCommentForReportAsync(long commentId, CancellationToken cancellationToken = default);
     Task<Comment?> GetCommentForUpdateAsync(long commentId, CancellationToken cancellationToken = default);

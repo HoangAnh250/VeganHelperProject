@@ -265,6 +265,115 @@ public sealed class CommentServiceTests
     }
 
     [Fact]
+    public async Task DeleteCommentAsync_PostAuthorCanDeleteAnotherUsersRootWithoutReasonOrNotification()
+    {
+        var repository = CreateRepository();
+        var transaction = CreateTransaction();
+        var root = new Comment { Id = 100, PostId = 10, UserId = 7, Content = "Root", Status = "visible" };
+        var reply = new Comment { Id = 101, PostId = 10, UserId = 8, ParentCommentId = 100, Content = "Reply", Status = "visible" };
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(root);
+        repository.Setup(x => x.GetPostAuthorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(20);
+        repository.Setup(x => x.GetCommentsForUpdateAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Comment> { root, reply });
+        repository.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(transaction.Object);
+        var notifications = new Mock<INotificationPublisher>();
+
+        await CreateService(repository, notifications).DeleteCommentAsync(10, 100, 20, false);
+
+        Assert.True(root.IsDeleted);
+        Assert.True(reply.IsDeleted);
+        notifications.Verify(x => x.NotifyCommentDeletionAsync(
+            It.IsAny<long>(), It.IsAny<long>(), It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        transaction.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_AdminCanDeleteOwnCommentWithoutReasonOrNotification()
+    {
+        var repository = CreateRepository();
+        var transaction = CreateTransaction();
+        var comment = new Comment
+        {
+            Id = 100, PostId = 10, UserId = 8, ParentCommentId = 90,
+            Content = "My comment", Status = "visible"
+        };
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(comment);
+        repository.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(transaction.Object);
+        var notifications = new Mock<INotificationPublisher>();
+
+        await CreateService(repository, notifications).DeleteCommentAsync(10, 100, 8, true);
+
+        Assert.True(comment.IsDeleted);
+        notifications.Verify(x => x.NotifyCommentDeletionAsync(
+            It.IsAny<long>(), It.IsAny<long>(), It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        transaction.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_AdminMustProvideReasonForAnotherUsersComment()
+    {
+        var repository = CreateRepository();
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Comment { Id = 100, PostId = 10, UserId = 7, Content = "Comment", Status = "visible" });
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            CreateService(repository).DeleteCommentAsync(10, 100, 8, true));
+
+        Assert.Contains("reason is required", exception.Message);
+        repository.Verify(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_AdminPostAuthorRequiresReasonButDoesNotNotifyCommentOwner()
+    {
+        var repository = CreateRepository();
+        var transaction = CreateTransaction();
+        var comment = new Comment { Id = 100, PostId = 10, UserId = 7, Content = "Comment", Status = "visible" };
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(comment);
+        repository.Setup(x => x.GetPostAuthorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(8);
+        repository.Setup(x => x.GetCommentsForUpdateAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { comment });
+        repository.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(transaction.Object);
+        var notifications = new Mock<INotificationPublisher>();
+
+        await CreateService(repository, notifications).DeleteCommentAsync(
+            10, 100, 8, true, new DeleteCommentRequest { Reason = "Removed by the post author" });
+
+        Assert.True(comment.IsDeleted);
+        notifications.Verify(x => x.NotifyCommentDeletionAsync(
+            It.IsAny<long>(), It.IsAny<long>(), It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        transaction.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteCommentAsync_UnrelatedMemberCannotDeleteAnotherUsersComment()
+    {
+        var repository = CreateRepository();
+        var comment = new Comment { Id = 100, PostId = 10, UserId = 7, Content = "Comment", Status = "visible" };
+        repository.Setup(x => x.GetCommentForUpdateAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(comment);
+        repository.Setup(x => x.GetPostAuthorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(20);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            CreateService(repository).DeleteCommentAsync(10, 100, 99, false));
+
+        repository.Verify(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public void DeleteCommentRequest_AllowsAnEmptyReasonUntilTheActorIsAuthorized()
+    {
+        var request = new DeleteCommentRequest { Reason = string.Empty };
+        var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
+
+        Assert.True(System.ComponentModel.DataAnnotations.Validator.TryValidateObject(
+            request,
+            new System.ComponentModel.DataAnnotations.ValidationContext(request),
+            results,
+            validateAllProperties: true));
+    }
+
+    [Fact]
     public async Task DeleteCommentAsync_RejectsAdministratorReasonOver500Characters()
     {
         var repository = CreateRepository();
