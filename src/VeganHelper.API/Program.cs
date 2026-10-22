@@ -196,8 +196,6 @@ builder.Services.AddScoped<IAdminCategoryService, AdminCategoryService>();
 builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
 builder.Services.AddScoped<IPostReportRepository, PostReportRepository>();
 builder.Services.AddScoped<IPostReportService, PostReportService>();
-builder.Services.AddScoped<IAdminCommentReportRepository, AdminCommentReportRepository>();
-builder.Services.AddScoped<IAdminCommentReportService, AdminCommentReportService>();
 builder.Services.AddScoped<IAdminModerationService, AdminModerationService>();
 builder.Services.AddScoped<PostModerationProcessor>();
 builder.Services.AddScoped<PostModerationJob>();
