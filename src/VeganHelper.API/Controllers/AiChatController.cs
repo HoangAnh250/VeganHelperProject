@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.AI;
@@ -12,6 +13,7 @@ namespace VeganHelper.API.Controllers;
 public sealed class AiChatController(IAiChatService service) : ControllerBase
 {
     [AllowAnonymous]
+    [EnableRateLimiting("guest-ai-chat")]
     [HttpPost("chat")]
     [ProducesResponseType(typeof(AiChatResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

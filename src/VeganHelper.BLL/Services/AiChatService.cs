@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.AI;
+using VeganHelper.BLL.Services.MealPlanning;
 using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Repositories;
 
@@ -58,42 +59,26 @@ public sealed class AiChatService(
                     "The chat session was not found or is not accessible.", 404);
         }
 
-        long completedGuestQuestions = 0;
-        if (userId is null)
-        {
-            completedGuestQuestions = await repository.CountCompletedGuestChatRequestsAsync(
-                guestSessionId!.Value,
-                cancellationToken);
-            if (completedGuestQuestions >= MaxGuestQuestions)
-                return ServiceResult<AiChatResponseDto>.Fail(
-                    "Guest chatbot limit reached. Please register or sign in to continue.",
-                    429,
-                    GuestQuestionLimitReachedCode);
-        }
-
         var userProfile = userId.HasValue
             ? await healthProfileRepository.GetAsync(userId.Value, cancellationToken)
             : null;
 
         var now = DateTime.UtcNow;
-        if (session is null)
+        session ??= new ChatSession
         {
-            session = new ChatSession
-            {
-                UserId = userId,
-                GuestSessionId = guestSessionId,
-                StartedAt = now,
-                LastActivityAt = now
-            };
-            repository.AddSession(session);
-            await repository.SaveChangesAsync(cancellationToken);
-        }
+            UserId = userId,
+            GuestSessionId = guestSessionId,
+            StartedAt = now,
+            LastActivityAt = now
+        };
 
         var modelContext = BuildModelContext(session.ContextSummary, userProfile);
-        var previousMessages = await repository.GetMessagesAsync(
-            session.Id,
-            MaxHistoryMessagesForModel,
-            cancellationToken);
+        var previousMessages = session.Id == 0
+            ? []
+            : await repository.GetMessagesAsync(
+                session.Id,
+                MaxHistoryMessagesForModel,
+                cancellationToken);
 
         var userMessage = new ChatMessage
         {
@@ -102,8 +87,6 @@ public sealed class AiChatService(
             MessageText = messageText,
             CreatedAt = now
         };
-        repository.AddMessage(userMessage);
-
         var usage = new AiUsage
         {
             RequestId = Guid.NewGuid(),
@@ -115,8 +98,32 @@ public sealed class AiChatService(
             Status = "pending",
             CreatedAt = now
         };
-        repository.AddUsage(usage);
-        await repository.SaveChangesAsync(cancellationToken);
+        long reservedBefore = 0;
+        if (userId is null)
+        {
+            var reservation = await repository.TryStartGuestChatAsync(
+                guestSessionId!.Value, session, userMessage, usage,
+                MaxGuestQuestions, cancellationToken);
+            if (reservation is null)
+                return ServiceResult<AiChatResponseDto>.Fail(
+                    "Guest chatbot limit reached. Please register or sign in to continue.",
+                    429,
+                    GuestQuestionLimitReachedCode);
+            reservedBefore = reservation.Value;
+        }
+        else
+        {
+            if (session.Id == 0)
+            {
+                repository.AddSession(session);
+                await repository.SaveChangesAsync(cancellationToken);
+            }
+
+            userMessage.SessionId = session.Id;
+            repository.AddMessage(userMessage);
+            repository.AddUsage(usage);
+            await repository.SaveChangesAsync(cancellationToken);
+        }
 
         var turns = previousMessages
             .Select(message => new AiChatTurn(message.SenderType, message.MessageText))
@@ -177,7 +184,7 @@ public sealed class AiChatService(
         {
             GuestQuestionsRemaining = userId.HasValue
                 ? null
-                : (int)Math.Max(0L, MaxGuestQuestions - completedGuestQuestions - 1L)
+                : (int)Math.Max(0L, MaxGuestQuestions - reservedBefore - 1L)
         });
     }
 
@@ -238,6 +245,9 @@ public sealed class AiChatService(
                 ["meal_type"] = string.IsNullOrWhiteSpace(profile.DietType) ? null : profile.DietType,
                 ["meal_type_may_be_app_default"] = string.Equals(profile.DietType, "vegan", StringComparison.OrdinalIgnoreCase),
                 ["current_bmi"] = GetCurrentBmi(profile),
+                ["activity_level"] = string.IsNullOrWhiteSpace(profile.ActivityLevel) ? null : profile.ActivityLevel,
+                ["estimated_maintenance_calories"] = MaintenanceEnergy.Estimate(
+                    profile, DateOnly.FromDateTime(DateTime.UtcNow)),
                 ["declared_allergies"] = allergies,
                 ["allergies_recorded"] = allergies.Length > 0
             };

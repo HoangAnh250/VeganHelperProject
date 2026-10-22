@@ -46,17 +46,43 @@ public sealed class ChatRepository(AppDbContext db) : IChatRepository
         return messages;
     }
 
-    public Task<long> CountCompletedGuestChatRequestsAsync(
+    public async Task<long?> TryStartGuestChatAsync(
         Guid guestSessionId,
-        CancellationToken cancellationToken = default) =>
-        db.AiUsage
-            .AsNoTracking()
-            .LongCountAsync(usage =>
-                usage.GuestSessionId == guestSessionId &&
-                usage.UserId == null &&
-                usage.FeatureType == "chatbot" &&
-                usage.Status == "completed",
-                cancellationToken);
+        ChatSession session,
+        ChatMessage message,
+        AiUsage usage,
+        int maximumQuestions,
+        CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var lockId = BitConverter.ToInt32(guestSessionId.ToByteArray());
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock({3913035}, {lockId})",
+            cancellationToken);
+
+        var recentPending = DateTime.UtcNow.AddMinutes(-3);
+        var reserved = await db.AiUsage.AsNoTracking().LongCountAsync(
+            item => item.GuestSessionId == guestSessionId &&
+                item.UserId == null && item.FeatureType == "chatbot" &&
+                (item.Status == "completed" ||
+                 item.Status == "pending" && item.CreatedAt >= recentPending),
+            cancellationToken);
+        if (reserved >= maximumQuestions)
+            return null;
+
+        if (session.Id == 0)
+        {
+            db.ChatSessions.Add(session);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        message.SessionId = session.Id;
+        db.ChatMessages.Add(message);
+        db.AiUsage.Add(usage);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return reserved;
+    }
 
     public void AddSession(ChatSession session) => db.ChatSessions.Add(session);
 

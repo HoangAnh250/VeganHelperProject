@@ -28,6 +28,8 @@ using VeganHelper.DAL.Integrations;
 using VeganHelper.API.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using System.Text.Json;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using VeganHelper.DAL.Integrations.Moderation;
 using VeganHelper.API.Configuration;
 using VeganHelper.API.Infrastructure.AI;
@@ -58,6 +60,31 @@ if (envFilePath is not null)
 }
 
 builder.Services.AddControllers();
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("guest-ai-chat", context =>
+        context.User.Identity?.IsAuthenticated == true
+            ? RateLimitPartition.GetNoLimiter("member")
+            : RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.MapToIPv6().ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 12,
+                    Window = TimeSpan.FromHours(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            error = "Too many chat requests from this network. Please try again later.",
+            code = "GUEST_CHAT_RATE_LIMITED",
+            requiresRegistration = false
+        }, cancellationToken);
+    };
+});
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:3000"];
 builder.Services.AddCors(options =>
@@ -316,6 +343,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseCors("Frontend");
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapControllers();
