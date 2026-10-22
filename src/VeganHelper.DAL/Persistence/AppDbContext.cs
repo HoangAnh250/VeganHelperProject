@@ -561,6 +561,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.OwnerUserId).HasColumnName("owner_user_id").HasColumnType("bigint").IsRequired(false);
             entity.Property(x => x.ComboName).HasColumnName("combo_name").HasColumnType("character varying(255)").IsRequired(true);
             entity.Property(x => x.Description).HasColumnName("description").HasColumnType("text").IsRequired(false);
+            entity.Property(x => x.ImageUrl).HasColumnName("image_url").HasColumnType("text").IsRequired(false);
             entity.Property(x => x.Servings).HasColumnName("servings").HasColumnType("numeric(6,2)").IsRequired(true).HasDefaultValueSql("1");
             entity.Property(x => x.TotalCalories).HasColumnName("total_calories").HasColumnType("numeric(10,2)").IsRequired(false);
             entity.Property(x => x.DietType).HasColumnName("diet_type").HasColumnType("character varying(30)").IsRequired(true);

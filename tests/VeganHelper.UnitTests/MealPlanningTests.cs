@@ -38,6 +38,18 @@ public class MealPlanningTests
     }
 
     [Fact]
+    public void Generate_ExposesMatchingMealImageWithoutChangingSelection()
+    {
+        var input=Catalog();
+        foreach(var meal in input.Meals) meal.ImageUrl=$"https://media.example/meals/{meal.Id}.jpg";
+
+        var menu=MealPlanGenerator.Generate(input,new(2026,10,12),new Random(42));
+
+        Assert.All(menu.Days.SelectMany(day=>day.Meals),meal=>
+            Assert.Equal($"https://media.example/meals/{meal.MealId}.jpg",meal.ImageUrl));
+    }
+
+    [Fact]
     public void Generate_ExpandsPeanutAllergyAndRejectsAnimalMealsForVegan()
     {
         var input=Catalog();

@@ -1,0 +1,19 @@
+[
+  {
+    "mealName": "Banana Peanut Butter Toast",
+    "photoId": 4109455,
+    "sourcePage": "https://www.pexels.com/photo/person-holding-banana-peanut-butter-toast-4109455/",
+    "photographer": "Polina Tankilevitch",
+    "license": "Pexels License",
+    "downloadUrl": "https://images.pexels.com/photos/4109455/pexels-photo-4109455.jpeg?auto=compress&cs=tinysrgb&w=960"
+  },
+  {
+    "mealName": "Avocado Egg Breakfast Toast",
+    "photoId": 7936682,
+    "sourcePage": "https://www.pexels.com/photo/plate-with-breakfast-sandwiches-7936682/",
+    "photographer": "Nicola Barts",
+    "license": "Pexels License",
+    "downloadUrl": "https://images.pexels.com/photos/7936682/pexels-photo-7936682.jpeg?auto=compress&cs=tinysrgb&w=960",
+    "replacesPhotoId": 21631444
+  }
+]

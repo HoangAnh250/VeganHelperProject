@@ -22,7 +22,7 @@ public sealed class MealPlanningRepository(AppDbContext db) : IMealPlanningRepos
             Meals=await db.Meals.AsNoTracking().Where(m=>m.OwnerUserId==null || m.OwnerUserId==userId)
                 .OrderBy(m=>m.Id).Select(m=>new MealCandidate
                 {
-                    Id=m.Id, Name=m.ComboName, DietType=m.DietType, Servings=m.Servings, TotalCalories=m.TotalCalories
+                    Id=m.Id, Name=m.ComboName, ImageUrl=m.ImageUrl, DietType=m.DietType, Servings=m.Servings, TotalCalories=m.TotalCalories
                 }).ToListAsync(ct)
         };
         var ids=input.Meals.Select(m=>m.Id).ToArray();
@@ -41,6 +41,14 @@ public sealed class MealPlanningRepository(AppDbContext db) : IMealPlanningRepos
         }
         if(tx is not null) await tx.CommitAsync(ct);
         return input;
+    }
+
+    public async Task<IReadOnlyDictionary<long, string>> GetImageUrlsAsync(IReadOnlyCollection<long> mealIds, CancellationToken ct)
+    {
+        if (mealIds.Count == 0) return new Dictionary<long, string>();
+        return await db.Meals.AsNoTracking()
+            .Where(meal => mealIds.Contains(meal.Id) && meal.ImageUrl != null)
+            .ToDictionaryAsync(meal => meal.Id, meal => meal.ImageUrl!, ct);
     }
 
     public async Task SaveAsync(MealPlan plan,IReadOnlyList<MealPlanSchedule> schedule,CancellationToken ct)

@@ -59,7 +59,7 @@ public static class MealPlanGenerator
                     score+=options.Penalty;
                     result.Meals.Add(new ScheduledMealDto
                     {
-                        MealId=options.Meal.Id, Name=options.Meal.Name, MealTime=slot.Time,
+                        MealId=options.Meal.Id, Name=options.Meal.Name, ImageUrl=options.Meal.ImageUrl, MealTime=slot.Time,
                         PortionMultiplier=options.Portion, Calories=options.Calories,
                         Ingredients=options.Meal.Ingredients.Select(i=>new MealIngredientDto
                         {
