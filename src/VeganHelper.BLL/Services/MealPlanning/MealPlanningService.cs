@@ -88,7 +88,22 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
     public async Task<PagedResult<MealPlanDto>> ListAsync(long userId,int pageIndex,int pageSize,CancellationToken ct)
     {
         Pagination.Validate(pageIndex,pageSize);
-        var access=await EnsureCanViewAsync(userId,ct);
+        var access=await payments.GetAccessAsync(userId,ct);
+        if(!access.CanViewExistingPlans && !access.CanViewTrialPlans)
+        {
+            // A new unpaid user with unused trial generations has no history to view yet.
+            // Return an empty list so the UI can render the page and offer plan generation.
+            if(access.Status=="none" && access.CanGenerate)
+            {
+                return new PagedResult<MealPlanDto>
+                {
+                    Items=Array.Empty<MealPlanDto>(),TotalItems=0,TotalCount=0,
+                    PageIndex=pageIndex,PageSize=pageSize,TotalPages=0
+                };
+            }
+
+            throw new MealPlanAccessRequiredException("Your meal-plan viewing period has ended. Purchase or renew a package to continue viewing saved plans.","MEAL_PLAN_VIEW_ACCESS_ENDED");
+        }
         var page=await repository.ListAsync(userId,pageIndex,pageSize,!access.CanViewExistingPlans,ct);
         var result=new PagedResult<MealPlanDto>
         {

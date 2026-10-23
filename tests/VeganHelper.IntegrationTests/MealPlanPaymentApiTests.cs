@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.MealPlanning;
 using VeganHelper.DAL.Entities;
 
@@ -107,6 +108,24 @@ public sealed class MealPlanPaymentApiTests(Member2ApiFixture fixture)
         Assert.Equal("none", access!.Status);
         Assert.True(access.CanGenerate);
         Assert.Equal(3, access.TrialGenerationsRemaining);
+    }
+
+    [Fact]
+    public async Task UnpaidNewUser_CanListEmptyMealPlansWhileTrialQuotaIsAvailable()
+    {
+        var userId = await SeedUserAsync();
+        using var client = fixture.Factory.Client(userId);
+
+        var response = await client.GetAsync("/api/MealPlans");
+        var page = await response.Content.ReadFromJsonAsync<PagedResult<MealPlanDto>>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(page);
+        Assert.Empty(page.Items);
+        Assert.Equal(0, page.TotalItems);
+        Assert.Equal(1, page.PageIndex);
+        Assert.Equal(10, page.PageSize);
+        Assert.Equal(0, page.TotalPages);
     }
 
     [Fact]
