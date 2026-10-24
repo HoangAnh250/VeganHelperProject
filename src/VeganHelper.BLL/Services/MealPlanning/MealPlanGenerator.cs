@@ -64,7 +64,8 @@ public static class MealPlanGenerator
                         Ingredients=options.Meal.Ingredients.Select(i=>new MealIngredientDto
                         {
                             IngredientId=i.IngredientId, Name=i.Name, Unit=i.Unit,
-                            Quantity=Math.Round(i.Quantity!.Value/options.Meal.Servings*options.Portion,3)
+                            Quantity=IngredientQuantityFormatter.RoundForDisplay(
+                                i.Quantity!.Value/options.Meal.Servings*options.Portion,i.Unit)
                         }).ToList()
                     });
                 }

@@ -76,7 +76,6 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         await routines.SaveRoutineAsync(plan,menu,request,ct);
         await tx.CommitAsync(ct);
         var dto=ToDto(plan); await routines.EnrichAsync(userId,dto,ct);
-        await AddCurrentMealImagesAsync([dto],ct);
         return dto;
     }
 
@@ -85,7 +84,6 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         var access=await EnsureCanViewAsync(userId,ct);
         var dto=ToDto(await repository.GetAsync(userId,id,!access.CanViewExistingPlans,ct) ?? throw new NotFoundException("Meal plan not found."));
         await routines.EnrichAsync(userId,dto,ct);
-        await AddCurrentMealImagesAsync([dto],ct);
         return dto;
     }
 
@@ -100,7 +98,6 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
             PageIndex=pageIndex,PageSize=pageSize,TotalPages=Pagination.TotalPages(page.TotalCount,pageSize)
         };
         foreach(var dto in result.Items) await routines.EnrichAsync(userId,dto,ct);
-        await AddCurrentMealImagesAsync(result.Items,ct);
         return result;
     }
 
@@ -109,17 +106,6 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         var dto=mapper.Map<MealPlanDto>(plan);
         dto.Menu=plan.GenerationSnapshot is null ? null : JsonSerializer.Deserialize<WeeklyMenuDto>(plan.GenerationSnapshot,JsonOptions);
         return dto;
-    }
-
-    private async Task AddCurrentMealImagesAsync(IEnumerable<MealPlanDto> plans,CancellationToken ct)
-    {
-        var meals=plans.SelectMany(plan=>plan.Menu?.Days ?? [])
-            .SelectMany(day=>day.Meals).ToList();
-        if(meals.Count==0) return;
-        var ids=meals.Select(meal=>meal.MealId).Distinct().ToArray();
-        var images=await repository.GetImageUrlsAsync(ids,ct);
-        foreach(var meal in meals)
-            meal.ImageUrl=images.GetValueOrDefault(meal.MealId);
     }
 
     private async Task<MealPlanAccessDto> EnsureCanViewAsync(long userId,CancellationToken ct)

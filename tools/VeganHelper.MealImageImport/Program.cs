@@ -17,7 +17,8 @@ var images = JsonSerializer.Deserialize<List<MealImage>>(File.ReadAllText(manife
     new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? [];
 var seedNames = File.ReadAllLines(Path.Combine(root, "docs", "data", "meal-plan-seed", "meals.csv"))
     .Skip(1).Select(line => line.Split(',')[1].Trim('"')).ToHashSet(StringComparer.Ordinal);
-if (images.Count == 0 || images.Select(image => image.MealName).Distinct(StringComparer.Ordinal).Count() != images.Count)
+if (images.Count != seedNames.Count || images.Select(image => image.MealName).Distinct(StringComparer.Ordinal).Count() != images.Count ||
+    !seedNames.SetEquals(images.Select(image => image.MealName)))
     throw new InvalidOperationException("The image manifest is empty or contains duplicate meal names.");
 foreach (var image in images)
 {
@@ -44,6 +45,13 @@ await using (var column = new NpgsqlCommand("SELECT count(*) FROM information_sc
     if ((long)(await column.ExecuteScalarAsync() ?? 0L) != 1L)
         throw new InvalidOperationException("Apply AddMealImages before importing image URLs.");
 
+await using (var coverage = new NpgsqlCommand("SELECT count(*), count(*) FILTER (WHERE image_url IS NOT NULL) FROM public.meals", db))
+await using (var counts = await coverage.ExecuteReaderAsync())
+{
+    if (!await counts.ReadAsync()) throw new InvalidOperationException("Could not inspect meal image coverage.");
+    Console.WriteLine($"Database meals: {counts.GetInt64(0)}; already with image: {counts.GetInt64(1)}.");
+}
+
 var pending = new List<(MealImage Image, long Id, string? ExistingUrl)>();
 foreach (var image in images)
 {
@@ -60,7 +68,7 @@ foreach (var image in images)
     else Console.WriteLine($"Already has an image: {image.MealName}");
 }
 
-Console.WriteLine($"Curated: {images.Count}; pending: {pending.Count}; expected project: {projectRef}.");
+Console.WriteLine($"Curated meals: {images.Count}; source photos: {images.Select(image => image.PhotoId).Distinct().Count()}; pending meals: {pending.Count}; expected project: {projectRef}.");
 if (!apply) return;
 
 var apiConfig = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "src", "VeganHelper.API", "appsettings.json")));
@@ -77,16 +85,22 @@ using var storage = new AmazonS3Client(new BasicAWSCredentials(secret("AccessKey
     new AmazonS3Config { ServiceURL = setting("ServiceUrl") });
 using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 
-foreach (var (image, id, existingUrl) in pending)
+foreach (var photoGroup in pending.GroupBy(entry => entry.Image.PhotoId))
 {
-    if (existingUrl is not null && !existingUrl.StartsWith($"{publicBase}/meals/", StringComparison.Ordinal))
-        throw new InvalidOperationException($"Existing image is outside the managed R2 path: {image.MealName}");
+    var entries = photoGroup.ToList();
+    var image = entries[0].Image;
+    foreach (var (_, _, existingUrl) in entries)
+        if (existingUrl is not null && !existingUrl.StartsWith($"{publicBase}/meals/", StringComparison.Ordinal))
+            throw new InvalidOperationException($"Existing image is outside the managed R2 path: {image.MealName}");
+
     var content = await http.GetByteArrayAsync(image.DownloadUrl);
     if (content.Length is < 1_000 or > 3_000_000 || content[0] != 0xff || content[1] != 0xd8)
         throw new InvalidOperationException($"Image is not a supported JPEG: {image.MealName}");
+
     var key = $"meals/pexels-{image.PhotoId}-{Guid.NewGuid():N}.jpg";
     var publicUrl = $"{publicBase}/{key}";
     var uploaded = false;
+    await using var transaction = await db.BeginTransactionAsync();
     try
     {
         using var stream = new MemoryStream(content, writable: false);
@@ -112,18 +126,23 @@ foreach (var (image, id, existingUrl) in pending)
         if (!verified)
             throw new InvalidOperationException($"R2 public URL is not readable for {image.MealName} (HTTP {(int?)status}).");
 
-        await using var update = new NpgsqlCommand(
-            "UPDATE public.meals SET image_url=@url WHERE id=@id AND image_url IS NOT DISTINCT FROM @existing RETURNING id", db);
-        update.Parameters.AddWithValue("url", publicUrl);
-        update.Parameters.AddWithValue("id", id);
-        update.Parameters.AddWithValue("existing", NpgsqlTypes.NpgsqlDbType.Text,
-            existingUrl is null ? DBNull.Value : existingUrl);
-        if (await update.ExecuteScalarAsync() is null)
-            throw new InvalidOperationException($"Meal image changed concurrently: {image.MealName}");
-        uploaded = false;
-        Console.WriteLine($"Assigned {image.MealName}: {publicUrl}");
-        if (existingUrl is not null)
+        foreach (var (entryImage, id, existingUrl) in entries)
         {
+            await using var update = new NpgsqlCommand(
+                "UPDATE public.meals SET image_url=@url WHERE id=@id AND image_url IS NOT DISTINCT FROM @existing RETURNING id", db, transaction);
+            update.Parameters.AddWithValue("url", publicUrl);
+            update.Parameters.AddWithValue("id", id);
+            update.Parameters.AddWithValue("existing", NpgsqlTypes.NpgsqlDbType.Text,
+                existingUrl is null ? DBNull.Value : existingUrl);
+            if (await update.ExecuteScalarAsync() is null)
+                throw new InvalidOperationException($"Meal image changed concurrently: {entryImage.MealName}");
+        }
+        await transaction.CommitAsync();
+        uploaded = false;
+        foreach (var (entryImage, _, existingUrl) in entries)
+        {
+            Console.WriteLine($"Assigned {entryImage.MealName}: {publicUrl}");
+            if (existingUrl is null) continue;
             try
             {
                 await storage.DeleteObjectAsync(new DeleteObjectRequest
@@ -133,12 +152,13 @@ foreach (var (image, id, existingUrl) in pending)
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Old image needs manual cleanup for {image.MealName}: {ex.Message}");
+                Console.Error.WriteLine($"Old image needs manual cleanup for {entryImage.MealName}: {ex.Message}");
             }
         }
     }
     catch
     {
+        await transaction.RollbackAsync();
         if (uploaded) await storage.DeleteObjectAsync(new DeleteObjectRequest { BucketName = bucket, Key = key });
         throw;
     }

@@ -32,9 +32,42 @@ public class MealPlanningTests
             Assert.InRange(day.TotalCalories, result.TargetDailyCalories*.9m, result.TargetDailyCalories*1.1m);
             Assert.All(day.Meals, meal=> {
                 Assert.InRange(meal.PortionMultiplier,.75m,1.5m);
-                Assert.Equal(Math.Round(200*meal.PortionMultiplier,3), meal.Ingredients.Single().Quantity);
+                Assert.Equal(IngredientQuantityFormatter.RoundForDisplay(200*meal.PortionMultiplier,"g"), meal.Ingredients.Single().Quantity);
             });
         });
+    }
+
+    [Theory]
+    [InlineData(61.65, "g", 60)]
+    [InlineData(150, "g", 150)]
+    [InlineData(10.96, "g", 10)]
+    [InlineData(6.85, "g", 7)]
+    [InlineData(2.2, "piece", 2)]
+    public void IngredientQuantities_AreRoundedToPracticalKitchenAmounts(decimal amount,string unit,decimal expected)
+    {
+        Assert.Equal(expected,IngredientQuantityFormatter.RoundForDisplay(amount,unit));
+    }
+
+    [Fact]
+    public void LegacyMealPlanPresentation_UsesCurrentImagesAndKitchenQuantities()
+    {
+        var menu=new VeganHelper.BLL.DTOs.MealPlanning.WeeklyMenuDto
+        {
+            Days=[new VeganHelper.BLL.DTOs.MealPlanning.MealDayDto
+            {
+                Meals=[new VeganHelper.BLL.DTOs.MealPlanning.ScheduledMealDto
+                {
+                    MealId=7,
+                    Ingredients=[new VeganHelper.BLL.DTOs.MealPlanning.MealIngredientDto {Name="Rolled oats",Quantity=61.65m,Unit="g"}]
+                }]
+            }]
+        };
+
+        MealPlanPresentation.Apply(menu,new Dictionary<long,string> { [7]="https://media.example/meals/7.jpg" });
+
+        var meal=Assert.Single(Assert.Single(menu.Days).Meals);
+        Assert.Equal("https://media.example/meals/7.jpg",meal.ImageUrl);
+        Assert.Equal(60m,Assert.Single(meal.Ingredients).Quantity);
     }
 
     [Fact]
