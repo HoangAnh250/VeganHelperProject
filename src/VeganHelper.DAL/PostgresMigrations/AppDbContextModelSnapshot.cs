@@ -733,6 +733,10 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("image_url");
+
                     b.Property<string>("DietType")
                         .IsRequired()
                         .HasColumnType("character varying(30)")

@@ -107,6 +107,7 @@ public sealed class ScheduledMealDto
 {
     public long MealId { get; set; }
     public string Name { get; set; } = "";
+    public string? ImageUrl { get; set; }
     public string MealTime { get; set; } = "";
     public decimal PortionMultiplier { get; set; }
     public decimal Calories { get; set; }

@@ -88,6 +88,15 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
 
     public async Task EnrichAsync(long userId,MealPlanDto dto,CancellationToken ct)
     {
+        if(dto.Menu is not null)
+        {
+            var meals=dto.Menu.Days.SelectMany(day=>day.Meals).ToList();
+            if(meals.Count>0)
+            {
+                var images=await plans.GetImageUrlsAsync(meals.Select(meal=>meal.MealId).Distinct().ToArray(),ct);
+                MealPlanPresentation.Apply(dto.Menu,images);
+            }
+        }
         var routine=await routines.GetAsync(userId,dto.Id,false,ct);
         if(routine is null) return;
         dto.Routine=mapper.Map<MealRoutineDto>(routine);

@@ -6,6 +6,7 @@ public sealed class Meal
     public long? OwnerUserId { get; set; }
     public string ComboName { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public string? ImageUrl { get; set; }
     public decimal Servings { get; set; }
     public decimal? TotalCalories { get; set; }
     public string DietType { get; set; } = string.Empty;

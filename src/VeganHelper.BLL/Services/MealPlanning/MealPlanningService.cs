@@ -75,14 +75,16 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         }
         await routines.SaveRoutineAsync(plan,menu,request,ct);
         await tx.CommitAsync(ct);
-        var dto=ToDto(plan); await routines.EnrichAsync(userId,dto,ct); return dto;
+        var dto=ToDto(plan); await routines.EnrichAsync(userId,dto,ct);
+        return dto;
     }
 
     public async Task<MealPlanDto> GetAsync(long userId,long id,CancellationToken ct)
     {
         var access=await EnsureCanViewAsync(userId,ct);
         var dto=ToDto(await repository.GetAsync(userId,id,!access.CanViewExistingPlans,ct) ?? throw new NotFoundException("Meal plan not found."));
-        await routines.EnrichAsync(userId,dto,ct); return dto;
+        await routines.EnrichAsync(userId,dto,ct);
+        return dto;
     }
 
     public async Task<PagedResult<MealPlanDto>> ListAsync(long userId,int pageIndex,int pageSize,CancellationToken ct)

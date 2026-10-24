@@ -59,12 +59,13 @@ public static class MealPlanGenerator
                     score+=options.Penalty;
                     result.Meals.Add(new ScheduledMealDto
                     {
-                        MealId=options.Meal.Id, Name=options.Meal.Name, MealTime=slot.Time,
+                        MealId=options.Meal.Id, Name=options.Meal.Name, ImageUrl=options.Meal.ImageUrl, MealTime=slot.Time,
                         PortionMultiplier=options.Portion, Calories=options.Calories,
                         Ingredients=options.Meal.Ingredients.Select(i=>new MealIngredientDto
                         {
                             IngredientId=i.IngredientId, Name=i.Name, Unit=i.Unit,
-                            Quantity=Math.Round(i.Quantity!.Value/options.Meal.Servings*options.Portion,3)
+                            Quantity=IngredientQuantityFormatter.RoundForDisplay(
+                                i.Quantity!.Value/options.Meal.Servings*options.Portion,i.Unit)
                         }).ToList()
                     });
                 }
