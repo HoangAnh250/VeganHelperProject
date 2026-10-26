@@ -38,9 +38,35 @@ Successful response:
   "answer": "...",
   "createdAt": "2026-10-15T00:00:00Z",
   "model": "gemini-2.5-flash-lite",
-  "guestQuestionsRemaining": 2
+  "guestQuestionsRemaining": 2,
+  "recommendedPosts": []
 }
 ```
+
+## FN32: Find real VeganHelper recipe posts
+
+When the user asks for meal or recipe suggestions, Gemini may call the single
+`search_vegan_posts` function. The Backend validates its structured criteria and
+queries only published, non-deleted posts outside moderation hold. A response
+contains at most three cards with `postId`, `title`, and `thumbnailUrl`:
+
+```json
+{
+  "recommendedPosts": [
+    { "postId": 42, "title": "Mushroom tofu", "thumbnailUrl": null }
+  ]
+}
+```
+
+The Frontend links guests to `/posts/{postId}/guest` and members to
+`/posts/{postId}`. Gemini receives only the selected public post IDs and titles;
+it cannot issue SQL or read private data. If no post remains, the assistant may
+suggest a general vegan dish but must say it is not a VeganHelper post.
+
+The selected post IDs are saved with the AI chat message. History responses add
+`recommendedPosts` to each message and resolve IDs against current public
+visibility, so removed or hidden posts no longer appear as cards. The
+`AddChatPostRecommendations` migration adds a nullable column to `chat_messages`.
 
 For an authenticated member, `guestQuestionsRemaining` is `null`. Guests may
 complete three chatbot requests per `guestSessionId`; successful responses

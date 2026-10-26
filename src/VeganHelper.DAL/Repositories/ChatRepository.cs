@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Persistence;
@@ -44,6 +45,17 @@ public sealed class ChatRepository(AppDbContext db) : IChatRepository
 
         messages.Reverse();
         return messages;
+    }
+
+    public async Task<IReadOnlyList<long>> GetRecommendedPostIdsAsync(
+        long sessionId, CancellationToken cancellationToken = default)
+    {
+        var snapshots = await db.ChatMessages.AsNoTracking()
+            .Where(message => message.SessionId == sessionId && message.RecommendedPostIdsJson != null)
+            .Select(message => message.RecommendedPostIdsJson!)
+            .ToListAsync(cancellationToken);
+        return snapshots.SelectMany(snapshot => JsonSerializer.Deserialize<long[]>(snapshot) ?? [])
+            .Where(id => id > 0).Distinct().Take(1_000).ToArray();
     }
 
     public async Task<long?> TryStartGuestChatAsync(

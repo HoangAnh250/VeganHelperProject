@@ -13,7 +13,19 @@ public sealed record AiChatResponseDto(
     string Model)
 {
     public int? GuestQuestionsRemaining { get; init; }
+    public IReadOnlyList<AiPostCardDto> RecommendedPosts { get; init; } = [];
 }
+
+public sealed record AiPostCardDto(long PostId, string Title, string? ThumbnailUrl);
+public sealed record AiPostSearchCriteria(
+    IReadOnlyList<string>? RequiredIngredients,
+    IReadOnlyList<string>? AvailableIngredients,
+    IReadOnlyList<string>? ExcludedAllergens,
+    string? MealType,
+    string? DietType,
+    int? MaxMinutes,
+    bool StrictOnlyIngredients);
+public sealed record AiPostSearchResult(IReadOnlyList<AiPostCardDto> Posts, bool HasMore);
 
 public sealed record AiChatErrorDto(
     string Error,
@@ -24,7 +36,10 @@ public sealed record AiChatMessageDto(
     long Id,
     string SenderType,
     string MessageText,
-    DateTime CreatedAt);
+    DateTime CreatedAt)
+{
+    public IReadOnlyList<AiPostCardDto> RecommendedPosts { get; init; } = [];
+}
 
 public sealed record AiChatHistoryDto(
     long SessionId,
@@ -39,4 +54,7 @@ public sealed record GeminiChatCompletion(
     string Text,
     string Model,
     int? InputTokens,
-    int? OutputTokens);
+    int? OutputTokens)
+{
+    public IReadOnlyList<AiPostCardDto> RecommendedPosts { get; init; } = [];
+}

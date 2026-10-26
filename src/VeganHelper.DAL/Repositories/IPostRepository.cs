@@ -6,6 +6,10 @@ using VeganHelper.DAL.Entities;
 
 public interface IPostRepository
 {
+    Task<(IReadOnlyList<PostRecommendationProjection> Posts, bool HasMore)> SearchRecommendationsAsync(
+        PostRecommendationQuery query, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PostRecommendationProjection>> GetPublicRecommendationsAsync(
+        IReadOnlyList<long> postIds, CancellationToken cancellationToken = default);
     Task<PostPublicationState?> LockPublicationAsync(long id, int revision, CancellationToken ct);
     Task<bool> IsEvidenceMediaAsync(string url, CancellationToken ct);
     Task<Post> CreatePostAsync(Post post, CancellationToken cancellationToken = default);

@@ -346,6 +346,10 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnType("text")
                         .HasColumnName("message_text");
 
+                    b.Property<string>("RecommendedPostIdsJson")
+                        .HasColumnType("text")
+                        .HasColumnName("recommended_post_ids_json");
+
                     b.Property<string>("SenderType")
                         .IsRequired()
                         .HasColumnType("character varying(20)")

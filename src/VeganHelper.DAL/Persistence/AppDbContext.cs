@@ -630,6 +630,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.SessionId).HasColumnName("session_id").HasColumnType("bigint").IsRequired(true);
             entity.Property(x => x.SenderType).HasColumnName("sender_type").HasColumnType("character varying(20)").IsRequired(true);
             entity.Property(x => x.MessageText).HasColumnName("message_text").HasColumnType("text").IsRequired(true);
+            entity.Property(x => x.RecommendedPostIdsJson).HasColumnName("recommended_post_ids_json").HasColumnType("text").IsRequired(false);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired(true).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasOne<ChatSession>().WithMany().HasForeignKey(x => new { x.SessionId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_chat_messages_1");
             entity.HasIndex(x => new { x.SessionId, x.Id }).HasDatabaseName("IX_chat_messages_1");

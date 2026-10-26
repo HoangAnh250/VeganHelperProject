@@ -15,6 +15,9 @@ public interface IChatRepository
         int maximum,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<long>> GetRecommendedPostIdsAsync(
+        long sessionId, CancellationToken cancellationToken = default);
+
     Task<long?> TryStartGuestChatAsync(
         Guid guestSessionId,
         ChatSession session,

@@ -12,6 +12,53 @@ namespace VeganHelper.UnitTests;
 public sealed class GeminiChatClientTests
 {
     [Fact]
+    public async Task CompleteWithPostSearchAsync_ExecutesOnlyDeclaredToolAndReturnsRealCards()
+    {
+        var requests = 0;
+        using var http = new HttpClient(new FakeHandler(async (request, cancellationToken) =>
+        {
+            requests++;
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+            if (requests == 1)
+            {
+                Assert.Equal("search_vegan_posts", body.RootElement.GetProperty("tools")[0]
+                    .GetProperty("functionDeclarations")[0].GetProperty("name").GetString());
+                return JsonResponse("""
+                    {"candidates":[{"content":{"role":"model","parts":[{"functionCall":
+                    {"name":"search_vegan_posts","id":"call-1","args":{"requiredIngredients":["mushroom"]}},
+                    "thoughtSignature":"signature"}]}}],
+                    "usageMetadata":{"promptTokenCount":11,"candidatesTokenCount":3}}
+                    """);
+            }
+
+            var contents = body.RootElement.GetProperty("contents");
+            Assert.Equal("signature", contents[contents.GetArrayLength() - 2].GetProperty("parts")[0].GetProperty("thoughtSignature").GetString());
+            var toolResult = contents[contents.GetArrayLength() - 1].GetProperty("parts")[0].GetProperty("functionResponse");
+            Assert.Equal("call-1", toolResult.GetProperty("id").GetString());
+            Assert.Equal(42, toolResult.GetProperty("response").GetProperty("posts")[0].GetProperty("postId").GetInt64());
+            Assert.False(body.RootElement.TryGetProperty("tools", out _));
+            return JsonResponse("""
+                {"candidates":[{"content":{"parts":[{"text":"Try this recipe."}]}}],"modelVersion":"test",
+                 "usageMetadata":{"promptTokenCount":16,"candidatesTokenCount":5}}
+                """);
+        }));
+        var client = CreateClient(http);
+        var result = await client.CompleteWithPostSearchAsync(null,
+            [new AiChatTurn("user", "Suggest a mushroom dish")],
+            (criteria, _) =>
+            {
+                Assert.Equal("mushroom", Assert.Single(criteria.RequiredIngredients!));
+                return Task.FromResult(new AiPostSearchResult([new AiPostCardDto(42, "Mushroom tofu", null)], false));
+            });
+
+        Assert.Equal(2, requests);
+        Assert.Equal("Try this recipe.", result.Text);
+        Assert.Equal(42, Assert.Single(result.RecommendedPosts).PostId);
+        Assert.Equal(27, result.InputTokens);
+        Assert.Equal(8, result.OutputTokens);
+    }
+
+    [Fact]
     public async Task CompleteAsync_SendsSystemInstructionHistoryAndApiKey()
     {
         using var http = new HttpClient(new FakeHandler(async (request, cancellationToken) =>
