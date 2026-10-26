@@ -260,10 +260,12 @@ builder.Services.AddSingleton<IValidateOptions<WebPushSettings>, WebPushOptionsV
 builder.Services.AddOptions<WebPushSettings>().BindConfiguration("WebPush").ValidateOnStart();
 builder.Services.AddHttpClient<IWebPushTransport, WebPushTransport>(client => client.Timeout = TimeSpan.FromSeconds(15))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-var pushWorkerConfigured = builder.Configuration.GetValue<bool>("WebPush:Enabled");
-var moderationWorkerConfigured = builder.Configuration.GetValue<bool>("ModerationAi:Enabled");
-var mealWorkerConfigured = builder.Configuration.GetValue<bool>("MealPlanning:WorkerEnabled");
 var prepareJobs = args.Contains("--prepare-push-jobs") || args.Contains("--prepare-background-jobs");
+// Local .env files may enable workers; never start Hangfire during integration tests.
+var allowBackgroundJobs = !builder.Environment.IsEnvironment("Testing") || prepareJobs;
+var pushWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("WebPush:Enabled");
+var moderationWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("ModerationAi:Enabled");
+var mealWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("MealPlanning:WorkerEnabled");
 if (pushWorkerConfigured || moderationWorkerConfigured || mealWorkerConfigured)
 {
     var jobConnection = DatabaseConnection.Validate(builder.Configuration.GetConnectionString("HangfireConnection")
