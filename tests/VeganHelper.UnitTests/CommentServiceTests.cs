@@ -18,6 +18,12 @@ public sealed class CommentServiceTests
     [InlineData("Óc chó", CommentModerationAction.BlockRejected)]
     [InlineData("ĐMM", CommentModerationAction.BlockRejected)]
     [InlineData("Địt mẹ mày", CommentModerationAction.HidePendingReview)]
+    [InlineData("You are an idiot", CommentModerationAction.BlockRejected)]
+    [InlineData("FUCK YOU!", CommentModerationAction.BlockRejected)]
+    [InlineData("What the fuck?", CommentModerationAction.HidePendingReview)]
+    [InlineData("This is bullshit", CommentModerationAction.HidePendingReview)]
+    [InlineData("Damn, this recipe is hard", CommentModerationAction.Allow)]
+    [InlineData("Use shiitake mushrooms", CommentModerationAction.Allow)]
     public void KeywordFilter_ReturnsExpectedAction(string content, CommentModerationAction expectedAction)
     {
         var result = new CommentKeywordFilter().Evaluate(content);
