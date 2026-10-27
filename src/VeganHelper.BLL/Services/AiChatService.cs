@@ -13,7 +13,7 @@ public sealed class AiChatService(
     IChatRepository repository,
     IPostRepository postRepository,
     IHealthProfileRepository healthProfileRepository,
-    IGeminiChatClient gemini,
+    IAiChatClient aiClient,
     ILogger<AiChatService> logger) : IAiChatService
 {
     private const int MaxMessageCharacters = 4_000;
@@ -94,7 +94,7 @@ public sealed class AiChatService(
             UserId = userId,
             GuestSessionId = guestSessionId,
             FeatureType = "chatbot",
-            Provider = "gemini",
+            Provider = "deepseek",
             ModelName = "pending",
             Status = "pending",
             CreatedAt = now
@@ -131,10 +131,10 @@ public sealed class AiChatService(
             .Append(new AiChatTurn("user", messageText))
             .ToArray();
 
-        GeminiChatCompletion completion;
+        AiChatCompletion completion;
         try
         {
-            completion = await gemini.CompleteWithPostSearchAsync(
+            completion = await aiClient.CompleteWithPostSearchAsync(
                 modelContext,
                 turns,
                 async (criteria, ct) =>
@@ -161,13 +161,13 @@ public sealed class AiChatService(
                 },
                 cancellationToken);
         }
-        catch (GeminiChatException exception)
+        catch (AiChatProviderException exception)
         {
             usage.Status = "failed";
-            usage.ModelName = "gemini";
+            usage.ModelName = "deepseek-flash";
             await repository.SaveChangesAsync(cancellationToken);
             logger.LogWarning(
-                "Gemini chat request {RequestId} failed with {Code}.",
+                "AI chat request {RequestId} failed with {Code}.",
                 usage.RequestId,
                 exception.Code);
             return ServiceResult<AiChatResponseDto>.Fail(exception.Message, exception.StatusCode);
@@ -175,9 +175,9 @@ public sealed class AiChatService(
         catch (Exception exception) when (exception is HttpRequestException or IOException)
         {
             usage.Status = "failed";
-            usage.ModelName = "gemini";
+            usage.ModelName = "deepseek-flash";
             await repository.SaveChangesAsync(cancellationToken);
-            logger.LogWarning(exception, "Gemini chat provider was unavailable for {RequestId}.", usage.RequestId);
+            logger.LogWarning(exception, "AI chat provider was unavailable for {RequestId}.", usage.RequestId);
             return ServiceResult<AiChatResponseDto>.Fail(
                 "The AI service is temporarily unavailable. Please try again later.", 503);
         }

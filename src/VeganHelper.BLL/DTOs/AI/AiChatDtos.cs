@@ -50,7 +50,7 @@ public sealed record AiChatHistoryDto(
 
 public sealed record AiChatTurn(string SenderType, string MessageText);
 
-public sealed record GeminiChatCompletion(
+public sealed record AiChatCompletion(
     string Text,
     string Model,
     int? InputTokens,

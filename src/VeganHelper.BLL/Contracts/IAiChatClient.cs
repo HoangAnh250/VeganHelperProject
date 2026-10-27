@@ -2,21 +2,21 @@ using VeganHelper.BLL.DTOs.AI;
 
 namespace VeganHelper.BLL.Contracts;
 
-public interface IGeminiChatClient
+public interface IAiChatClient
 {
-    Task<GeminiChatCompletion> CompleteAsync(
+    Task<AiChatCompletion> CompleteAsync(
         string? contextSummary,
         IReadOnlyList<AiChatTurn> turns,
         CancellationToken cancellationToken = default);
 
-    Task<GeminiChatCompletion> CompleteWithPostSearchAsync(
+    Task<AiChatCompletion> CompleteWithPostSearchAsync(
         string? contextSummary,
         IReadOnlyList<AiChatTurn> turns,
         Func<AiPostSearchCriteria, CancellationToken, Task<AiPostSearchResult>> searchPosts,
         CancellationToken cancellationToken = default);
 }
 
-public sealed class GeminiChatException(string code, string message, int statusCode, bool retryable = false)
+public sealed class AiChatProviderException(string code, string message, int statusCode, bool retryable = false)
     : Exception(message)
 {
     public string Code { get; } = code;

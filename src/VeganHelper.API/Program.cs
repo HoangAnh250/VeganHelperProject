@@ -242,7 +242,7 @@ builder.Services.AddSingleton(moderationPrompt);
 builder.Services.AddHttpClient<IPostModerationAiClient, GeminiPostModerationClient>(client => client.Timeout = Timeout.InfiniteTimeSpan)
     .ConfigurePrimaryHttpMessageHandler(GeminiModerationHttpHandlerFactory.Create)
     .RedactLoggedHeaders(["x-goog-api-key"]);
-builder.Services.AddOptions<GeminiOptions>().BindConfiguration("Gemini");
+builder.Services.AddOptions<DeepSeekChatOptions>().BindConfiguration("DeepSeekChat");
 var aiChatPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "VeganNutrition.v2.json");
 var aiChatPrompt = JsonSerializer.Deserialize<AiChatPromptDefinition>(
     File.ReadAllText(aiChatPromptPath),
@@ -252,9 +252,9 @@ if (string.IsNullOrWhiteSpace(aiChatPrompt.Version) ||
     string.IsNullOrWhiteSpace(aiChatPrompt.SystemInstruction))
     throw new InvalidOperationException("AI chat prompt is invalid.");
 builder.Services.AddSingleton(aiChatPrompt);
-builder.Services.AddHttpClient<IGeminiChatClient, GeminiChatClient>(client =>
+builder.Services.AddHttpClient<IAiChatClient, DeepSeekChatClient>(client =>
     client.Timeout = Timeout.InfiniteTimeSpan)
-    .RedactLoggedHeaders(["x-goog-api-key"]);
+    .RedactLoggedHeaders(["Authorization"]);
 builder.Services.AddScoped<IAccountAccessService, AccountAccessService>();
 builder.Services.AddScoped<IAuthorizationHandler, ActiveAdminHandler>();
 builder.Services.AddAuthorization(options => options.AddPolicy(AdminPolicies.AdminOnly,

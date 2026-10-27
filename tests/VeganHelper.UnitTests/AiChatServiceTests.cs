@@ -28,7 +28,7 @@ public sealed class AiChatServiceTests
         health.Setup(item => item.GetAsync(7, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new HealthProfileProjection(new UserProfile { UserId = 7, DietType = "vegan" },
                 [new AllergyProjection { Name = "Peanut" }]));
-        var gemini = new Mock<IGeminiChatClient>();
+        var gemini = new Mock<IAiChatClient>();
         gemini.Setup(item => item.CompleteWithPostSearchAsync(It.IsAny<string?>(),
                 It.IsAny<IReadOnlyList<AiChatTurn>>(),
                 It.IsAny<Func<AiPostSearchCriteria, CancellationToken, Task<AiPostSearchResult>>>(),
@@ -37,7 +37,7 @@ public sealed class AiChatServiceTests
                 async (_, _, search, ct) =>
                 {
                     var result = await search(new AiPostSearchCriteria(["mushroom"], null, ["Sesame"], "lunch", null, null, false), ct);
-                    return new GeminiChatCompletion("Try this recipe.", "test", 1, 1)
+                    return new AiChatCompletion("Try this recipe.", "test", 1, 1)
                     { RecommendedPosts = result.Posts };
                 });
         var service = new AiChatService(repository.Object, posts.Object, health.Object, gemini.Object,
@@ -68,7 +68,7 @@ public sealed class AiChatServiceTests
         posts.Setup(item => item.GetPublicRecommendationsAsync(It.IsAny<IReadOnlyList<long>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new PostRecommendationProjection(42, "Still public", null)]);
         var service = new AiChatService(repository.Object, posts.Object, Mock.Of<IHealthProfileRepository>(),
-            Mock.Of<IGeminiChatClient>(), NullLogger<AiChatService>.Instance);
+            Mock.Of<IAiChatClient>(), NullLogger<AiChatService>.Instance);
 
         var result = await service.GetHistoryAsync(7, 9, null);
 
@@ -87,14 +87,14 @@ public sealed class AiChatServiceTests
                 (_, session, message, _, _, _) => { session.Id = 42; message.SessionId = 42; })
             .ReturnsAsync(0L);
 
-        var gemini = new Mock<IGeminiChatClient>();
+        var gemini = new Mock<IAiChatClient>();
         gemini
             .Setup(item => item.CompleteWithPostSearchAsync(
                 It.IsAny<string?>(),
                 It.IsAny<IReadOnlyList<AiChatTurn>>(),
                 It.IsAny<Func<AiPostSearchCriteria, CancellationToken, Task<AiPostSearchResult>>>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new GeminiChatCompletion("Gợi ý món chay.", "gemini-2.5-flash-lite", 12, 8));
+            .ReturnsAsync(new AiChatCompletion("Gợi ý món chay.", "deepseek-flash", 12, 8));
 
         var service = new AiChatService(
             repository.Object,
@@ -119,9 +119,9 @@ public sealed class AiChatServiceTests
             It.Is<ChatMessage>(message =>
                 message.SenderType == "user" && message.MessageText == "Gợi ý món chay"),
             It.Is<AiUsage>(usage =>
-                usage.FeatureType == "chatbot" && usage.Provider == "gemini" &&
+                usage.FeatureType == "chatbot" && usage.Provider == "deepseek" &&
                 usage.GuestSessionId == guestId && usage.Status == "completed" &&
-                usage.ModelName == "gemini-2.5-flash-lite" && usage.InputTokens == 12 &&
+                usage.ModelName == "deepseek-flash" && usage.InputTokens == 12 &&
                 usage.OutputTokens == 8),
             3, It.IsAny<CancellationToken>()), Times.Once);
         repository.Verify(item => item.AddMessage(It.Is<ChatMessage>(message =>
@@ -137,7 +137,7 @@ public sealed class AiChatServiceTests
                 It.IsAny<Guid>(), It.IsAny<ChatSession>(), It.IsAny<ChatMessage>(),
                 It.IsAny<AiUsage>(), 3, It.IsAny<CancellationToken>()))
             .ReturnsAsync((long?)null);
-        var gemini = new Mock<IGeminiChatClient>();
+        var gemini = new Mock<IAiChatClient>();
         var service = new AiChatService(repository.Object, Mock.Of<IPostRepository>(), Mock.Of<IHealthProfileRepository>(),
             gemini.Object, NullLogger<AiChatService>.Instance);
 
@@ -169,14 +169,14 @@ public sealed class AiChatServiceTests
             .ReturnsAsync(new HealthProfileProjection(profile,
                 [new AllergyProjection { Name = "Peanuts" }]));
         string? capturedContext = null;
-        var gemini = new Mock<IGeminiChatClient>();
+        var gemini = new Mock<IAiChatClient>();
         gemini.Setup(item => item.CompleteWithPostSearchAsync(It.IsAny<string?>(),
                 It.IsAny<IReadOnlyList<AiChatTurn>>(),
                 It.IsAny<Func<AiPostSearchCriteria, CancellationToken, Task<AiPostSearchResult>>>(),
                 It.IsAny<CancellationToken>()))
             .Callback<string?, IReadOnlyList<AiChatTurn>, Func<AiPostSearchCriteria, CancellationToken, Task<AiPostSearchResult>>, CancellationToken>(
                 (context, _, _, _) => capturedContext = context)
-            .ReturnsAsync(new GeminiChatCompletion("Try tofu.", "test", 1, 1));
+            .ReturnsAsync(new AiChatCompletion("Try tofu.", "test", 1, 1));
         var service = new AiChatService(repository.Object, Mock.Of<IPostRepository>(), health.Object, gemini.Object,
             NullLogger<AiChatService>.Instance);
 
@@ -195,7 +195,7 @@ public sealed class AiChatServiceTests
     public async Task SendAsync_RejectsEmptyOrOverlongMessageBeforeCallingProvider()
     {
         var repository = new Mock<IChatRepository>();
-        var gemini = new Mock<IGeminiChatClient>();
+        var gemini = new Mock<IAiChatClient>();
         var service = new AiChatService(
             repository.Object,
             Mock.Of<IPostRepository>(),
@@ -228,7 +228,7 @@ public sealed class AiChatServiceTests
             repository.Object,
             Mock.Of<IPostRepository>(),
             Mock.Of<IHealthProfileRepository>(),
-            Mock.Of<IGeminiChatClient>(),
+            Mock.Of<IAiChatClient>(),
             NullLogger<AiChatService>.Instance);
 
         var result = await service.GetHistoryAsync(null, 42, null);
