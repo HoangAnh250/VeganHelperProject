@@ -15,6 +15,7 @@ public sealed class MealCandidate
     public long Id { get; set; }
     public string Name { get; set; } = "";
     public string? ImageUrl { get; set; }
+    public List<string> CookingSteps { get; set; } = [];
     public string DietType { get; set; } = "";
     public decimal Servings { get; set; }
     public decimal? TotalCalories { get; set; }
@@ -34,6 +35,7 @@ public interface IMealPlanningRepository
 {
     Task<MealPlanningInput> LoadAsync(long userId, CancellationToken ct);
     Task<IReadOnlyDictionary<long, string>> GetImageUrlsAsync(IReadOnlyCollection<long> mealIds, CancellationToken ct);
+    Task<IReadOnlyDictionary<long, List<string>>> GetCookingStepsAsync(IReadOnlyCollection<long> mealIds, CancellationToken ct);
     Task SaveAsync(MealPlan plan, IReadOnlyList<MealPlanSchedule> schedule, CancellationToken ct);
     Task<bool> TrySaveTrialAsync(MealPlan plan, IReadOnlyList<MealPlanSchedule> schedule, int generationLimit, CancellationToken ct);
     Task<int> CountTrialGenerationsAsync(long userId, CancellationToken ct);

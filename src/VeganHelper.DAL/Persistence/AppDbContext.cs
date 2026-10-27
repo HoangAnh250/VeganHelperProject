@@ -31,6 +31,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<MealPlanPaymentOrder> MealPlanPaymentOrders => Set<MealPlanPaymentOrder>();
     public DbSet<UserMealPlanAccess> UserMealPlanAccesses => Set<UserMealPlanAccess>();
     public DbSet<Meal> Meals => Set<Meal>();
+    public DbSet<MealCookingStep> MealCookingSteps => Set<MealCookingStep>();
     public DbSet<MealSuitableTime> MealSuitableTimes => Set<MealSuitableTime>();
     public DbSet<MealPlanSchedule> MealPlanSchedule => Set<MealPlanSchedule>();
     public DbSet<MealIngredient> MealIngredients => Set<MealIngredient>();
@@ -567,6 +568,20 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.DietType).HasColumnName("diet_type").HasColumnType("character varying(30)").IsRequired(true);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired(true).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasOne<User>().WithMany().HasForeignKey(x => new { x.OwnerUserId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_meals_1");
+        });
+        modelBuilder.Entity<MealCookingStep>(entity =>
+        {
+            entity.ToTable("meal_cooking_steps", table =>
+            {
+                table.HasCheckConstraint("CK_meal_cooking_steps_step_number", "step_number > 0");
+                table.HasCheckConstraint("CK_meal_cooking_steps_instruction", "length(trim(instruction)) > 0");
+            });
+            entity.HasKey(x => new { x.MealId, x.StepNumber }).HasName("PK_meal_cooking_steps");
+            entity.Property(x => x.MealId).HasColumnName("meal_id").HasColumnType("bigint").IsRequired();
+            entity.Property(x => x.StepNumber).HasColumnName("step_number").HasColumnType("smallint").IsRequired();
+            entity.Property(x => x.Instruction).HasColumnName("instruction").HasColumnType("text").IsRequired();
+            entity.HasOne<Meal>().WithMany().HasForeignKey(x => x.MealId)
+                .OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_meal_cooking_steps_meals");
         });
         modelBuilder.Entity<MealPlanSchedule>(entity =>
         {

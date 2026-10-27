@@ -37,6 +37,27 @@ public class MealPlanningTests
         });
     }
 
+    [Fact]
+    public void Generate_UsesRequestedMealCalorieSplit()
+    {
+        var split = new VeganHelper.BLL.DTOs.MealPlanning.MealCalorieSplitDto
+        {
+            BreakfastPercent = 25, LunchPercent = 30, DinnerPercent = 45
+        };
+        var menu = MealPlanGenerator.Generate(Catalog(), new DateOnly(2026,10,12), new Random(42),
+            mealCalorieSplit: split);
+
+        Assert.Equal(25, menu.MealCalorieSplit?.BreakfastPercent);
+        Assert.Equal(30, menu.MealCalorieSplit?.LunchPercent);
+        Assert.Equal(45, menu.MealCalorieSplit?.DinnerPercent);
+        Assert.All(menu.Days, day =>
+        {
+            Assert.Equal(3, day.Meals.Count);
+            Assert.True(day.Meals.Single(meal => meal.MealTime == "dinner").Calories
+                > day.Meals.Single(meal => meal.MealTime == "lunch").Calories);
+        });
+    }
+
     [Theory]
     [InlineData(61.65, "g", 60)]
     [InlineData(150, "g", 150)]

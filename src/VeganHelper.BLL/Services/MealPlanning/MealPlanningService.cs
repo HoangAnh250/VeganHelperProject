@@ -43,7 +43,8 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
                 request.TargetDate ?? default,request.EligibilityConfirmed);
             if(!safety.Allowed) throw new ArgumentException(string.Join(" ",safety.Reasons));
         }
-        var menu=MealPlanGenerator.Generate(input,today,new Random(Random.Shared.Next()),ct,safety?.TargetCalories);
+        var menu=MealPlanGenerator.Generate(input,today,new Random(Random.Shared.Next()),ct,
+            safety?.TargetCalories,request.MealCalorieSplit);
         if(safety is not null)
         {
             WeightGoalSafety.ValidateGeneratedDays(menu.Days,safety,input.Profile!.BiologicalSex!);
@@ -112,7 +113,7 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
             Items=page.Items.Select(ToDto).ToList(), TotalItems=page.TotalCount,TotalCount=checked((int)page.TotalCount),
             PageIndex=pageIndex,PageSize=pageSize,TotalPages=Pagination.TotalPages(page.TotalCount,pageSize)
         };
-        foreach(var dto in result.Items) await routines.EnrichAsync(userId,dto,ct);
+        await routines.EnrichManyAsync(userId,result.Items.ToArray(),ct);
         return result;
     }
 

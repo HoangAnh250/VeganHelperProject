@@ -27,16 +27,20 @@ public sealed class MealPlanningRepository(AppDbContext db) : IMealPlanningRepos
         };
         var ids=input.Meals.Select(m=>m.Id).ToArray();
         var times=await db.MealSuitableTimes.AsNoTracking().Where(t=>ids.Contains(t.MealId)).ToListAsync(ct);
+        var cookingSteps=await db.MealCookingSteps.AsNoTracking().Where(step=>ids.Contains(step.MealId))
+            .OrderBy(step=>step.MealId).ThenBy(step=>step.StepNumber).ToListAsync(ct);
         var quantities=await (from mi in db.MealIngredients.AsNoTracking()
             join i in db.Ingredients on mi.IngredientId equals i.Id
             where ids.Contains(mi.MealId)
             select new { mi.MealId, Ingredient=new RecipeIngredient
             { IngredientId=i.Id, Name=i.Name, Quantity=mi.CalculatedQuantity, Unit=mi.Unit } }).ToListAsync(ct);
         var timeLookup=times.ToLookup(t=>t.MealId);
+        var cookingStepLookup=cookingSteps.ToLookup(step=>step.MealId);
         var ingredientLookup=quantities.ToLookup(i=>i.MealId);
         foreach(var meal in input.Meals)
         {
             meal.SuitableTimes=timeLookup[meal.Id].Select(t=>t.MealTime).ToList();
+            meal.CookingSteps=cookingStepLookup[meal.Id].Select(step=>step.Instruction).ToList();
             meal.Ingredients=ingredientLookup[meal.Id].Select(i=>i.Ingredient).OrderBy(i=>i.IngredientId).ToList();
         }
         if(tx is not null) await tx.CommitAsync(ct);
@@ -49,6 +53,18 @@ public sealed class MealPlanningRepository(AppDbContext db) : IMealPlanningRepos
         return await db.Meals.AsNoTracking()
             .Where(meal => mealIds.Contains(meal.Id) && meal.ImageUrl != null)
             .ToDictionaryAsync(meal => meal.Id, meal => meal.ImageUrl!, ct);
+    }
+
+    public async Task<IReadOnlyDictionary<long, List<string>>> GetCookingStepsAsync(IReadOnlyCollection<long> mealIds, CancellationToken ct)
+    {
+        if (mealIds.Count == 0) return new Dictionary<long, List<string>>();
+        var rows = await db.MealCookingSteps.AsNoTracking()
+            .Where(step => mealIds.Contains(step.MealId))
+            .OrderBy(step => step.MealId).ThenBy(step => step.StepNumber)
+            .Select(step => new { step.MealId, step.Instruction })
+            .ToListAsync(ct);
+        return rows.GroupBy(step => step.MealId)
+            .ToDictionary(group => group.Key, group => group.Select(step => step.Instruction).ToList());
     }
 
     public async Task SaveAsync(MealPlan plan,IReadOnlyList<MealPlanSchedule> schedule,CancellationToken ct)

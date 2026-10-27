@@ -49,3 +49,13 @@ RLS is enabled and browser-facing PUBLIC/anon/authenticated table privileges are
 `import-suitable-times.sql` populated the 200 dishes in batch `VH-MEAL-SEED-20261012-v1` using their CSV `slots` metadata: 55 breakfast entries and 145 entries each for lunch and dinner (345 links). It matches exact dish names plus the batch marker, does not infer times from existing schedules, and inserts missing links only. Run the EF migration before this seed script for a separate database; do not rerun the non-idempotent migration SQL manually on this already migrated shared database.
 
 `verify-suitable-times.sql` verifies seed coverage, counts, invalid values, duplicate keys, missing meal references and RLS/grants inside a rolled-back transaction. Both migration preview and post-import checks passed on PostgreSQL. No frontend changes, commit or push were made for this schema addition. FN26 generation itself is not implemented by this table.
+
+## Cooking instructions — 24 October 2026
+
+`cooking-steps.json` contains 4–6 concise English cooking steps for each of the same 200 seeded dishes (809 ordered steps total). The instructions are general sample recipes derived from the listed ingredients and dish style; they are not dietitian-reviewed or personalized nutrition advice.
+
+Migration `20261024062745_AddMealCookingSteps` adds `meal_cooking_steps` with a composite primary key `(meal_id, step_number)`, a cascading foreign key to `meals`, and checks for positive step numbers and non-empty instructions. RLS is enabled and direct PUBLIC/anon/authenticated access is revoked; clients read the steps through the .NET API.
+
+The importer validates the exact 200 seeded meal names, English payload shape, step counts and existing rows before writing. It is add-only: identical existing instructions are kept, while different existing instructions stop the import instead of being overwritten. To preview, run `dotnet run --project tools/VeganHelper.MealCookingStepImport/VeganHelper.MealCookingStepImport.csproj`; to apply after the EF migration, pass `-- --apply`. Connection settings come from the existing local Supabase configuration or environment variables; credentials are never printed.
+
+FN26 meal-plan API responses now include `cookingSteps`. The FE already has an “In the kitchen” section and reads this field, so no FE code change is needed for the steps to appear. Existing saved plan snapshots without instructions are enriched from the new table when returned.
