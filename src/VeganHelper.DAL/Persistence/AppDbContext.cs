@@ -280,7 +280,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             });
             entity.HasKey(x => new { x.PostId }).HasName("PK_post_summaries");
             entity.Property(x => x.PostId).HasColumnName("post_id").HasColumnType("bigint").IsRequired(true).ValueGeneratedNever();
-            entity.Property(x => x.SourceMediaId).HasColumnName("source_media_id").HasColumnType("bigint").IsRequired(true);
+            entity.Property(x => x.SourceMediaIdsJson).HasColumnName("source_media_ids_json").HasColumnType("text").IsRequired(true);
+            entity.Property(x => x.ContentRevision).HasColumnName("content_revision").HasColumnType("integer").IsRequired(true);
             entity.Property(x => x.Transcript).HasColumnName("transcript").HasColumnType("text").IsRequired(false);
             entity.Property(x => x.AiGeneratedText).HasColumnName("ai_generated_text").HasColumnType("text").IsRequired(false);
             entity.Property(x => x.Status).HasColumnName("status").HasColumnType("character varying(20)").IsRequired(true).HasDefaultValueSql("'pending'");
@@ -289,7 +290,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.RequestedAt).HasColumnName("requested_at").HasColumnType("timestamp with time zone").IsRequired(true).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(x => x.GeneratedAt).HasColumnName("generated_at").HasColumnType("timestamp with time zone").IsRequired(false);
             entity.HasOne<Post>().WithMany().HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_summaries_1");
-            entity.HasOne<PostMedia>().WithMany().HasForeignKey(x => new { x.PostId, x.SourceMediaId }).HasPrincipalKey(x => new { x.PostId, x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_summaries_2");
         });
         modelBuilder.Entity<Category>(entity =>
         {

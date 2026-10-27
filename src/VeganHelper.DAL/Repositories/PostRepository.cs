@@ -374,7 +374,7 @@ public sealed class PostRepository : IPostRepository
         {
             var ids = media.Select(m => m.Id).ToArray();
             var summaries = await _context.PostSummaries
-                .Where(s => s.PostId == post.Id && ids.Contains(s.SourceMediaId))
+                .Where(s => s.PostId == post.Id)
                 .ToListAsync(cancellationToken);
             _context.PostSummaries.RemoveRange(summaries);
             _context.PostMedia.RemoveRange(media);

@@ -2208,6 +2208,10 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnType("text")
                         .HasColumnName("ai_generated_text");
 
+                    b.Property<int>("ContentRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("content_revision");
+
                     b.Property<string>("ErrorMessage")
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("error_message");
@@ -2226,9 +2230,10 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnName("requested_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<long>("SourceMediaId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("source_media_id");
+                    b.Property<string>("SourceMediaIdsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_media_ids_json");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2243,8 +2248,6 @@ namespace VeganHelper.DAL.PostgresMigrations
 
                     b.HasKey("PostId")
                         .HasName("PK_post_summaries");
-
-                    b.HasIndex("PostId", "SourceMediaId");
 
                     b.ToTable("post_summaries", null, t =>
                         {
@@ -3472,14 +3475,6 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_summaries_1");
-
-                    b.HasOne("VeganHelper.DAL.Entities.PostMedia", null)
-                        .WithMany()
-                        .HasForeignKey("PostId", "SourceMediaId")
-                        .HasPrincipalKey("PostId", "Id")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired()
-                        .HasConstraintName("FK_post_summaries_2");
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.RefreshToken", b =>
