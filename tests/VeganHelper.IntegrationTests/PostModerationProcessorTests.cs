@@ -647,6 +647,40 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         await processor.RunAsync(ct);
     }
 
+    [Theory]
+    [InlineData("video", true)]
+    [InlineData("image", false)]
+    public async Task OldUnsupportedVideoScanIsRecoveredWithoutReleasingAnAdminHold(string mediaType, bool shouldScan)
+    {
+        var job = await SeedAsync(state: "manual_required", attempts: 1);
+        await using (var db = fixture.Context())
+        {
+            await db.Set<PostModerationScan>().Where(s => s.Id == job.ScanId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.ErrorCode, "unsupported_media"));
+            await db.Posts.Where(p => p.Id == job.PostId)
+                .ExecuteUpdateAsync(p => p.SetProperty(x => x.ModerationHold, true));
+            db.Add(new PostMedia { PostId = job.PostId, MediaType = mediaType, MediaUrl = "https://media.example.org/legacy",
+                IsPrimary = true, ProcessingStatus = "ready", CreatedAt = Now.UtcDateTime });
+            await db.SaveChangesAsync();
+        }
+        var client = new FakeClient((_, _) => Task.FromResult(Result()));
+        await RunAsync(client);
+        await using var verify = fixture.Context();
+        var scan = await verify.Set<PostModerationScan>().SingleAsync(s => s.Id == job.ScanId);
+        Assert.Equal(shouldScan ? "safe" : "manual_required", scan.State);
+        Assert.Equal(shouldScan ? 2 : 1, scan.Attempts);
+        var post = await verify.Posts.SingleAsync(p => p.Id == job.PostId);
+        Assert.Equal("pending_review", post.Status);
+        Assert.True(post.ModerationHold);
+        if (shouldScan)
+        {
+            var input = Assert.Single(client.Inputs);
+            Assert.Null(Assert.Single(input.Media).DurationSeconds); // Older videos must still reach the client for metadata inspection.
+        }
+        else Assert.Empty(client.Inputs);
+        await AssertNoDecisionOrNotificationAsync(verify, job);
+    }
+
     private async Task<Job> SeedAsync(string state = "queued", int attempts = 0, DateTime? leaseUntil = null)
     {
         var authorId = await UserAsync();

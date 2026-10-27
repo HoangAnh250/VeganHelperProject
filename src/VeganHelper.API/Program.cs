@@ -202,7 +202,7 @@ builder.Services.AddScoped<PostModerationJob>();
 builder.Services.AddOptions<ModerationAiOptions>().BindConfiguration("ModerationAi")
     .Validate(o => !o.Enabled || !string.IsNullOrWhiteSpace(o.ApiKey) && o.ApiKey.Length <= 256 && !o.ApiKey.Any(char.IsControl)
         && o.Model is not null && System.Text.RegularExpressions.Regex.IsMatch(o.Model, @"\Agemini-[a-z0-9][a-z0-9.-]{0,79}\z")
-        && o.TimeoutSeconds is >= 1 and <= 120 && double.IsFinite(o.MinAutoPublishConfidence) && o.MinAutoPublishConfidence is >= .9 and <= 1
+        && o.TimeoutSeconds is >= 1 and <= 300 && double.IsFinite(o.MinAutoPublishConfidence) && o.MinAutoPublishConfidence is >= .9 and <= 1
         && o.AllowedMediaHosts is not null, "Configure a valid ModerationAi key, model, timeout and confidence threshold.").ValidateOnStart();
 var moderationPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "PostModeration.v2.json");
 var moderationPrompt = JsonSerializer.Deserialize<ModerationPromptDefinition>(File.ReadAllText(moderationPromptPath), JsonSerializerOptions.Web)
@@ -212,6 +212,8 @@ if (string.IsNullOrWhiteSpace(moderationPrompt.Version) || moderationPrompt.Vers
 builder.Services.AddSingleton(moderationPrompt);
 builder.Services.AddHttpClient<IPostModerationAiClient, GeminiPostModerationClient>(client => client.Timeout = Timeout.InfiniteTimeSpan)
     .ConfigurePrimaryHttpMessageHandler(GeminiModerationHttpHandlerFactory.Create)
+    // Resumable-upload URLs contain credentials in their query; emit only our sanitized diagnostics.
+    .RemoveAllLoggers()
     .RedactLoggedHeaders(["x-goog-api-key"]);
 builder.Services.AddOptions<GeminiOptions>().BindConfiguration("Gemini");
 var aiChatPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "VeganNutrition.v2.json");

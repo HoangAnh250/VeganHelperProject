@@ -69,6 +69,35 @@ public class PostServiceTests
         Assert.Equal("Rửa nguyên liệu", Assert.Single(saved.PostSteps).Description);
     }
 
+    [Theory]
+    [InlineData(59.9)]
+    [InlineData(60)]
+    [InlineData(60.001)]
+    [InlineData(90)]
+    public async Task CreatePost_EnforcesOneMinuteVideoLimitAndPersistsMeasuredDuration(double seconds)
+    {
+        var bytes = VideoTestData.Mp4(seconds);
+        var file = new FormFile(new System.IO.MemoryStream(bytes), 0, bytes.Length, "MediaFiles", "clip.mp4")
+        { Headers = new HeaderDictionary(), ContentType = "video/mp4" };
+        var request = new CreatePostRequest { MediaFiles = new FormFileCollection { file } };
+        Post? saved = null;
+        _mockPostRepository.Setup(r => r.CreatePostAsync(It.IsAny<Post>(), It.IsAny<CancellationToken>()))
+            .Callback<Post, CancellationToken>((p, _) => saved = p).ReturnsAsync((Post p, CancellationToken _) => p);
+        _mockMediaStorageService.Setup(s => s.UploadFileAsync(file, "posts")).ReturnsAsync("https://media.example.org/video.mp4");
+        if (seconds <= 60)
+        {
+            await _postService.CreatePostAsync(request, 1);
+            Assert.Equal(60, Assert.Single(saved!.Media).DurationSeconds);
+        }
+        else
+        {
+            var error = await Assert.ThrowsAsync<ArgumentException>(() => _postService.CreatePostAsync(request, 1));
+            Assert.Contains("60 seconds", error.Message);
+            _mockMediaStorageService.Verify(s => s.UploadFileAsync(It.IsAny<IFormFile>(), It.IsAny<string>()), Times.Never);
+            _mockPostRepository.Verify(r => r.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        }
+    }
+
     [Fact]
     public async Task CreatePost_WithUnknownIngredientId_ReturnsInputError()
     {

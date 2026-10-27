@@ -10,7 +10,7 @@ using VeganHelper.DAL.Integrations.Moderation;
 
 namespace VeganHelper.UnitTests;
 
-public class GeminiModerationClientTests
+public partial class GeminiModerationClientTests
 {
     private const string Safe = """{"result":"PASS","reason":"Plant based recipe."}""";
     private const string Flagged = """{"result":"FAIL","reason":"Animal ingredient in recipe: beef."}""";
@@ -145,9 +145,9 @@ public class GeminiModerationClientTests
     }
 
     [Theory]
-    [InlineData("video")]
-    [InlineData("video/mp4")]
-    public async Task Review_RejectsVideoInsteadOfReviewingAThumbnail(string mediaType)
+    [InlineData("audio/mpeg")]
+    [InlineData("image/gif")]
+    public async Task Review_RejectsUnsupportedMediaBeforeNetworking(string mediaType)
     {
         using var http = new HttpClient(new FakeHandler((_, _) => throw new Xunit.Sdk.XunitException("Unsupported media reached HTTP")));
         var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input() with { Media = [new(1, "https://media.example.org/video.mp4", mediaType)] }, default));

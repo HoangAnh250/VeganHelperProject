@@ -73,9 +73,16 @@ public sealed class PostService : IPostService
         var uploadedFileUrls = new List<string>();
         if (request.MediaFiles != null && request.MediaFiles.Count > 0)
         {
-            int order = 0;
+            if (request.MediaFiles.Count > 10)
+                throw new ArgumentException("A post can contain at most 10 media files.");
+            var mediaDurations = new List<int?>(request.MediaFiles.Count);
             foreach (var file in request.MediaFiles)
+                mediaDurations.Add(await PostMediaUploadValidation.ValidateAsync(file, cancellationToken));
+
+            int order = 0;
+            for (var index = 0; index < request.MediaFiles.Count; index++)
             {
+                var file = request.MediaFiles[index];
                 var uploadedUrl = await _mediaStorageService.UploadFileAsync(file, "posts");
                 uploadedFileUrls.Add(uploadedUrl);
                 
@@ -83,6 +90,7 @@ public sealed class PostService : IPostService
                 {
                     MediaUrl = uploadedUrl,
                     MediaType = file.ContentType.StartsWith("video") ? "video" : "image",
+                    DurationSeconds = mediaDurations[index],
                     IsPrimary = order == 0,
                     DisplayOrder = order++,
                     ProcessingStatus = "ready",
@@ -359,7 +367,9 @@ public sealed class PostService : IPostService
         var finalCount = post.Media.Count - removeIds.Count + files.Count;
         if (finalCount < 1) throw new ArgumentException("At least 1 media file is required for thumbnail.");
         if (finalCount > 10) throw new ArgumentException("A post can contain at most 10 media files.");
-        foreach (var file in files) await PostMediaUploadValidation.ValidateAsync(file, cancellationToken);
+        var mediaDurations = new List<int?>(files.Count);
+        foreach (var file in files)
+            mediaDurations.Add(await PostMediaUploadValidation.ValidateAsync(file, cancellationToken));
 
         var removed = post.Media.Where(m => removeIds.Contains(m.Id)).ToList();
         var originalCategories = post.PostCategories.ToArray();
@@ -390,14 +400,16 @@ public sealed class PostService : IPostService
         {
             // Complete uploads before DB writes, and compensate partial batches on failure.
             var additions = new List<PostMedia>();
-            foreach (var file in files)
+            for (var index = 0; index < files.Count; index++)
             {
+                var file = files[index];
                 var url = await _mediaStorageService.UploadFileAsync(file, "posts");
                 uploadedFileUrls.Add(url);
                 additions.Add(new PostMedia
                 {
                     MediaUrl = url,
                     MediaType = file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ? "video" : "image",
+                    DurationSeconds = mediaDurations[index],
                     ProcessingStatus = "ready",
                     CreatedAt = DateTime.UtcNow
                 });

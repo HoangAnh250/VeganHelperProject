@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Http;
 using System.Text;
+using VeganHelper.DAL.Media;
 
 namespace VeganHelper.BLL.Services.Media;
 
 internal static class PostMediaUploadValidation
 {
-    public static async Task ValidateAsync(IFormFile? file, CancellationToken ct)
+    public const double MaximumVideoDurationSeconds = 60;
+
+    public static async Task<int?> ValidateAsync(IFormFile? file, CancellationToken ct)
     {
         if (file is null || file.Length <= 0) throw new ArgumentException("Media file must not be empty.");
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -16,7 +19,7 @@ internal static class PostMediaUploadValidation
             ".png" => mime == "image/png",
             ".webp" => mime == "image/webp",
             ".mp4" => mime == "video/mp4",
-            ".mov" => mime == "video/quicktime",
+            ".mov" => mime is "video/quicktime" or "video/mov",
             ".webm" => mime == "video/webm",
             _ => false
         };
@@ -37,5 +40,13 @@ internal static class PostMediaUploadValidation
             _ => false
         };
         if (!validSignature) throw new ArgumentException("Media content does not match its declared format.");
+        if (!mime.StartsWith("video/", StringComparison.Ordinal)) return null;
+
+        var durationSeconds = VideoDurationReader.ReadSeconds(stream, mime);
+        if (durationSeconds is not double duration || !double.IsFinite(duration) || duration <= 0)
+            throw new ArgumentException("Video duration metadata is missing or unreadable. Re-export as MP4, MOV or WebM with a known duration.");
+        if (duration > MaximumVideoDurationSeconds)
+            throw new ArgumentException("Videos must be 60 seconds or shorter.");
+        return checked((int)Math.Ceiling(duration));
     }
 }

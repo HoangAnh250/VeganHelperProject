@@ -49,6 +49,33 @@ public class FN14MediaTests
         Assert.Equal(Enumerable.Range(0, post.Media.Count), post.Media.Select(m => m.DisplayOrder).Order());
     }
 
+    [Theory]
+    [InlineData(59.9)]
+    [InlineData(60)]
+    public async Task VideoAtOrBelowOneMinute_IsAddedWithServerMeasuredDuration(double seconds)
+    {
+        var bytes = VideoTestData.Mp4(seconds);
+        var file = new FormFile(new MemoryStream(bytes), 0, bytes.Length, "MediaFilesToAdd", "clip.mp4")
+        { Headers = new HeaderDictionary(), ContentType = "video/mp4" };
+        await service.UpdatePostAsync(10, Request(add: [file]), 1);
+        var added = Assert.Single(post.Media, m => m.MediaType == "video");
+        Assert.Equal(60, added.DurationSeconds);
+    }
+
+    [Theory]
+    [InlineData(60.001)]
+    [InlineData(90)]
+    public async Task VideoOverOneMinute_IsRejectedBeforeUploadingOrEditingPost(double seconds)
+    {
+        var bytes = VideoTestData.Mp4(seconds);
+        var file = new FormFile(new MemoryStream(bytes), 0, bytes.Length, "MediaFilesToAdd", "clip.mp4")
+        { Headers = new HeaderDictionary(), ContentType = "video/mp4" };
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => service.UpdatePostAsync(10, Request(add: [file]), 1));
+        Assert.Contains("60 seconds", error.Message);
+        Assert.Equal("Original", post.Title);
+        storage.Verify(s => s.UploadFileAsync(It.IsAny<IFormFile>(), It.IsAny<string>()), Times.Never);
+    }
+
     [Fact]
     public async Task MultipleRemovalsAndAdditions_PreserveSurvivorsAndPromoteCover()
     {

@@ -97,12 +97,15 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
             SELECT s.* FROM post_moderation_scans s
             JOIN posts p ON p.id = s.post_id
             WHERE s.attempts < 5 AND p.is_deleted = false AND p.status IN ('pending_review','published') AND p.content_revision = s.revision
-              AND ((s.state = 'queued' AND s.next_attempt_at <= {now}) OR (s.state = 'processing' AND s.lease_until <= {now}))
+              AND ((s.state = 'queued' AND s.next_attempt_at <= {now}) OR (s.state = 'processing' AND s.lease_until <= {now})
+                OR (s.state = 'manual_required' AND s.error_code = 'unsupported_media'
+                    AND EXISTS (SELECT 1 FROM post_media m WHERE m.post_id = p.id AND m.media_type LIKE 'video%')))
             ORDER BY CASE WHEN s.created_at < {now.AddHours(-1)} THEN 2 ELSE s.priority END DESC,
                 s.next_attempt_at, s.id LIMIT 1 FOR UPDATE OF s SKIP LOCKED
             """).ToListAsync(ct);
         var scan = rows.SingleOrDefault();
-        if (scan is not null) { scan.State = "processing"; scan.Attempts++; scan.LeaseToken = lease; scan.LeaseUntil = now.AddMinutes(3); await db.SaveChangesAsync(ct); }
+        // Cover the maximum 300-second provider timeout, bounded cleanup and database finalization.
+        if (scan is not null) { scan.State = "processing"; scan.Attempts++; scan.LeaseToken = lease; scan.LeaseUntil = now.AddMinutes(6); await db.SaveChangesAsync(ct); }
         await transaction.CommitAsync(ct);
         // Worker finalization must reload the lease under a lock; do not retain a stale tracked claim.
         if (scan is not null) db.Entry(scan).State = EntityState.Detached;
@@ -115,7 +118,7 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
         var post = await DetailAsync(postId, ct);
         if (post is null || post.ContentRevision != revision || post.Status is not ("pending_review" or "published")) return null;
         return new(postId, revision, post.Title, post.Content,
-            post.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => new ModerationAiMedia(m.Id, m.MediaUrl, m.MediaType)).ToArray(),
+            post.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => new ModerationAiMedia(m.Id, m.MediaUrl, m.MediaType, m.DurationSeconds)).ToArray(),
             post.PostIngredients.Select(i => $"{i.Ingredient?.Name} {i.Quantity} {i.Unit}").ToArray(),
             post.PostSteps.OrderBy(s => s.StepNumber).Select(s => $"{s.StepNumber}. {s.Description}").ToArray());
     }
