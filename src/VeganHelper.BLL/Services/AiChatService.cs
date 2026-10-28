@@ -11,8 +11,9 @@ namespace VeganHelper.BLL.Services;
 
 public sealed class AiChatService(
     IChatRepository repository,
+    IPostRepository postRepository,
     IHealthProfileRepository healthProfileRepository,
-    IGeminiChatClient gemini,
+    IAiChatClient aiClient,
     ILogger<AiChatService> logger) : IAiChatService
 {
     private const int MaxMessageCharacters = 4_000;
@@ -93,7 +94,7 @@ public sealed class AiChatService(
             UserId = userId,
             GuestSessionId = guestSessionId,
             FeatureType = "chatbot",
-            Provider = "gemini",
+            Provider = "deepseek",
             ModelName = "pending",
             Status = "pending",
             CreatedAt = now
@@ -130,21 +131,43 @@ public sealed class AiChatService(
             .Append(new AiChatTurn("user", messageText))
             .ToArray();
 
-        GeminiChatCompletion completion;
+        AiChatCompletion completion;
         try
         {
-            completion = await gemini.CompleteAsync(
+            completion = await aiClient.CompleteWithPostSearchAsync(
                 modelContext,
                 turns,
+                async (criteria, ct) =>
+                {
+                    var excluded = session.Id == 0
+                        ? []
+                        : await repository.GetRecommendedPostIdsAsync(session.Id, ct);
+                    var allergies = userProfile?.Allergies.Select(item => item.Name).ToArray() ?? [];
+                    var query = new PostRecommendationQuery(
+                        CleanIngredients(criteria.RequiredIngredients),
+                        CleanIngredients(criteria.AvailableIngredients),
+                        CleanIngredients(allergies.Concat(criteria.ExcludedAllergens ?? []).ToArray(), 10),
+                        excluded,
+                        criteria.MealType is "breakfast" or "lunch" or "dinner" or "snack" ? criteria.MealType : null,
+                        criteria.DietType is "vegan" or "lacto_ovo_vegetarian"
+                            ? criteria.DietType
+                            : userProfile?.Profile?.DietType,
+                        criteria.MaxMinutes is > 0 and <= 240 ? criteria.MaxMinutes : null,
+                        criteria.StrictOnlyIngredients);
+                    var (posts, hasMore) = await postRepository.SearchRecommendationsAsync(query, ct);
+                    return new AiPostSearchResult(
+                        posts.Select(post => new AiPostCardDto(post.PostId, post.Title, post.ThumbnailUrl)).ToArray(),
+                        hasMore);
+                },
                 cancellationToken);
         }
-        catch (GeminiChatException exception)
+        catch (AiChatProviderException exception)
         {
             usage.Status = "failed";
-            usage.ModelName = "gemini";
+            usage.ModelName = "deepseek-flash";
             await repository.SaveChangesAsync(cancellationToken);
             logger.LogWarning(
-                "Gemini chat request {RequestId} failed with {Code}.",
+                "AI chat request {RequestId} failed with {Code}.",
                 usage.RequestId,
                 exception.Code);
             return ServiceResult<AiChatResponseDto>.Fail(exception.Message, exception.StatusCode);
@@ -152,9 +175,9 @@ public sealed class AiChatService(
         catch (Exception exception) when (exception is HttpRequestException or IOException)
         {
             usage.Status = "failed";
-            usage.ModelName = "gemini";
+            usage.ModelName = "deepseek-flash";
             await repository.SaveChangesAsync(cancellationToken);
-            logger.LogWarning(exception, "Gemini chat provider was unavailable for {RequestId}.", usage.RequestId);
+            logger.LogWarning(exception, "AI chat provider was unavailable for {RequestId}.", usage.RequestId);
             return ServiceResult<AiChatResponseDto>.Fail(
                 "The AI service is temporarily unavailable. Please try again later.", 503);
         }
@@ -164,6 +187,9 @@ public sealed class AiChatService(
             SessionId = session.Id,
             SenderType = "ai",
             MessageText = completion.Text,
+            RecommendedPostIdsJson = completion.RecommendedPosts.Count == 0
+                ? null
+                : JsonSerializer.Serialize(completion.RecommendedPosts.Select(post => post.PostId)),
             CreatedAt = DateTime.UtcNow
         };
         repository.AddMessage(aiMessage);
@@ -184,7 +210,8 @@ public sealed class AiChatService(
         {
             GuestQuestionsRemaining = userId.HasValue
                 ? null
-                : (int)Math.Max(0L, MaxGuestQuestions - reservedBefore - 1L)
+                : (int)Math.Max(0L, MaxGuestQuestions - reservedBefore - 1L),
+            RecommendedPosts = completion.RecommendedPosts
         });
     }
 
@@ -215,6 +242,14 @@ public sealed class AiChatService(
             MaxHistoryMessagesForResponse,
             cancellationToken);
 
+        var postIds = messages.Where(message => message.RecommendedPostIdsJson is not null)
+            .SelectMany(message => JsonSerializer.Deserialize<long[]>(message.RecommendedPostIdsJson!) ?? [])
+            .Distinct().ToArray();
+        var publicPosts = (postIds.Length == 0
+            ? []
+            : await postRepository.GetPublicRecommendationsAsync(postIds, cancellationToken))
+            .ToDictionary(post => post.PostId);
+
         return ServiceResult<AiChatHistoryDto>.Ok(new AiChatHistoryDto(
             session.Id,
             session.GuestSessionId,
@@ -224,8 +259,23 @@ public sealed class AiChatService(
                 message.Id,
                 message.SenderType,
                 message.MessageText,
-                message.CreatedAt)).ToList()));
+                message.CreatedAt)
+            {
+                RecommendedPosts = message.RecommendedPostIdsJson is null ? []
+                    : (JsonSerializer.Deserialize<long[]>(message.RecommendedPostIdsJson) ?? [])
+                        .Where(publicPosts.ContainsKey)
+                        .Select(id => publicPosts[id])
+                        .Select(post => new AiPostCardDto(post.PostId, post.Title, post.ThumbnailUrl))
+                        .ToArray()
+            }).ToList()));
     }
+
+    private static string[] CleanIngredients(IReadOnlyList<string>? values, int maximum = 3) =>
+        (values ?? []).Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Where(value => value.Length <= 60 && !value.Any(char.IsControl))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(maximum).ToArray();
 
     private static string? BuildModelContext(
         string? conversationSummary,

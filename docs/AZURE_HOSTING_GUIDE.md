@@ -95,6 +95,8 @@ Vào Web App → **Settings → Environment variables → App settings → Add**
 | `CloudflareR2__ServiceUrl` | Endpoint S3 của R2 hiện tại |
 | `CloudflareR2__PublicUrl` | URL public của media hiện tại |
 | `Cors__AllowedOrigins__0` | URL HTTPS FE, không thêm dấu `/` cuối hoặc path |
+| `DeepSeekChat__ApiKey` | DeepSeek key for AI Genie chatbot; keep on Backend only |
+| `DeepSeekChat__Model` | `deepseek-flash` |
 | `ModerationAi__Enabled` | Khởi đầu `false`; bật khi đã xác nhận schema Hangfire và cấu hình AI |
 | `ModerationAi__ApiKey` | Gemini key dùng cho moderation |
 | `ModerationAi__Model` | `gemini-3.5-flash-lite` (cần quota trong project Google đang dùng) |

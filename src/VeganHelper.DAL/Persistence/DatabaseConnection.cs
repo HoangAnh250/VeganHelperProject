@@ -61,6 +61,7 @@ public static class DatabaseConnection
                 }.ConnectionString;
             }
             var builder = new NpgsqlConnectionStringBuilder(connection);
+            builder.MaxPoolSize = 15;
             if (string.IsNullOrWhiteSpace(builder.Host) || string.IsNullOrWhiteSpace(builder.Database))
                 throw new ArgumentException();
             if (builder.Host.EndsWith(".supabase.com", StringComparison.OrdinalIgnoreCase)

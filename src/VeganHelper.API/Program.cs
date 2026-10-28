@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Security.Claims;
 using System.Text;
 using FluentValidation;
 using Microsoft.OpenApi.Models;
@@ -74,13 +75,26 @@ builder.Services.AddRateLimiter(options =>
                     QueueLimit = 0,
                     AutoReplenishment = true
                 }));
+    options.AddPolicy("video-summary", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 6,
+                Window = TimeSpan.FromHours(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        var isVideoSummary = context.HttpContext.Request.Path.Value?.EndsWith("/summary", StringComparison.OrdinalIgnoreCase) == true;
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
-            error = "Too many chat requests from this network. Please try again later.",
-            code = "GUEST_CHAT_RATE_LIMITED",
+            error = isVideoSummary
+                ? "Too many video summary requests. Please try again later."
+                : "Too many chat requests from this network. Please try again later.",
+            code = isVideoSummary ? "VIDEO_SUMMARY_RATE_LIMITED" : "GUEST_CHAT_RATE_LIMITED",
             requiresRegistration = false
         }, cancellationToken);
     };
@@ -131,6 +145,21 @@ builder.Services.AddScoped<IStatusService, StatusService>();
 builder.Services.AddScoped<IAiChatService, AiChatService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IPostSummaryRepository, PostSummaryRepository>();
+builder.Services.AddScoped<IPostSummaryService, PostSummaryService>();
+builder.Services.AddScoped<PostSummaryJob>();
+if (builder.Configuration.GetValue<bool>("GroqSummary:Enabled"))
+    builder.Services.AddScoped<IPostSummaryQueue, HangfirePostSummaryQueue>();
+else
+    builder.Services.AddScoped<IPostSummaryQueue, DisabledPostSummaryQueue>();
+builder.Services.AddOptions<GroqSummaryOptions>().BindConfiguration("GroqSummary")
+    .Validate(o => !o.Enabled || !string.IsNullOrWhiteSpace(o.ApiKey) &&
+        (o.WhisperModel is "whisper-large-v3" or "whisper-large-v3-turbo") &&
+        !string.IsNullOrWhiteSpace(o.SummaryModel),
+        "Configure the Groq summary key and supported models on the Backend.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IVideoSummaryAiClient, GroqVideoSummaryClient>(client =>
+    client.Timeout = TimeSpan.FromMinutes(4)).RedactLoggedHeaders(["Authorization"]);
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddSingleton<ICommentKeywordFilter, CommentKeywordFilter>();
@@ -215,7 +244,7 @@ builder.Services.AddHttpClient<IPostModerationAiClient, GeminiPostModerationClie
     // Resumable-upload URLs contain credentials in their query; emit only our sanitized diagnostics.
     .RemoveAllLoggers()
     .RedactLoggedHeaders(["x-goog-api-key"]);
-builder.Services.AddOptions<GeminiOptions>().BindConfiguration("Gemini");
+builder.Services.AddOptions<DeepSeekChatOptions>().BindConfiguration("DeepSeekChat");
 var aiChatPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "VeganNutrition.v2.json");
 var aiChatPrompt = JsonSerializer.Deserialize<AiChatPromptDefinition>(
     File.ReadAllText(aiChatPromptPath),
@@ -225,9 +254,9 @@ if (string.IsNullOrWhiteSpace(aiChatPrompt.Version) ||
     string.IsNullOrWhiteSpace(aiChatPrompt.SystemInstruction))
     throw new InvalidOperationException("AI chat prompt is invalid.");
 builder.Services.AddSingleton(aiChatPrompt);
-builder.Services.AddHttpClient<IGeminiChatClient, GeminiChatClient>(client =>
+builder.Services.AddHttpClient<IAiChatClient, DeepSeekChatClient>(client =>
     client.Timeout = Timeout.InfiniteTimeSpan)
-    .RedactLoggedHeaders(["x-goog-api-key"]);
+    .RedactLoggedHeaders(["Authorization"]);
 builder.Services.AddScoped<IAccountAccessService, AccountAccessService>();
 builder.Services.AddScoped<IAuthorizationHandler, ActiveAdminHandler>();
 builder.Services.AddAuthorization(options => options.AddPolicy(AdminPolicies.AdminOnly,
@@ -262,11 +291,14 @@ builder.Services.AddSingleton<IValidateOptions<WebPushSettings>, WebPushOptionsV
 builder.Services.AddOptions<WebPushSettings>().BindConfiguration("WebPush").ValidateOnStart();
 builder.Services.AddHttpClient<IWebPushTransport, WebPushTransport>(client => client.Timeout = TimeSpan.FromSeconds(15))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-var pushWorkerConfigured = builder.Configuration.GetValue<bool>("WebPush:Enabled");
-var moderationWorkerConfigured = builder.Configuration.GetValue<bool>("ModerationAi:Enabled");
-var mealWorkerConfigured = builder.Configuration.GetValue<bool>("MealPlanning:WorkerEnabled");
 var prepareJobs = args.Contains("--prepare-push-jobs") || args.Contains("--prepare-background-jobs");
-if (pushWorkerConfigured || moderationWorkerConfigured || mealWorkerConfigured)
+// Local .env files may enable workers; never start Hangfire during integration tests.
+var allowBackgroundJobs = !builder.Environment.IsEnvironment("Testing") || prepareJobs;
+var pushWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("WebPush:Enabled");
+var moderationWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("ModerationAi:Enabled");
+var mealWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("MealPlanning:WorkerEnabled");
+var summaryWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("GroqSummary:Enabled");
+if (pushWorkerConfigured || moderationWorkerConfigured || mealWorkerConfigured || summaryWorkerConfigured)
 {
     var jobConnection = DatabaseConnection.Validate(builder.Configuration.GetConnectionString("HangfireConnection")
         ?? builder.Configuration.GetConnectionString("DefaultConnection"));
@@ -294,8 +326,8 @@ var app = builder.Build();
 
 if (prepareJobs)
 {
-    if (!pushWorkerConfigured && !moderationWorkerConfigured && !mealWorkerConfigured)
-        throw new InvalidOperationException("Enable WebPush or ModerationAi before preparing Hangfire storage.");
+    if (!pushWorkerConfigured && !moderationWorkerConfigured && !mealWorkerConfigured && !summaryWorkerConfigured)
+        throw new InvalidOperationException("Enable a background worker before preparing Hangfire storage.");
     _ = app.Services.GetRequiredService<JobStorage>();
     // Hangfire uses a private schema; never expose its serialized job data through Data API roles.
     await using var jobDatabase = new Npgsql.NpgsqlConnection(DatabaseConnection.Validate(

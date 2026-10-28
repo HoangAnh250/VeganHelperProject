@@ -19,6 +19,95 @@ public sealed class PostRepository : IPostRepository
         _context = context;
     }
 
+    public async Task<(IReadOnlyList<PostRecommendationProjection> Posts, bool HasMore)> SearchRecommendationsAsync(
+        PostRecommendationQuery request, CancellationToken cancellationToken = default)
+    {
+        var query = PublicRecommendationQuery()
+            .Where(post => !request.ExcludedPostIds.Contains(post.Id));
+
+        if (request.MealType is not null)
+            query = query.Where(post => post.MealType == request.MealType);
+        if (request.DietType == "vegan")
+            query = query.Where(post => post.DietType == "vegan");
+        if (request.StrictOnlyIngredients)
+            query = query.Where(post => post.IngredientsVerified);
+        if (request.MaxMinutes.HasValue)
+            query = query.Where(post => post.PrepTimeMins.HasValue && post.CookingTimeMins.HasValue &&
+                post.PrepTimeMins.Value + post.CookingTimeMins.Value <= request.MaxMinutes.Value);
+
+        foreach (var ingredient in request.RequiredIngredients)
+        {
+            var pattern = ContainsPattern(ingredient);
+            query = query.Where(post => post.PostIngredients.Any(item =>
+                EF.Functions.ILike(item.Ingredient!.Name, pattern, "\\")));
+        }
+
+        var availableTerms = request.StrictOnlyIngredients
+            ? request.AvailableIngredients.Concat(request.RequiredIngredients).Distinct(StringComparer.OrdinalIgnoreCase)
+            : request.AvailableIngredients;
+        var available = availableTerms.Take(3).Select(ContainsPattern).ToArray();
+        if (available.Length > 0)
+        {
+            var first = available[0];
+            var second = available.Length > 1 ? available[1] : null;
+            var third = available.Length > 2 ? available[2] : null;
+            query = query.Where(post => post.PostIngredients.Any(item =>
+                EF.Functions.ILike(item.Ingredient!.Name, first, "\\") ||
+                (second != null && EF.Functions.ILike(item.Ingredient!.Name, second, "\\")) ||
+                (third != null && EF.Functions.ILike(item.Ingredient!.Name, third, "\\"))));
+            if (request.StrictOnlyIngredients)
+                query = query.Where(post => !post.PostIngredients.Any(item =>
+                    !EF.Functions.ILike(item.Ingredient!.Name, first, "\\") &&
+                    (second == null || !EF.Functions.ILike(item.Ingredient!.Name, second, "\\")) &&
+                    (third == null || !EF.Functions.ILike(item.Ingredient!.Name, third, "\\"))));
+        }
+
+        if (request.Allergies.Count > 0)
+        {
+            query = query.Where(post => post.IngredientsVerified);
+            foreach (var allergy in request.Allergies)
+            {
+                var pattern = ContainsPattern(allergy);
+                query = query.Where(post => !post.PostIngredients.Any(item =>
+                    EF.Functions.ILike(item.Ingredient!.Name, pattern, "\\")));
+            }
+        }
+
+        var items = await query.OrderByDescending(post => post.CreatedAt)
+            .ThenByDescending(post => post.Id)
+            .Take(4)
+            .Select(post => new PostRecommendationProjection(
+                post.Id,
+                post.Title,
+                post.Media.OrderBy(media => !media.IsPrimary)
+                    .ThenBy(media => media.DisplayOrder)
+                    .Select(media => media.ThumbnailUrl ?? (media.MediaType == "image" ? media.MediaUrl : null))
+                    .FirstOrDefault()))
+            .ToListAsync(cancellationToken);
+        return (items.Take(3).ToArray(), items.Count > 3);
+    }
+
+    public async Task<IReadOnlyList<PostRecommendationProjection>> GetPublicRecommendationsAsync(
+        IReadOnlyList<long> postIds, CancellationToken cancellationToken = default)
+    {
+        if (postIds.Count == 0) return [];
+        return await PublicRecommendationQuery().Where(post => postIds.Contains(post.Id))
+            .Select(post => new PostRecommendationProjection(
+                post.Id,
+                post.Title,
+                post.Media.OrderBy(media => !media.IsPrimary)
+                    .ThenBy(media => media.DisplayOrder)
+                    .Select(media => media.ThumbnailUrl ?? (media.MediaType == "image" ? media.MediaUrl : null))
+                    .FirstOrDefault()))
+            .ToListAsync(cancellationToken);
+    }
+
+    private IQueryable<Post> PublicRecommendationQuery() => _context.Posts.AsNoTracking()
+        .Where(post => !post.IsDeleted && post.Status == "published" && !post.ModerationHold);
+
+    private static string ContainsPattern(string value) =>
+        $"%{value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_")}%";
+
     public async Task<Post> CreatePostAsync(Post post, CancellationToken cancellationToken = default)
     {
         var entry = await _context.Posts.AddAsync(post, cancellationToken);
@@ -285,7 +374,7 @@ public sealed class PostRepository : IPostRepository
         {
             var ids = media.Select(m => m.Id).ToArray();
             var summaries = await _context.PostSummaries
-                .Where(s => s.PostId == post.Id && ids.Contains(s.SourceMediaId))
+                .Where(s => s.PostId == post.Id)
                 .ToListAsync(cancellationToken);
             _context.PostSummaries.RemoveRange(summaries);
             _context.PostMedia.RemoveRange(media);

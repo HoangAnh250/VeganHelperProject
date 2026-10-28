@@ -132,6 +132,48 @@ public partial class PostRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AiRecommendations_ReturnOnlyPublicMatchingPostsWithoutDeclaredAllergens()
+    {
+        var user = await AddUser();
+        var mushroom = new Ingredient { Name = "Nấm test " + Guid.NewGuid().ToString("N"), DefaultUnit = "g" };
+        var peanut = new Ingredient { Name = "Peanut test " + Guid.NewGuid().ToString("N"), DefaultUnit = "g" };
+        _context.Ingredients.AddRange(mushroom, peanut);
+        await _context.SaveChangesAsync();
+
+        Post Recipe(string status, bool hold = false)
+        {
+            var post = NewPost(user.Id);
+            post.Title = "Mushroom recipe";
+            post.Status = status;
+            post.ModerationHold = hold;
+            post.MealType = "lunch";
+            post.DietType = "vegan";
+            post.PrepTimeMins = 10;
+            post.CookingTimeMins = 10;
+            post.IngredientsVerified = true;
+            post.PostIngredients.Add(new PostIngredient { IngredientId = mushroom.Id, Unit = "g" });
+            return post;
+        }
+
+        var safe = Recipe("published");
+        var allergic = Recipe("published");
+        allergic.PostIngredients.Add(new PostIngredient { IngredientId = peanut.Id, Unit = "g" });
+        var hidden = Recipe("hidden");
+        var held = Recipe("published", hold: true);
+        _context.Posts.AddRange(safe, allergic, hidden, held);
+        await _context.SaveChangesAsync();
+
+        var query = new PostRecommendationQuery(["Nấm"], [], ["Peanut"], [], "lunch", "vegan", 30, false);
+        var found = await _postRepository.SearchRecommendationsAsync(query);
+        Assert.Equal(safe.Id, Assert.Single(found.Posts).PostId);
+        Assert.False(found.HasMore);
+
+        var excluded = await _postRepository.SearchRecommendationsAsync(query with { ExcludedPostIds = [safe.Id] });
+        Assert.Empty(excluded.Posts);
+        Assert.Empty(await _postRepository.GetPublicRecommendationsAsync([hidden.Id, held.Id]));
+    }
+
+    [Fact]
     public async Task MyPosts_LoadsCategoryAndPaginatesEqualTimestampsDeterministically()
     {
         var user = await AddUser();

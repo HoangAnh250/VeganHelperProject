@@ -10,7 +10,10 @@ public sealed class CommentKeywordFilter : ICommentKeywordFilter
         // Direct insults and hard-block abbreviations.
         "ngu", "óc chó", "oc cho", "vô học", "vo hoc", "mất dạy", "mat day", "khốn nạn", "khon nan",
         "đmm", "dmm", "đm", "dm", "đcm", "dcm", "cl", "cc",
-        "đ m m", "d m m", "đ c m", "d c m", "đ m", "d m"
+        "đ m m", "d m m", "đ c m", "d c m", "đ m", "d m",
+        // Direct English insults and attacks.
+        "idiot", "moron", "dumbass", "asshole", "dickhead", "motherfucker",
+        "fuck you", "go fuck yourself", "son of a bitch", "stfu", "kill yourself"
     ];
 
     private static readonly string[] HiddenTerms =
@@ -21,7 +24,9 @@ public sealed class CommentKeywordFilter : ICommentKeywordFilter
         "con đĩ", "con di", "đồ con đĩ", "do con di", "thằng chó", "thang cho", "đồ chó", "do cho", "súc vật", "suc vat",
         "địt con mẹ mày", "dit con me may", "đụ con mẹ mày", "du con me may",
         "tao giết mày", "tao giet may", "giết mày đi", "giet may di", "đánh chết mày", "danh chet may",
-        "chém mày", "chem may", "đốt nhà mày", "dot nha may", "tự tử đi", "tu tu di"
+        "chém mày", "chem may", "đốt nhà mày", "dot nha may", "tự tử đi", "tu tu di",
+        // English profanity without an explicit target is held for review.
+        "fuck", "fucking", "fucked", "shit", "bullshit", "bitch", "bastard", "cunt"
     ];
 
     private static readonly string[] NormalizedBlockedTerms = NormalizeTerms(BlockedTerms);
