@@ -220,7 +220,7 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
         WeightGoalSafety.ValidateGeneratedDays(fresh.Days.Where(d=>d.Date>=preview.EffectiveFrom),safety,input.Profile!.BiologicalSex!);
         if(!request.NextWeek) fresh.Days=fresh.Days.Select(d=>d.Date<preview.EffectiveFrom?old.Days.Single(o=>o.Date==d.Date):d).ToList();
         var now=clock.GetUtcNow().UtcDateTime;
-        var result=new MealPlan {UserId=userId,StartDate=start,EndDate=start.AddDays(6),DietType=fresh.DietType,
+        var result=new MealPlan {UserId=userId,Name=MealPlanNaming.Default(start),StartDate=start,EndDate=start.AddDays(6),DietType=fresh.DietType,
             HeightCm=input.Profile!.HeightCm,WeightKg=input.Profile.WeightKg,BmiValue=fresh.Bmi,
             AllergiesSnapshot=JsonSerializer.Serialize(input.Allergies,Json),AvailableIngredientsSnapshot="[]",
             GenerationSource="manual",GenerationSnapshot=JsonSerializer.Serialize(fresh,Json),Status="completed",CreatedAt=now,UpdatedAt=now};

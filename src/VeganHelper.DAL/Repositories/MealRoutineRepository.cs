@@ -14,6 +14,7 @@ public interface IMealRoutineRepository
     Task<List<MealPlanEntry>> EntriesAsync(long planId,CancellationToken ct);
     Task<List<MealPlanEntry>> EntriesAsync(IReadOnlyCollection<long> planIds,CancellationToken ct);
     Task AddAsync(MealPlanRoutine routine,IEnumerable<MealPlanEntry> entries,CancellationToken ct);
+    Task ReplaceEntriesAsync(long planId,IEnumerable<MealPlanEntry> entries,CancellationToken ct);
     Task SaveAsync(CancellationToken ct);
     Task<List<(MealPlanRoutine Routine,MealPlan Plan)>> ActiveAsync(int offset,int limit,CancellationToken ct);
     Task<(DateOnly Start,List<MealPlanEntry> Entries)> ReviewHistoryAsync(long rootId,CancellationToken ct);
@@ -51,6 +52,11 @@ public sealed class MealRoutineRepository(AppDbContext db) : IMealRoutineReposit
     public async Task AddAsync(MealPlanRoutine routine,IEnumerable<MealPlanEntry> entries,CancellationToken ct)
     {
         db.Add(routine); db.AddRange(entries); await db.SaveChangesAsync(ct);
+    }
+    public async Task ReplaceEntriesAsync(long planId,IEnumerable<MealPlanEntry> entries,CancellationToken ct)
+    {
+        await db.Set<MealPlanEntry>().Where(entry=>entry.MealPlanId==planId).ExecuteDeleteAsync(ct);
+        db.AddRange(entries);
     }
     public Task SaveAsync(CancellationToken ct)=>db.SaveChangesAsync(ct);
     public async Task<List<(MealPlanRoutine Routine,MealPlan Plan)>> ActiveAsync(int offset,int limit,CancellationToken ct)

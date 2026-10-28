@@ -78,6 +78,46 @@ public sealed class MealPlanningRepository(AppDbContext db) : IMealPlanningRepos
         if(tx is not null) await tx.CommitAsync(ct);
     }
 
+    public Task<bool> HasOverlappingPlanAsync(long userId,DateOnly startDate,DateOnly endDate,long? exceptPlanId,CancellationToken ct)=>
+        db.MealPlans.AsNoTracking().AnyAsync(p=>p.UserId==userId && !p.IsTemplate && p.Status!="archived" &&
+            p.StartDate<=endDate && p.EndDate>=startDate && (!exceptPlanId.HasValue || p.Id!=exceptPlanId.Value),ct);
+
+    public async Task<MealPlan?> ArchiveAsync(long userId,long id,bool trialOnly,DateTime updatedAt,CancellationToken ct)
+    {
+        var query=db.MealPlans.Where(p=>p.Id==id && p.UserId==userId && !p.IsTemplate && p.Status!="archived");
+        if(trialOnly) query=query.Where(p=>p.IsTrialGeneration);
+        var plan=await query.SingleOrDefaultAsync(ct);
+        if(plan is null) return null;
+        plan.Status="archived";
+        plan.UpdatedAt=updatedAt;
+        await db.SaveChangesAsync(ct);
+        return plan;
+    }
+
+    public async Task<MealPlan?> ReplaceGeneratedAsync(long userId,long id,MealPlan replacement,
+        IReadOnlyList<MealPlanSchedule> schedule,CancellationToken ct)
+    {
+        var plan=await db.MealPlans.SingleOrDefaultAsync(p=>p.Id==id && p.UserId==userId && !p.IsTemplate && p.Status!="archived",ct);
+        if(plan is null) return null;
+
+        plan.HeightCm=replacement.HeightCm;
+        plan.WeightKg=replacement.WeightKg;
+        plan.BmiValue=replacement.BmiValue;
+        plan.DietType=replacement.DietType;
+        plan.AllergiesSnapshot=replacement.AllergiesSnapshot;
+        plan.AvailableIngredientsSnapshot=replacement.AvailableIngredientsSnapshot;
+        plan.GenerationSource=replacement.GenerationSource;
+        plan.GenerationSnapshot=replacement.GenerationSnapshot;
+        plan.Status="completed";
+        plan.UpdatedAt=replacement.UpdatedAt;
+
+        await db.MealPlanSchedule.Where(slot=>slot.MealPlanId==id).ExecuteDeleteAsync(ct);
+        foreach(var slot in schedule) slot.MealPlanId=id;
+        db.MealPlanSchedule.AddRange(schedule);
+        await db.SaveChangesAsync(ct);
+        return plan;
+    }
+
     public async Task<bool> TrySaveTrialAsync(
         MealPlan plan,
         IReadOnlyList<MealPlanSchedule> schedule,
@@ -117,14 +157,27 @@ public sealed class MealPlanningRepository(AppDbContext db) : IMealPlanningRepos
 
     public Task<MealPlan?> GetAsync(long userId,long id,bool trialOnly,CancellationToken ct)
     {
-        var query=db.MealPlans.AsNoTracking().Where(p=>p.Id==id && p.UserId==userId && !p.IsTemplate);
+        var query=db.MealPlans.AsNoTracking().Where(p=>p.Id==id && p.UserId==userId && !p.IsTemplate && p.Status!="archived");
         if(trialOnly) query=query.Where(p=>p.IsTrialGeneration);
         return query.SingleOrDefaultAsync(ct);
     }
 
+    public async Task<MealPlan?> UpdateNameAsync(long userId,long id,string name,bool trialOnly,DateTime updatedAt,CancellationToken ct)
+    {
+        var query=db.MealPlans.Where(p=>p.Id==id && p.UserId==userId && !p.IsTemplate && p.Status!="archived");
+        if(trialOnly) query=query.Where(p=>p.IsTrialGeneration);
+        var plan=await query.SingleOrDefaultAsync(ct);
+        if(plan is null) return null;
+
+        plan.Name=name;
+        plan.UpdatedAt=updatedAt;
+        await db.SaveChangesAsync(ct);
+        return plan;
+    }
+
     public async Task<DatabasePage<MealPlan>> ListAsync(long userId,int pageIndex,int pageSize,bool trialOnly,CancellationToken ct)
     {
-        var query=db.MealPlans.AsNoTracking().Where(p=>p.UserId==userId && !p.IsTemplate);
+        var query=db.MealPlans.AsNoTracking().Where(p=>p.UserId==userId && !p.IsTemplate && p.Status!="archived");
         if(trialOnly) query=query.Where(p=>p.IsTrialGeneration);
         var count=await query.LongCountAsync(ct);
         var items=await query.OrderByDescending(p=>p.CreatedAt).ThenByDescending(p=>p.Id)

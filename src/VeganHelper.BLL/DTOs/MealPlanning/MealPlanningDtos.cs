@@ -25,6 +25,7 @@ public sealed class MealCalorieSplitDto
 
 public sealed class GenerateMealPlanRequest
 {
+    public string? Name { get; set; }
     public DateOnly StartDate { get; set; }
     public string Mode { get; set; }="maintenance";
     public decimal? TargetWeightKg { get; set; }
@@ -44,6 +45,8 @@ public sealed class GenerateMealPlanRequestValidator : AbstractValidator<Generat
     {
         RuleFor(x=>x.StartDate).NotEmpty().Must(d=>d >= new DateOnly(2000,1,1) && d <= new DateOnly(2100,12,25))
             .WithMessage("Start date must be between 2000-01-01 and 2100-12-25.");
+        RuleFor(x=>x.Name).Must(name=>string.IsNullOrWhiteSpace(name) || name.Trim().Length<=100)
+            .WithMessage("Menu name must be 100 characters or fewer.");
         RuleFor(x=>x.MealCalorieSplit)
             .Must(split => split is null || split.IsValid())
             .WithMessage("Breakfast, lunch and dinner percentages must each be between 1 and 98 and total exactly 100.");
@@ -53,6 +56,7 @@ public sealed class GenerateMealPlanRequestValidator : AbstractValidator<Generat
 public sealed class MealPlanDto
 {
     public long Id { get; set; }
+    public string Name { get; set; } = "";
     public DateOnly? StartDate { get; set; }
     public DateOnly? EndDate { get; set; }
     public string Status { get; set; } = "";
@@ -86,6 +90,7 @@ public sealed class MealEntryDto
     public string? Note { get; set; }
     public DateTime DueAt { get; set; }
 }
+public sealed record UpdateMealPlanNameRequest(string Name);
 public sealed record LogMealRequest(DateOnly Date,string MealTime,string Status,string? Note,int ExpectedVersion);
 public sealed record MealReminderSettingsRequest(bool Enabled,string TimeZoneId,TimeOnly BreakfastTime,
     TimeOnly LunchTime,TimeOnly DinnerTime,int ExpectedVersion);
@@ -103,8 +108,8 @@ public sealed class WeeklyMenuDto
     public decimal Bmi { get; set; }
     public decimal TargetDailyCalories { get; set; }
     public MealCalorieSplitDto? MealCalorieSplit { get; set; }
-    public EnergyProfileDto EnergyProfile { get; set; } = new();
-    public List<string> Allergies { get; set; } = [];
+    public EnergyProfileDto? EnergyProfile { get; set; }
+    public List<string>? Allergies { get; set; }
     public List<string> Notes { get; set; } = [];
     public List<MealDayDto> Days { get; set; } = [];
 }

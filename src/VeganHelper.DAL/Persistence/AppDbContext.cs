@@ -458,6 +458,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("bigint").IsRequired(false);
             entity.Property(x => x.IsTemplate).HasColumnName("is_template").HasColumnType("boolean").IsRequired(true).HasDefaultValueSql("0");
             entity.Property(x => x.TemplateName).HasColumnName("template_name").HasColumnType("character varying(255)").IsRequired(false);
+            entity.Property(x => x.Name).HasColumnName("name").HasColumnType("character varying(100)").IsRequired(false);
             entity.Property(x => x.StartDate).HasColumnName("start_date").HasColumnType("date").IsRequired(false);
             entity.Property(x => x.EndDate).HasColumnName("end_date").HasColumnType("date").IsRequired(false);
             entity.Property(x => x.HeightCm).HasColumnName("height_cm").HasColumnType("numeric(5,2)").IsRequired(false);

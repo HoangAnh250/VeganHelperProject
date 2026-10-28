@@ -37,8 +37,12 @@ public interface IMealPlanningRepository
     Task<IReadOnlyDictionary<long, string>> GetImageUrlsAsync(IReadOnlyCollection<long> mealIds, CancellationToken ct);
     Task<IReadOnlyDictionary<long, List<string>>> GetCookingStepsAsync(IReadOnlyCollection<long> mealIds, CancellationToken ct);
     Task SaveAsync(MealPlan plan, IReadOnlyList<MealPlanSchedule> schedule, CancellationToken ct);
+    Task<bool> HasOverlappingPlanAsync(long userId, DateOnly startDate, DateOnly endDate, long? exceptPlanId, CancellationToken ct);
+    Task<MealPlan?> ArchiveAsync(long userId, long id, bool trialOnly, DateTime updatedAt, CancellationToken ct);
+    Task<MealPlan?> ReplaceGeneratedAsync(long userId, long id, MealPlan replacement, IReadOnlyList<MealPlanSchedule> schedule, CancellationToken ct);
     Task<bool> TrySaveTrialAsync(MealPlan plan, IReadOnlyList<MealPlanSchedule> schedule, int generationLimit, CancellationToken ct);
     Task<int> CountTrialGenerationsAsync(long userId, CancellationToken ct);
     Task<MealPlan?> GetAsync(long userId, long id, bool trialOnly, CancellationToken ct);
+    Task<MealPlan?> UpdateNameAsync(long userId, long id, string name, bool trialOnly, DateTime updatedAt, CancellationToken ct);
     Task<DatabasePage<MealPlan>> ListAsync(long userId, int pageIndex, int pageSize, bool trialOnly, CancellationToken ct);
 }
