@@ -19,6 +19,9 @@ public sealed class AiChatService(
     private const int MaxMessageCharacters = 4_000;
     private const int MaxHistoryMessagesForModel = 20;
     private const int MaxHistoryMessagesForResponse = 100;
+    private const int MessagesBeforeSummary = 20;
+    private const int RecentMessagesToKeepAfterSummary = 4;
+    private const int MaxMessagesPerSummaryBatch = 500;
     private const int MaxGuestQuestions = 3;
     private const string GuestQuestionLimitReachedCode = "GUEST_CHAT_LIMIT_REACHED";
 
@@ -80,6 +83,12 @@ public sealed class AiChatService(
                 session.Id,
                 MaxHistoryMessagesForModel,
                 cancellationToken);
+        if (session.SummaryThroughMessageId.HasValue)
+        {
+            previousMessages = previousMessages
+                .Where(message => message.Id > session.SummaryThroughMessageId.Value)
+                .ToArray();
+        }
 
         var userMessage = new ChatMessage
         {
@@ -201,6 +210,9 @@ public sealed class AiChatService(
         usage.OutputTokens = completion.OutputTokens;
         await repository.SaveChangesAsync(cancellationToken);
 
+        if (userId.HasValue)
+            await TrySummarizeConversationAsync(session, cancellationToken);
+
         return ServiceResult<AiChatResponseDto>.Ok(new AiChatResponseDto(
             session.Id,
             session.GuestSessionId,
@@ -213,6 +225,91 @@ public sealed class AiChatService(
                 : (int)Math.Max(0L, MaxGuestQuestions - reservedBefore - 1L),
             RecommendedPosts = completion.RecommendedPosts
         });
+    }
+
+    private async Task TrySummarizeConversationAsync(ChatSession session, CancellationToken cancellationToken)
+    {
+        AiUsage? summaryUsage = null;
+        try
+        {
+            var unsummarizedCount = await repository.CountMessagesAfterAsync(
+                session.Id, session.SummaryThroughMessageId, cancellationToken);
+            if (unsummarizedCount < MessagesBeforeSummary)
+                return;
+
+            var unsummarizedMessages = await repository.GetMessagesAfterAsync(
+                session.Id,
+                session.SummaryThroughMessageId,
+                MaxMessagesPerSummaryBatch,
+                cancellationToken);
+            if (unsummarizedMessages.Count < MessagesBeforeSummary)
+                return;
+
+            var summarizeCount = unsummarizedMessages.Count - RecentMessagesToKeepAfterSummary;
+            while (summarizeCount > 0 && unsummarizedMessages[summarizeCount - 1].SenderType != "ai")
+                summarizeCount--;
+            if (summarizeCount < MessagesBeforeSummary - RecentMessagesToKeepAfterSummary)
+                return;
+
+            var messagesToSummarize = unsummarizedMessages.Take(summarizeCount).ToArray();
+            summaryUsage = new AiUsage
+            {
+                RequestId = Guid.NewGuid(),
+                UserId = session.UserId,
+                FeatureType = "chat_summary",
+                Provider = "deepseek",
+                ModelName = "pending",
+                Status = "pending",
+                CreatedAt = DateTime.UtcNow
+            };
+            repository.AddUsage(summaryUsage);
+            await repository.SaveChangesAsync(cancellationToken);
+
+            var summary = await aiClient.SummarizeConversationAsync(
+                session.ContextSummary,
+                messagesToSummarize
+                    .Select(message => new AiChatTurn(message.SenderType, message.MessageText))
+                    .ToArray(),
+                cancellationToken);
+
+            var normalizedSummary = summary.Text.Trim();
+            if (normalizedSummary.Length == 0)
+                throw new InvalidOperationException("The AI provider returned an empty conversation summary.");
+
+            var updated = await repository.TryUpdateSummaryAsync(
+                session.Id,
+                session.SummaryThroughMessageId,
+                normalizedSummary,
+                messagesToSummarize[^1].Id,
+                cancellationToken);
+
+            summaryUsage.Status = updated ? "completed" : "failed";
+            summaryUsage.ModelName = summary.Model;
+            summaryUsage.InputTokens = summary.InputTokens;
+            summaryUsage.OutputTokens = summary.OutputTokens;
+            await repository.SaveChangesAsync(cancellationToken);
+
+            if (!updated)
+                logger.LogInformation("Skipped stale conversation summary for session {SessionId}.", session.Id);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Conversation summarization failed for session {SessionId}.", session.Id);
+            if (summaryUsage is { Status: "pending" })
+            {
+                summaryUsage.Status = "failed";
+                try
+                {
+                    await repository.SaveChangesAsync(CancellationToken.None);
+                }
+                catch (Exception persistenceException)
+                {
+                    logger.LogWarning(persistenceException,
+                        "Could not record failed conversation summarization for request {RequestId}.",
+                        summaryUsage.RequestId);
+                }
+            }
+        }
     }
 
     public async Task<ServiceResult<AiChatHistoryDto>> GetHistoryAsync(

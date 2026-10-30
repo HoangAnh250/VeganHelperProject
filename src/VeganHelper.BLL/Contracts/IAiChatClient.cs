@@ -4,6 +4,11 @@ namespace VeganHelper.BLL.Contracts;
 
 public interface IAiChatClient
 {
+    Task<AiChatCompletion> SummarizeConversationAsync(
+        string? previousSummary,
+        IReadOnlyList<AiChatTurn> turnsToSummarize,
+        CancellationToken cancellationToken = default);
+
     Task<AiChatCompletion> CompleteAsync(
         string? contextSummary,
         IReadOnlyList<AiChatTurn> turns,

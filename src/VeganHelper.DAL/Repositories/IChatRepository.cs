@@ -15,6 +15,24 @@ public interface IChatRepository
         int maximum,
         CancellationToken cancellationToken = default);
 
+    Task<int> CountMessagesAfterAsync(
+        long sessionId,
+        long? afterMessageId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ChatMessage>> GetMessagesAfterAsync(
+        long sessionId,
+        long? afterMessageId,
+        int maximum,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> TryUpdateSummaryAsync(
+        long sessionId,
+        long? expectedThroughMessageId,
+        string summary,
+        long throughMessageId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<long>> GetRecommendedPostIdsAsync(
         long sessionId, CancellationToken cancellationToken = default);
 

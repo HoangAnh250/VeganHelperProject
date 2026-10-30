@@ -47,6 +47,42 @@ public sealed class ChatRepository(AppDbContext db) : IChatRepository
         return messages;
     }
 
+    public Task<int> CountMessagesAfterAsync(
+        long sessionId,
+        long? afterMessageId,
+        CancellationToken cancellationToken = default) =>
+        db.ChatMessages.CountAsync(message => message.SessionId == sessionId &&
+            (!afterMessageId.HasValue || message.Id > afterMessageId.Value), cancellationToken);
+
+    public async Task<IReadOnlyList<ChatMessage>> GetMessagesAfterAsync(
+        long sessionId,
+        long? afterMessageId,
+        int maximum,
+        CancellationToken cancellationToken = default) =>
+        await db.ChatMessages.AsNoTracking()
+            .Where(message => message.SessionId == sessionId &&
+                (!afterMessageId.HasValue || message.Id > afterMessageId.Value))
+            .OrderBy(message => message.Id)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+
+    public async Task<bool> TryUpdateSummaryAsync(
+        long sessionId,
+        long? expectedThroughMessageId,
+        string summary,
+        long throughMessageId,
+        CancellationToken cancellationToken = default)
+    {
+        var query = db.ChatSessions.Where(session => session.Id == sessionId);
+        query = expectedThroughMessageId.HasValue
+            ? query.Where(session => session.SummaryThroughMessageId == expectedThroughMessageId.Value)
+            : query.Where(session => session.SummaryThroughMessageId == null);
+
+        return await query.ExecuteUpdateAsync(setters => setters
+            .SetProperty(session => session.ContextSummary, summary)
+            .SetProperty(session => session.SummaryThroughMessageId, throughMessageId), cancellationToken) == 1;
+    }
+
     public async Task<IReadOnlyList<long>> GetRecommendedPostIdsAsync(
         long sessionId, CancellationToken cancellationToken = default)
     {
