@@ -94,6 +94,14 @@ public sealed class CommentRepository(AppDbContext context) : ICommentRepository
         CancellationToken cancellationToken = default) =>
         await context.Flags.AddAsync(report, cancellationToken);
 
+    public Task EnsureKeywordReviewAsync(long commentId, string reason, CancellationToken cancellationToken = default) =>
+        context.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO flags (comment_id, source_type, reason_category, reason, status, created_at)
+            VALUES ({commentId}, 'keyword', 'keyword_filter', {reason}, 'pending', CURRENT_TIMESTAMP)
+            ON CONFLICT (comment_id) WHERE source_type = 'keyword' AND status = 'pending'
+            DO UPDATE SET reason = EXCLUDED.reason
+            """, cancellationToken);
+
     public Task<IDbContextTransaction> BeginTransactionAsync(
         CancellationToken cancellationToken = default) =>
         context.Database.BeginTransactionAsync(cancellationToken);

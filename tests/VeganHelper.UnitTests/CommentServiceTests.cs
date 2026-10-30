@@ -80,8 +80,11 @@ public sealed class CommentServiceTests
         repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact]
-    public async Task CreateCommentAsync_HiddenKeywordPersistsHiddenCommentForReview()
+    [Theory]
+    [InlineData("Địt mẹ mày")]
+    [InlineData("con đĩ mẹ mày")]
+    [InlineData("con đỉ mẹ mày")]
+    public async Task CreateCommentAsync_HiddenKeywordPersistsHiddenCommentForReview(string content)
     {
         var repository = CreateRepository();
         repository.Setup(x => x.IsPublishedPostAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
@@ -99,19 +102,39 @@ public sealed class CommentServiceTests
                 Id = 101,
                 PostId = 10,
                 UserId = 7,
-                Content = "Địt mẹ mày",
+                Content = content,
                 Status = "hidden",
                 AuthorName = "Member"
             });
 
         var result = await CreateService(repository).CreateCommentAsync(10, 7, new CreateCommentRequest
         {
-            Content = "Địt mẹ mày"
+            Content = content
         });
 
         Assert.NotNull(saved);
         Assert.Equal("hidden", saved!.Status);
+        Assert.Equal(content, saved.Content);
         Assert.Equal("hidden", result.Status);
+        repository.Verify(x => x.EnsureKeywordReviewAsync(101, It.Is<string>(reason =>
+            reason.StartsWith("Keyword filter matched:")), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateCommentAsync_HiddenKeywordCreatesAdminReviewRecord()
+    {
+        var repository = CreateRepository();
+        repository.Setup(x => x.IsPublishedPostAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        repository.Setup(x => x.GetCommentForUpdateAsync(101, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Comment { Id = 101, PostId = 10, UserId = 7, Content = "Old content", Status = "visible" });
+        repository.Setup(x => x.GetCommentProjectionAsync(101, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CommentProjection { Id = 101, PostId = 10, UserId = 7, Content = "con đỉ mẹ mày", Status = "hidden" });
+
+        var result = await CreateService(repository).UpdateCommentAsync(10, 101, 7,
+            new UpdateCommentRequest { Content = "con đỉ mẹ mày" });
+
+        Assert.Equal("hidden", result.Status);
+        repository.Verify(x => x.EnsureKeywordReviewAsync(101, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -330,8 +353,11 @@ public sealed class CommentServiceTests
         repository.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact]
-    public async Task DeleteCommentAsync_AdminPostAuthorRequiresReasonButDoesNotNotifyCommentOwner()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task DeleteCommentAsync_AdminPostAuthorDoesNotRequireReasonOrNotifyCommentOwner(string? reason)
     {
         var repository = CreateRepository();
         var transaction = CreateTransaction();
@@ -343,7 +369,7 @@ public sealed class CommentServiceTests
         var notifications = new Mock<INotificationPublisher>();
 
         await CreateService(repository, notifications).DeleteCommentAsync(
-            10, 100, 8, true, new DeleteCommentRequest { Reason = "Removed by the post author" });
+            10, 100, 8, true, reason is null ? null : new DeleteCommentRequest { Reason = reason });
 
         Assert.True(comment.IsDeleted);
         notifications.Verify(x => x.NotifyCommentDeletionAsync(

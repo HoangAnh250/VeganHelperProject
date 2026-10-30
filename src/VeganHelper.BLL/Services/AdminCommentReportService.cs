@@ -37,12 +37,15 @@ public sealed class AdminCommentReportService(IAdminCommentReportRepository repo
         return audit.ExecuteAsync(actor, $"comment_report.{action}", "comment", Target(id), async token =>
         {
             var report = await repository.LockReportAsync(id, token);
-            if (report?.SourceType != "user" || report.CommentId is null) throw new NotFoundException("Comment report not found.");
+            if (report is null || report.SourceType is not ("user" or "keyword") || report.CommentId is null)
+                throw new NotFoundException("Comment report not found.");
             if (report.Status != "pending") throw new ConflictException("Comment report already reviewed.");
             var comment = await repository.LockCommentAsync(report.CommentId.Value, token)
                 ?? throw new NotFoundException("Reported comment not found.");
             if (comment.IsDeleted && action != "dismiss")
                 throw new ConflictException("Deleted comments can only have their remaining reports dismissed.");
+            if (!comment.IsDeleted && action == "dismiss" && comment.Status == "hidden")
+                throw new ConflictException("Choose keep to restore a hidden comment or remove to delete it.");
 
             var now = clock.GetUtcNow().UtcDateTime;
             if (action == "keep")

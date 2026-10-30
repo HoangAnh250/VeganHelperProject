@@ -236,4 +236,43 @@ public sealed class AiChatServiceTests
         Assert.False(result.Succeeded);
         Assert.Equal(400, result.StatusCode);
     }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public async Task SendAsync_ClientCancellationReleasesPendingUsageAndDoesNotSaveAnAnswer(bool guest, bool providerHonorsCancellation)
+    {
+        using var cancellation = new CancellationTokenSource();
+        AiUsage? usage = null;
+        var repository = new Mock<IChatRepository>();
+        repository.Setup(item => item.AddSession(It.IsAny<ChatSession>()))
+            .Callback<ChatSession>(session => session.Id = 42);
+        repository.Setup(item => item.AddUsage(It.IsAny<AiUsage>())).Callback<AiUsage>(value => usage = value);
+        repository.Setup(item => item.TryStartGuestChatAsync(It.IsAny<Guid>(), It.IsAny<ChatSession>(),
+                It.IsAny<ChatMessage>(), It.IsAny<AiUsage>(), 3, It.IsAny<CancellationToken>()))
+            .Callback<Guid, ChatSession, ChatMessage, AiUsage, int, CancellationToken>((_, session, _, value, _, _) =>
+            { session.Id = 42; usage = value; }).ReturnsAsync(0L);
+        var client = new Mock<IAiChatClient>();
+        client.Setup(item => item.CompleteWithPostSearchAsync(It.IsAny<string?>(), It.IsAny<IReadOnlyList<AiChatTurn>>(),
+                It.IsAny<Func<AiPostSearchCriteria, CancellationToken, Task<AiPostSearchResult>>>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                cancellation.Cancel();
+                return providerHonorsCancellation
+                    ? Task.FromCanceled<AiChatCompletion>(cancellation.Token)
+                    : Task.FromResult(new AiChatCompletion("Late answer", "test", 1, 1));
+            });
+        var service = new AiChatService(repository.Object, Mock.Of<IPostRepository>(), Mock.Of<IHealthProfileRepository>(),
+            client.Object, NullLogger<AiChatService>.Instance);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.SendAsync(guest ? null : 7,
+            new AiChatRequestDto(null, guest ? Guid.NewGuid() : null, "Lunch idea"), cancellation.Token));
+
+        Assert.NotNull(usage);
+        Assert.Equal("failed", usage.Status);
+        repository.Verify(item => item.SaveChangesAsync(It.Is<CancellationToken>(token => !token.IsCancellationRequested)), Times.AtLeastOnce);
+        repository.Verify(item => item.AddMessage(It.Is<ChatMessage>(message => message.SenderType == "ai")), Times.Never);
+    }
 }

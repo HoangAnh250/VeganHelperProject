@@ -24,7 +24,7 @@ public sealed class AdminCommentReportDto
     public long AuthorId { get; init; }
     public string AuthorName { get; init; } = "";
     public string CommentContent { get; init; } = "";
-    public long ReporterId { get; init; }
+    public long? ReporterId { get; init; }
     public string ReporterName { get; init; } = "";
     public string Reason { get; init; } = "";
     public string Status { get; init; } = "";

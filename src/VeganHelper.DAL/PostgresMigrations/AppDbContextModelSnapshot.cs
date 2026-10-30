@@ -645,6 +645,11 @@ namespace VeganHelper.DAL.PostgresMigrations
 
                     b.HasIndex("ModerationScanId");
 
+                    b.HasIndex("CommentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_flags_pending_keyword_comment")
+                        .HasFilter("source_type = 'keyword' AND status = 'pending'");
+
                     b.HasIndex("PostId");
 
                     b.HasIndex("ResolvedByAdminId");
@@ -673,7 +678,7 @@ namespace VeganHelper.DAL.PostgresMigrations
 
                             t.HasCheckConstraint("CK_flags_3", "(status = 'pending' AND resolved_by_admin_id IS NULL AND resolved_at IS NULL) OR (status IN ('resolved','dismissed') AND resolved_by_admin_id IS NOT NULL AND resolved_at IS NOT NULL)");
 
-                            t.HasCheckConstraint("CK_flags_4", "(source_type = 'user' AND reporter_id IS NOT NULL AND ai_model_name IS NULL) OR (source_type = 'ai' AND reporter_id IS NULL AND ai_model_name IS NOT NULL AND post_id IS NOT NULL)");
+                            t.HasCheckConstraint("CK_flags_4", "(source_type = 'user' AND reporter_id IS NOT NULL AND ai_model_name IS NULL) OR (source_type = 'ai' AND reporter_id IS NULL AND ai_model_name IS NOT NULL AND post_id IS NOT NULL) OR (source_type = 'keyword' AND reporter_id IS NULL AND ai_model_name IS NULL AND comment_id IS NOT NULL)");
                         });
                 });
 

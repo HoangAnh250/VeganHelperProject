@@ -740,7 +740,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 table.HasCheckConstraint("CK_flags_1", "status IN ('pending','resolved','dismissed')");
                 table.HasCheckConstraint("CK_flags_2", "(CASE WHEN post_id IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN comment_id IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN shop_id IS NOT NULL THEN 1 ELSE 0 END) = 1");
                 table.HasCheckConstraint("CK_flags_3", "(status = 'pending' AND resolved_by_admin_id IS NULL AND resolved_at IS NULL) OR (status IN ('resolved','dismissed') AND resolved_by_admin_id IS NOT NULL AND resolved_at IS NOT NULL)");
-                table.HasCheckConstraint("CK_flags_4", "(source_type = 'user' AND reporter_id IS NOT NULL AND ai_model_name IS NULL) OR (source_type = 'ai' AND reporter_id IS NULL AND ai_model_name IS NOT NULL AND post_id IS NOT NULL)");
+                table.HasCheckConstraint("CK_flags_4", "(source_type = 'user' AND reporter_id IS NOT NULL AND ai_model_name IS NULL) OR (source_type = 'ai' AND reporter_id IS NULL AND ai_model_name IS NOT NULL AND post_id IS NOT NULL) OR (source_type = 'keyword' AND reporter_id IS NULL AND ai_model_name IS NULL AND comment_id IS NOT NULL)");
             });
             entity.HasKey(x => new { x.Id }).HasName("PK_flags");
             entity.Property(x => x.Id).HasColumnName("id").HasColumnType("bigint").IsRequired(true).UseIdentityByDefaultColumn();
@@ -766,6 +766,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 .IsUnique()
                 .HasDatabaseName("UX_flags_user_comment_report")
                 .HasFilter("source_type = 'user' AND comment_id IS NOT NULL AND reporter_id IS NOT NULL");
+            entity.HasIndex(x => x.CommentId)
+                .IsUnique()
+                .HasDatabaseName("UX_flags_pending_keyword_comment")
+                .HasFilter("source_type = 'keyword' AND status = 'pending'");
         });
         Member2ModelConfiguration.Configure(modelBuilder);
         MealPlanRoutineConfiguration.Configure(modelBuilder);

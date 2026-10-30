@@ -82,6 +82,10 @@ public sealed class CommentService(
         await repository.AddCommentAsync(comment, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
+        if (moderation.Action == CommentModerationAction.HidePendingReview)
+            await repository.EnsureKeywordReviewAsync(comment.Id,
+                $"Keyword filter matched: {moderation.MatchedKeyword}.", cancellationToken);
+
         var projection = await repository.GetCommentProjectionAsync(comment.Id, cancellationToken);
         if (projection is null)
         {
@@ -124,6 +128,7 @@ public sealed class CommentService(
             throw new ArgumentException("Comment contains blocked language and was not updated.");
         }
 
+        await using var transaction = await repository.BeginTransactionAsync(cancellationToken);
         comment!.Content = content;
         comment.Status = moderation.Action == CommentModerationAction.HidePendingReview
             ? "hidden"
@@ -131,6 +136,9 @@ public sealed class CommentService(
         comment.UpdatedAt = DateTime.UtcNow;
 
         await repository.SaveChangesAsync(cancellationToken);
+        if (moderation.Action == CommentModerationAction.HidePendingReview)
+            await repository.EnsureKeywordReviewAsync(comment.Id,
+                $"Keyword filter matched: {moderation.MatchedKeyword}.", cancellationToken);
 
         var projection = await repository.GetCommentProjectionAsync(comment.Id, cancellationToken);
         if (projection is null)
@@ -139,6 +147,7 @@ public sealed class CommentService(
         }
 
         var depth = await GetDepthAsync(comment, cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return ToDto(projection, userId, depth);
     }
 
@@ -171,7 +180,7 @@ public sealed class CommentService(
         }
 
         var reason = rawReason?.Trim();
-        if (isAdministrator && !isCommentOwner && string.IsNullOrWhiteSpace(reason))
+        if (isAdministrator && !isCommentOwner && !isPostAuthor && string.IsNullOrWhiteSpace(reason))
         {
             throw new ArgumentException("A deletion reason is required when an administrator removes another user's comment.");
         }

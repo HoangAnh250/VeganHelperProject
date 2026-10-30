@@ -34,7 +34,7 @@ public sealed class AdminDashboardRepository(AppDbContext db) : IAdminDashboardR
             ), comment_stats AS (
                 SELECT count(DISTINCT c.id) AS reported_comments
                 FROM flags f JOIN comments c ON f.comment_id = c.id
-                WHERE f.source_type = 'user' AND f.status = 'pending' AND NOT c.is_deleted
+                WHERE f.source_type IN ('user', 'keyword') AND f.status = 'pending' AND NOT c.is_deleted
             )
             SELECT m.total AS "Members", m.current_count AS "NewMembers", m.previous_count AS "PreviousNewMembers",
                 p.published AS "PublishedPosts", p.created AS "CreatedPosts", f.ai_posts AS "AiPosts",

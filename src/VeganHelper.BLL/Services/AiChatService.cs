@@ -169,6 +169,23 @@ public sealed class AiChatService(
                         hasMore);
                 },
                 cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            usage.Status = "failed";
+            usage.ModelName = "deepseek-flash";
+            using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            try
+            {
+                await repository.SaveChangesAsync(cleanup.Token);
+            }
+            catch (Exception cleanupException)
+            {
+                logger.LogWarning(cleanupException, "Could not release canceled AI request {RequestId}.", usage.RequestId);
+            }
+            logger.LogInformation("AI chat request {RequestId} was canceled by the client.", usage.RequestId);
+            throw;
         }
         catch (AiChatProviderException exception)
         {

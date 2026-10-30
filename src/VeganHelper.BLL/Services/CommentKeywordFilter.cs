@@ -73,7 +73,12 @@ public sealed class CommentKeywordFilter : ICommentKeywordFilter
     {
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
 
-        var normalized = value.Normalize(NormalizationForm.FormC).ToLowerInvariant();
+        // Fold hoi/nga tones to the same comparison key without stripping other accents.
+        // Keep plain "đi" distinct from "đĩ"/"đỉ" and preserve original comment text.
+        var normalized = value.ToLowerInvariant()
+            .Normalize(NormalizationForm.FormD)
+            .Replace('\u0309', '\u0303')
+            .Normalize(NormalizationForm.FormC);
         var builder = new StringBuilder(normalized.Length);
         foreach (var character in normalized)
         {

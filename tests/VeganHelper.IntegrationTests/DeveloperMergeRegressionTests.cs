@@ -201,7 +201,7 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         db.Posts.Add(post);
         await db.SaveChangesAsync();
         var ordered = post.Media.OrderBy(m => m.DisplayOrder).ToArray();
-        db.PostSummaries.Add(new PostSummary { PostId = post.Id, SourceMediaId = ordered[0].Id, Status = "pending", RequestedAt = DateTime.UtcNow });
+        db.PostSummaries.Add(new PostSummary { PostId = post.Id, SourceMediaIdsJson = JsonSerializer.Serialize(new[] { ordered[0].Id }), Status = "pending", RequestedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
         return new(post.Id, owner, categories[0].Id, categories[1].Id, ordered.Select(m => m.Id).ToArray(), ordered.Select(m => m.MediaUrl).ToArray(), ingredients.Select(i => i.Id).ToArray(), post.PostSteps.Single(s => s.StepNumber == 1).Id);
     }
