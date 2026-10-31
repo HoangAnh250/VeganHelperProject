@@ -127,7 +127,7 @@ public sealed class ResetPasswordRequestDto
     public string NewPassword { get; init; } = string.Empty;
 }
 
-public sealed record MessageResponseDto(string Message);
+public sealed record MessageResponseDto(string Message, bool IsExistingUnverified = false);
 
 public sealed record AuthResponseDto(
     string AccessToken,
