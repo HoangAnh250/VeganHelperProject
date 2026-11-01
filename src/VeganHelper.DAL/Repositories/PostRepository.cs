@@ -199,7 +199,15 @@ public sealed class PostRepository : IPostRepository
             {
                 Id = p.Id,
                 Title = p.Title,
-                ThumbnailUrl = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaUrl).FirstOrDefault(),
+                ThumbnailUrl = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.ThumbnailUrl ?? m.MediaUrl).FirstOrDefault()
+                    ?? p.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.ThumbnailUrl ?? m.MediaUrl).FirstOrDefault(),
+                MediaUrl = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaUrl).FirstOrDefault()
+                    ?? p.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaUrl).FirstOrDefault(),
+                MediaType = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaType).FirstOrDefault()
+                    ?? p.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaType).FirstOrDefault(),
+                CategoryName = _context.Categories.Where(c => _context.PostCategories.Any(pc => pc.PostId == p.Id && pc.CategoryId == c.Id)).Select(c => c.Name).FirstOrDefault(),
+                DietType = p.DietType,
+                LikeCount = _context.PostLikes.LongCount(l => l.PostId == p.Id),
                 AuthorName = _context.UserProfiles.Where(up => up.UserId == p.AuthorId).Select(up => up.DisplayName).FirstOrDefault() 
                              ?? _context.Users.Where(u => u.Id == p.AuthorId).Select(u => u.Username).FirstOrDefault() ?? "Unknown",
                 AvatarUrl = _context.UserProfiles.Where(up => up.UserId == p.AuthorId).Select(up => up.AvatarUrl).FirstOrDefault(),
@@ -237,7 +245,15 @@ public sealed class PostRepository : IPostRepository
             {
                 Id = p.Id,
                 Title = p.Title,
-                ThumbnailUrl = p.Media.Where(m => m.IsPrimary).Select(m => m.MediaUrl).FirstOrDefault(),
+                ThumbnailUrl = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.ThumbnailUrl ?? m.MediaUrl).FirstOrDefault()
+                    ?? p.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.ThumbnailUrl ?? m.MediaUrl).FirstOrDefault(),
+                MediaUrl = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaUrl).FirstOrDefault()
+                    ?? p.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaUrl).FirstOrDefault(),
+                MediaType = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaType).FirstOrDefault()
+                    ?? p.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaType).FirstOrDefault(),
+                CategoryName = _context.Categories.Where(c => _context.PostCategories.Any(pc => pc.PostId == p.Id && pc.CategoryId == c.Id)).Select(c => c.Name).FirstOrDefault(),
+                DietType = p.DietType,
+                LikeCount = _context.PostLikes.LongCount(l => l.PostId == p.Id),
                 AuthorName = _context.UserProfiles
                     .Where(up => up.UserId == p.AuthorId)
                     .Select(up => up.DisplayName)

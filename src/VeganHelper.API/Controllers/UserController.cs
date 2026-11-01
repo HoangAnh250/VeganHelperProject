@@ -65,9 +65,13 @@ public sealed class UserController(IUserService service) : ControllerBase
             avatarBytes = stream.ToArray();
         }
 
+        var phoneNumber = Request.HasFormContentType && Request.Form.ContainsKey("phoneNumber")
+            ? Request.Form["phoneNumber"].ToString()
+            : request.PhoneNumber;
+
         var command = new UpdateProfileCommand(
             request.DisplayName,
-            request.PhoneNumber,
+            phoneNumber,
             request.HeightCm,
             request.WeightKg,
             request.BirthDate,

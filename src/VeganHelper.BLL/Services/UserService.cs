@@ -54,7 +54,7 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
 
         if (command.PhoneNumber is not null)
         {
-            var phone = command.PhoneNumber.Trim();
+            var phone = Regex.Replace(command.PhoneNumber.Trim(), @"[\s.-]", "");
             if (phone.Length > 0 && !VietnamesePhone.IsMatch(phone))
                 return ServiceResult<UserProfileDto>.Fail("Phone number must be a valid Vietnamese number.", 400);
             user.PhoneNumber = phone.Length == 0 ? null : phone;

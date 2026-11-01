@@ -44,6 +44,7 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
             .AsNoTracking()
             .Where(user => user.IsActive
                 && user.DeletedAt == null
+                && !db.Roles.Any(r => r.Id == user.RoleId && r.RoleName == "admin")
                 && (EF.Functions.Collate(user.Username.ToLower(), "C").Contains(normalizedKeyword)
                     || db.UserProfiles.Any(profile =>
                         profile.UserId == user.Id && profile.DisplayName.ToLower().Contains(normalizedKeyword))))
@@ -89,7 +90,8 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
             .AsNoTracking()
             .Where(candidate => candidate.Id == userId
                 && candidate.IsActive
-                && candidate.DeletedAt == null)
+                && candidate.DeletedAt == null
+                && !db.Roles.Any(r => r.Id == candidate.RoleId && r.RoleName == "admin"))
             .Select(candidate => new
             {
                 candidate.Id,
@@ -130,8 +132,43 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
                 Title = post.Title,
                 ThumbnailUrl = post.Media
                     .Where(media => media.IsPrimary)
+                    .OrderBy(media => media.DisplayOrder)
+                    .ThenBy(media => media.Id)
+                    .Select(media => media.ThumbnailUrl ?? media.MediaUrl)
+                    .FirstOrDefault()
+                    ?? post.Media
+                        .OrderBy(media => media.DisplayOrder)
+                        .ThenBy(media => media.Id)
+                        .Select(media => media.ThumbnailUrl ?? media.MediaUrl)
+                        .FirstOrDefault(),
+                MediaUrl = post.Media
+                    .Where(media => media.IsPrimary)
+                    .OrderBy(media => media.DisplayOrder)
+                    .ThenBy(media => media.Id)
                     .Select(media => media.MediaUrl)
+                    .FirstOrDefault()
+                    ?? post.Media
+                        .OrderBy(media => media.DisplayOrder)
+                        .ThenBy(media => media.Id)
+                        .Select(media => media.MediaUrl)
+                        .FirstOrDefault(),
+                MediaType = post.Media
+                    .Where(media => media.IsPrimary)
+                    .OrderBy(media => media.DisplayOrder)
+                    .ThenBy(media => media.Id)
+                    .Select(media => media.MediaType)
+                    .FirstOrDefault()
+                    ?? post.Media
+                        .OrderBy(media => media.DisplayOrder)
+                        .ThenBy(media => media.Id)
+                        .Select(media => media.MediaType)
+                        .FirstOrDefault(),
+                CategoryName = db.Categories
+                    .Where(c => db.PostCategories.Any(pc => pc.PostId == post.Id && pc.CategoryId == c.Id))
+                    .Select(c => c.Name)
                     .FirstOrDefault(),
+                DietType = post.DietType,
+                LikeCount = db.PostLikes.LongCount(l => l.PostId == post.Id),
                 AuthorName = user.DisplayName ?? user.Username,
                 AvatarUrl = user.AvatarUrl,
                 ViewCount = post.ViewCount,
