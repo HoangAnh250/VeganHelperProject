@@ -37,6 +37,9 @@ public interface IPostRepository
     Task IncrementViewCountAsync(long postId, CancellationToken cancellationToken = default);
     Task<bool> DeletePostAsync(long postId, CancellationToken cancellationToken = default);
 
+    Task<long> CountCommentsAsync(long postId, CancellationToken cancellationToken = default);
+    Task<System.Collections.Generic.Dictionary<long, long>> CountCommentsForPostsAsync(long[] postIds, CancellationToken cancellationToken = default);
+
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
     Task StagePostUpdateRemovalsAsync(Post post, IReadOnlyCollection<PostMedia> media,
         IReadOnlyCollection<PostCategory> categories, IReadOnlyCollection<PostIngredient> ingredients,

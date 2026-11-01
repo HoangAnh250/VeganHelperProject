@@ -8,6 +8,7 @@ public sealed class ModerationPostProjection
 {
     public long Id { get; init; }
     public long AuthorId { get; init; }
+    public string AuthorName { get; init; } = "";
     public string Title { get; init; } = "";
     public string Status { get; init; } = "";
     public int ContentRevision { get; init; }
@@ -21,6 +22,8 @@ public sealed class ModerationFlagProjection
     public string? ReportedSnapshotJson { get; init; }
     public long Id { get; init; }
     public long PostId { get; init; }
+    public long AuthorId { get; init; }
+    public string AuthorName { get; init; } = "";
     public string Title { get; init; } = "";
     public int ContentRevision { get; init; }
     public string Reason { get; init; } = "";
@@ -31,6 +34,7 @@ public sealed class ModerationFlagProjection
 }
 public interface IModerationRepository
 {
+    Task<string> GetAuthorNameAsync(long authorId, CancellationToken ct);
     Task DeferProviderAsync(DateTime retryAfter, CancellationToken ct);
     void AddAssessment(PostModerationAssessment assessment);
     Task<DatabasePage<ModerationPostProjection>> ListPostsAsync(string? keyword, string? status, int page, int size, CancellationToken ct);

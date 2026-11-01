@@ -172,7 +172,8 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
                 AuthorName = user.DisplayName ?? user.Username,
                 AvatarUrl = user.AvatarUrl,
                 ViewCount = post.ViewCount,
-                CreatedAt = post.CreatedAt
+                CreatedAt = post.CreatedAt,
+                CommentCount = db.Comments.LongCount(c => c.PostId == post.Id && !c.IsDeleted && c.Status == "visible")
             })
             .ToListAsync(cancellationToken);
 

@@ -12,6 +12,11 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
         .Where(s => s.Id == 1 && (s.ProviderRetryAfter == null || s.ProviderRetryAfter < retryAfter))
         .ExecuteUpdateAsync(s => s.SetProperty(x => x.ProviderRetryAfter, retryAfter), ct);
     public void AddAssessment(PostModerationAssessment assessment) => db.Add(assessment);
+    public async Task<string> GetAuthorNameAsync(long authorId, CancellationToken ct) =>
+        await db.Users.AsNoTracking().Where(u => u.Id == authorId)
+            .Select(u => db.UserProfiles.Where(up => up.UserId == u.Id && up.DisplayName != "")
+                .Select(up => up.DisplayName).FirstOrDefault() ?? u.Username)
+            .FirstOrDefaultAsync(ct) ?? "Unknown";
     public async Task<DatabasePage<ModerationPostProjection>> ListPostsAsync(string? keyword, string? status, int page, int size, CancellationToken ct)
     {
         var query = db.Posts.AsNoTracking().Where(p => !p.IsDeleted);
@@ -22,8 +27,13 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
             query = query.Where(p => EF.Functions.ILike(EF.Functions.Collate(p.Title, "default"), pattern, "\\"));
         }
         var count = await query.LongCountAsync(ct);
-        var items = await query.OrderBy(p => p.CreatedAt).ThenBy(p => p.Id).Skip((page - 1) * size).Take(size)
-            .Select(p => new ModerationPostProjection { Id = p.Id, AuthorId = p.AuthorId, Title = p.Title,
+        var items = await query.OrderByDescending(p => p.CreatedAt).ThenByDescending(p => p.Id).Skip((page - 1) * size).Take(size)
+            .Select(p => new ModerationPostProjection { Id = p.Id, AuthorId = p.AuthorId,
+                AuthorName = db.Users.Where(u => u.Id == p.AuthorId)
+                    .Select(u => db.UserProfiles.Where(up => up.UserId == u.Id && up.DisplayName != "")
+                        .Select(up => up.DisplayName).FirstOrDefault() ?? u.Username)
+                    .FirstOrDefault() ?? "Unknown",
+                Title = p.Title,
                 Status = p.Status, ContentRevision = p.ContentRevision, CreatedAt = p.CreatedAt,
                 ScanState = db.Set<PostModerationScan>().Where(s => s.PostId == p.Id && s.Revision == p.ContentRevision).Select(s => s.State).FirstOrDefault(),
                 ConfidenceScore = db.Set<PostModerationScan>().Where(s => s.PostId == p.Id && s.Revision == p.ContentRevision).Select(s => s.Confidence).FirstOrDefault() }).ToListAsync(ct);
@@ -32,10 +42,15 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
     private IQueryable<ModerationFlagProjection> FlagQuery() =>
         from f in db.Flags.AsNoTracking()
         join p in db.Posts on f.PostId equals p.Id
+        join u in db.Users on p.AuthorId equals u.Id
+        join up in db.UserProfiles on u.Id equals up.UserId into profiles
+        from up in profiles.DefaultIfEmpty()
         join s in db.Set<PostModerationScan>() on f.ModerationScanId equals (long?)s.Id into scans
         from s in scans.DefaultIfEmpty()
         where f.SourceType == "ai" && f.Status == "pending" && !p.IsDeleted && (p.ModerationHold || f.PostRevision == null || f.PostRevision == p.ContentRevision)
-        select new ModerationFlagProjection { Id = f.Id, PostId = p.Id, Title = p.Title, ContentRevision = p.ContentRevision,
+        select new ModerationFlagProjection { Id = f.Id, PostId = p.Id, AuthorId = p.AuthorId,
+            AuthorName = up == null || up.DisplayName == "" ? u.Username : up.DisplayName,
+            Title = p.Title, ContentRevision = p.ContentRevision,
             ReportedRevision = f.PostRevision, ReportedSnapshotJson = f.ReportedSnapshotJson,
             Reason = f.Reason, AiModelName = f.AiModelName, ConfidenceScore = s == null ? null : s.Confidence,
             FindingsJson = s == null ? "[]" : s.FindingsJson, CreatedAt = f.CreatedAt };
@@ -45,7 +60,7 @@ public sealed class ModerationRepository(AppDbContext db) : IModerationRepositor
         if (postId.HasValue) query = query.Where(f => f.PostId == postId);
         if (minConfidence.HasValue) query = query.Where(f => f.ConfidenceScore >= minConfidence);
         var count = await query.LongCountAsync(ct);
-        return new(count, await query.OrderBy(f => f.CreatedAt).ThenBy(f => f.Id).Skip((page - 1) * size).Take(size).ToListAsync(ct));
+        return new(count, await query.OrderByDescending(f => f.CreatedAt).ThenByDescending(f => f.Id).Skip((page - 1) * size).Take(size).ToListAsync(ct));
     }
     public Task<List<ModerationFlagProjection>> CurrentFlagsAsync(long postId, CancellationToken ct) => FlagQuery().Where(f => f.PostId == postId).OrderBy(f => f.Id).ToListAsync(ct);
     public Task<Post?> DetailAsync(long postId, CancellationToken ct) => db.Posts.AsNoTracking().Include(p => p.Media).Include(p => p.PostSteps)

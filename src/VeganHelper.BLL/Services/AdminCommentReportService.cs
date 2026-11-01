@@ -9,7 +9,7 @@ using VeganHelper.DAL.Repositories;
 namespace VeganHelper.BLL.Services;
 
 public sealed class AdminCommentReportService(IAdminCommentReportRepository repository, IAdminAuditService audit,
-    IMapper mapper, TimeProvider clock) : IAdminCommentReportService
+    INotificationPublisher notifications, IMapper mapper, TimeProvider clock) : IAdminCommentReportService
 {
     public Task<PagedResult<AdminCommentReportDto>> ListAsync(AdminActor actor, AdminCommentReportListRequest request, CancellationToken ct)
     {
@@ -64,6 +64,17 @@ public sealed class AdminCommentReportService(IAdminCommentReportRepository repo
             await repository.ResolvePendingAsync(comment.Id, action == "remove" ? "resolved" : "dismissed",
                 actor.UserId, reason, now, token);
             await repository.SaveAsync(token);
+
+            if (action == "remove")
+            {
+                await notifications.NotifyCommentDeletionAsync(
+                    comment.UserId,
+                    comment.Id,
+                    comment.PostId,
+                    comment.Content,
+                    reason,
+                    token);
+            }
 
             var original = await repository.FindAsync(id, token);
             return original is null

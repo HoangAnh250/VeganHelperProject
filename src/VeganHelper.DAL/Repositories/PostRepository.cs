@@ -212,7 +212,8 @@ public sealed class PostRepository : IPostRepository
                              ?? _context.Users.Where(u => u.Id == p.AuthorId).Select(u => u.Username).FirstOrDefault() ?? "Unknown",
                 AvatarUrl = _context.UserProfiles.Where(up => up.UserId == p.AuthorId).Select(up => up.AvatarUrl).FirstOrDefault(),
                 ViewCount = p.ViewCount,
-                CreatedAt = p.CreatedAt
+                CreatedAt = p.CreatedAt,
+                CommentCount = _context.Comments.LongCount(c => c.PostId == p.Id && !c.IsDeleted && c.Status == "visible")
             });
 
         var items = await projectedQuery.ToListAsync(cancellationToken);
@@ -268,7 +269,8 @@ public sealed class PostRepository : IPostRepository
                     .Select(up => up.AvatarUrl)
                     .FirstOrDefault(),
                 ViewCount = p.ViewCount,
-                CreatedAt = p.CreatedAt
+                CreatedAt = p.CreatedAt,
+                CommentCount = _context.Comments.LongCount(c => c.PostId == p.Id && !c.IsDeleted && c.Status == "visible")
             })
             .ToListAsync(cancellationToken);
 
@@ -372,6 +374,29 @@ public sealed class PostRepository : IPostRepository
     public Task<bool> IsEvidenceMediaAsync(string url, CancellationToken ct) => _context.Flags.AnyAsync(f =>
         f.ReportedSnapshotJson != null && EF.Functions.JsonContains(f.ReportedSnapshotJson,
             System.Text.Json.JsonSerializer.Serialize(new { media = new[] { new { mediaUrl = url } } })), ct);
+
+    public Task<long> CountCommentsAsync(long postId, CancellationToken cancellationToken = default)
+    {
+        return _context.Comments
+            .Where(c => c.PostId == postId && !c.IsDeleted && c.Status == "visible")
+            .LongCountAsync(cancellationToken);
+    }
+
+    public async Task<Dictionary<long, long>> CountCommentsForPostsAsync(long[] postIds, CancellationToken cancellationToken = default)
+    {
+        if (postIds.Length == 0)
+        {
+            return new Dictionary<long, long>();
+        }
+
+        var counts = await _context.Comments
+            .Where(c => postIds.Contains(c.PostId) && !c.IsDeleted && c.Status == "visible")
+            .GroupBy(c => c.PostId)
+            .Select(g => new { PostId = g.Key, Count = g.LongCount() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(x => x.PostId, x => x.Count);
+    }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {

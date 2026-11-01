@@ -46,16 +46,17 @@ public sealed class PostReportService(IPostReportRepository reports, IModeration
         if (status is not ("pending" or "resolved" or "dismissed" or "all") || request.PostId is <= 0)
             throw new ArgumentException("Invalid report filter.");
         return audit.ExecuteAsync(actor, "report.list", "flag", null, async token =>
-            Pagination.Map<Flag, AdminPostReportDto>(await reports.ListAsync(status == "all" ? null : status, request.PostId,
+            Pagination.Map<AdminPostReportProjection, AdminPostReportDto>(await reports.ListAsync(status == "all" ? null : status, request.PostId,
                 request.PageIndex, request.PageSize, token), request.PageIndex, request.PageSize, mapper), null, ct);
     }
     public Task<AdminPostReportDetailDto> GetAsync(AdminActor actor, long id, CancellationToken ct) =>
         audit.ExecuteAsync(actor, "report.view", "flag", id.ToString(), async token =>
         {
-            var report = await reports.FindAsync(id, false, token);
-            if (report?.SourceType != "user" || report.PostId is null) throw new NotFoundException("Report not found.");
+            var report = await reports.GetReportProjectionAsync(id, token);
+            if (report is null || report.PostId is null) throw new NotFoundException("Report not found.");
             var post = await reports.PostAsync(report.PostId.Value, token) ?? throw new NotFoundException("Post not found.");
             var current = mapper.Map<ModerationPostDetailDto>(post);
+            current.AuthorName = report.AuthorName;
             current.Flags = mapper.Map<List<ModerationFlagDto>>(await moderation.CurrentFlagsAsync(post.Id, token));
             return new AdminPostReportDetailDto(mapper.Map<AdminPostReportDto>(report), current,
                 mapper.Map<List<ModerationAssessmentDto>>(await reports.HistoryAsync(post.Id, token)));

@@ -359,6 +359,8 @@ public class PostServiceTests
             .ReturnsAsync((posts, 2));
         _mockPostInteractionRepository.Setup(r => r.CountLikesForPostsAsync(It.Is<long[]>(ids => ids.SequenceEqual(new long[] { 1, 2 })), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<long, long> { [1] = 17 });
+        _mockPostRepository.Setup(r => r.CountCommentsForPostsAsync(It.Is<long[]>(ids => ids.SequenceEqual(new long[] { 1, 2 })), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<long, long> { [1] = 5 });
 
         // Act
         var result = await _postService.GetMyPostsAsync(authorId, request);
@@ -370,8 +372,11 @@ public class PostServiceTests
         Assert.Equal("Test Post", result.Items.First().Title);
         Assert.Equal("thumb.jpg", result.Items.First().ThumbnailUrl);
         Assert.Equal(17, result.Items.First().LikeCount);
+        Assert.Equal(5, result.Items.First().CommentCount);
         Assert.Equal(0, result.Items.Last().LikeCount);
+        Assert.Equal(0, result.Items.Last().CommentCount);
         _mockPostInteractionRepository.Verify(r => r.CountLikesForPostsAsync(It.IsAny<long[]>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockPostRepository.Verify(r => r.CountCommentsForPostsAsync(It.IsAny<long[]>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.Equal(1, result.TotalPages);
     }
 

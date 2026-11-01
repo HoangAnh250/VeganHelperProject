@@ -13,7 +13,8 @@ public sealed class MappingProfile : Profile
         CreateMap<MealPlan, VeganHelper.BLL.DTOs.MealPlanning.MealPlanDto>()
             .ForMember(d=>d.Routine,o=>o.Ignore())
             .ForMember(d=>d.Menu,o=>o.Ignore());
-        CreateMap<Flag, VeganHelper.BLL.DTOs.Posts.AdminPostReportDto>();
+        CreateMap<Flag, VeganHelper.BLL.DTOs.Posts.AdminPostReportDto>(MemberList.None);
+        CreateMap<AdminPostReportProjection, VeganHelper.BLL.DTOs.Posts.AdminPostReportDto>(MemberList.None);
         CreateMap<PostModerationAssessment, VeganHelper.BLL.DTOs.Posts.ModerationAssessmentDto>();
         CreateMap<AdminAuditLog, VeganHelper.BLL.DTOs.Admin.AdminAuditLogDto>();
         CreateMap<AdminMemberProjection, VeganHelper.BLL.DTOs.Admin.AdminMemberDto>();

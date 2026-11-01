@@ -48,7 +48,7 @@ public sealed class AdminCommentReportRepository(AppDbContext db) : IAdminCommen
     {
         var query = Query(status, onePerComment: true);
         var total = await query.LongCountAsync(ct);
-        var items = await query.OrderBy(item => item.CreatedAt).ThenBy(item => item.Id)
+        var items = await query.OrderByDescending(item => item.CreatedAt).ThenByDescending(item => item.Id)
             .Skip((pageIndex - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         return new(total, items);
     }

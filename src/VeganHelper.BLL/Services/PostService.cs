@@ -147,7 +147,8 @@ public sealed class PostService : IPostService
             AuthorName = p.AuthorName,
             AvatarUrl = p.AvatarUrl,
             ViewCount = p.ViewCount,
-            CreatedAt = p.CreatedAt
+            CreatedAt = p.CreatedAt,
+            CommentCount = p.CommentCount
         }).ToList();
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);
@@ -192,7 +193,8 @@ public sealed class PostService : IPostService
             AuthorName = p.AuthorName,
             AvatarUrl = p.AvatarUrl,
             ViewCount = p.ViewCount,
-            CreatedAt = p.CreatedAt
+            CreatedAt = p.CreatedAt,
+            CommentCount = p.CommentCount
         }).ToList();
 
         return new PagedResult<PostFeedItemDto>
@@ -223,6 +225,7 @@ public sealed class PostService : IPostService
         post.ViewCount++;
 
         var likeCount = await _postInteractionRepository.CountLikesAsync(postId, cancellationToken);
+        var commentCount = await _postRepository.CountCommentsAsync(postId, cancellationToken);
         var isLiked = false;
         var isSaved = false;
         if (viewerId.HasValue)
@@ -254,6 +257,7 @@ public sealed class PostService : IPostService
             ModerationHold = post.ModerationHold,
             ViewCount = post.ViewCount,
             LikeCount = likeCount,
+            CommentCount = commentCount,
             IsLiked = isLiked,
             IsSaved = isSaved,
             CreatedAt = post.CreatedAt,
@@ -292,8 +296,11 @@ public sealed class PostService : IPostService
             request.PageSize, 
             cancellationToken);
 
+        var postIds = posts.Select(p => p.Id).ToArray();
         var likeCounts = posts.Count == 0 ? new Dictionary<long, long>()
-            : await _postInteractionRepository.CountLikesForPostsAsync(posts.Select(p => p.Id).ToArray(), cancellationToken);
+            : (await _postInteractionRepository.CountLikesForPostsAsync(postIds, cancellationToken)) ?? new Dictionary<long, long>();
+        var commentCounts = posts.Count == 0 ? new Dictionary<long, long>()
+            : (await _postRepository.CountCommentsForPostsAsync(postIds, cancellationToken)) ?? new Dictionary<long, long>();
         var items = posts.Select(p => new MyPostItemDto
         {
             Id = p.Id,
@@ -305,7 +312,8 @@ public sealed class PostService : IPostService
             CategoryName = null,
             CategoryId = p.PostCategories.OrderBy(c => c.CategoryId).Select(c => c.CategoryId).FirstOrDefault(),
             ViewCount = p.ViewCount,
-            LikeCount = likeCounts.GetValueOrDefault(p.Id)
+            LikeCount = likeCounts.GetValueOrDefault(p.Id),
+            CommentCount = commentCounts.GetValueOrDefault(p.Id)
         }).ToList();
 
         int totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);

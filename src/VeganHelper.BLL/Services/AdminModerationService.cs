@@ -29,6 +29,7 @@ public sealed class AdminModerationService(IModerationRepository repository, IAd
         {
             var post = await repository.DetailAsync(id, token) ?? throw new NotFoundException("Post not found.");
             var result = mapper.Map<ModerationPostDetailDto>(post);
+            result.AuthorName = await repository.GetAuthorNameAsync(post.AuthorId, token);
             var scan = await repository.CurrentScanAsync(id, post.ContentRevision, token);
             result.ScanState = scan?.State; result.ConfidenceScore = scan?.Confidence;
             result.ScanErrorCode = scan?.ErrorCode; result.ScanSummary = scan?.Summary;
