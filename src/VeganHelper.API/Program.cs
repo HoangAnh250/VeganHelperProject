@@ -88,6 +88,8 @@ builder.Services.AddRateLimiter(options =>
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        if (context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter))
+            context.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
         var isVideoSummary = context.HttpContext.Request.Path.Value?.EndsWith("/summary", StringComparison.OrdinalIgnoreCase) == true;
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
@@ -108,6 +110,7 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
+            .WithExposedHeaders("Retry-After")
             .AllowAnyMethod();
     });
 });

@@ -8,6 +8,7 @@ public sealed record PostRecommendationQuery(
     string? MealType,
     string? DietType,
     int? MaxMinutes,
-    bool StrictOnlyIngredients);
+    bool StrictOnlyIngredients,
+    IReadOnlyList<long>? AllergyIngredientIds = null);
 
 public sealed record PostRecommendationProjection(long PostId, string Title, string? ThumbnailUrl);

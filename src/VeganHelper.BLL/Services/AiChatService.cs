@@ -152,6 +152,11 @@ public sealed class AiChatService(
                         ? []
                         : await repository.GetRecommendedPostIdsAsync(session.Id, ct);
                     var allergies = userProfile?.Allergies.Select(item => item.Name).ToArray() ?? [];
+                    var allergyIngredientIds = userProfile?.Allergies
+                        .Select(item => item.IngredientId)
+                        .Where(id => id > 0)
+                        .Distinct()
+                        .ToArray() ?? [];
                     var query = new PostRecommendationQuery(
                         CleanIngredients(criteria.RequiredIngredients),
                         CleanIngredients(criteria.AvailableIngredients),
@@ -162,7 +167,8 @@ public sealed class AiChatService(
                             ? criteria.DietType
                             : userProfile?.Profile?.DietType,
                         criteria.MaxMinutes is > 0 and <= 240 ? criteria.MaxMinutes : null,
-                        criteria.StrictOnlyIngredients);
+                        criteria.StrictOnlyIngredients,
+                        allergyIngredientIds);
                     var (posts, hasMore) = await postRepository.SearchRecommendationsAsync(query, ct);
                     return new AiPostSearchResult(
                         posts.Select(post => new AiPostCardDto(post.PostId, post.Title, post.ThumbnailUrl)).ToArray(),
@@ -208,11 +214,14 @@ public sealed class AiChatService(
                 "The AI service is temporarily unavailable. Please try again later.", 503);
         }
 
+        var answerText = completion.RecommendedPosts.Count == 0
+            ? completion.Text
+            : BuildPostRecommendationAnswer(messageText, completion.Text, completion.RecommendedPosts.Count);
         var aiMessage = new ChatMessage
         {
             SessionId = session.Id,
             SenderType = "ai",
-            MessageText = completion.Text,
+            MessageText = answerText,
             RecommendedPostIdsJson = completion.RecommendedPosts.Count == 0
                 ? null
                 : JsonSerializer.Serialize(completion.RecommendedPosts.Select(post => post.PostId)),
@@ -233,7 +242,7 @@ public sealed class AiChatService(
         return ServiceResult<AiChatResponseDto>.Ok(new AiChatResponseDto(
             session.Id,
             session.GuestSessionId,
-            completion.Text,
+            answerText,
             aiMessage.CreatedAt,
             completion.Model)
         {
@@ -364,24 +373,64 @@ public sealed class AiChatService(
             : await postRepository.GetPublicRecommendationsAsync(postIds, cancellationToken))
             .ToDictionary(post => post.PostId);
 
+        var historyMessages = new List<AiChatMessageDto>(messages.Count);
+        string? previousUserMessage = null;
+        foreach (var message in messages)
+        {
+            var recommendedPosts = message.RecommendedPostIdsJson is null
+                ? []
+                : (JsonSerializer.Deserialize<long[]>(message.RecommendedPostIdsJson) ?? [])
+                    .Where(publicPosts.ContainsKey)
+                    .Select(id => publicPosts[id])
+                    .Select(post => new AiPostCardDto(post.PostId, post.Title, post.ThumbnailUrl))
+                    .ToArray();
+            var messageText = message.SenderType == "ai" && message.RecommendedPostIdsJson is not null
+                ? BuildPostRecommendationAnswer(previousUserMessage ?? string.Empty, message.MessageText, recommendedPosts.Length)
+                : message.MessageText;
+            historyMessages.Add(new AiChatMessageDto(
+                message.Id,
+                message.SenderType,
+                messageText,
+                message.CreatedAt)
+            {
+                RecommendedPosts = recommendedPosts
+            });
+            if (message.SenderType == "user")
+                previousUserMessage = message.MessageText;
+        }
+
         return ServiceResult<AiChatHistoryDto>.Ok(new AiChatHistoryDto(
             session.Id,
             session.GuestSessionId,
             session.StartedAt,
             session.LastActivityAt,
-            messages.Select(message => new AiChatMessageDto(
-                message.Id,
-                message.SenderType,
-                message.MessageText,
-                message.CreatedAt)
-            {
-                RecommendedPosts = message.RecommendedPostIdsJson is null ? []
-                    : (JsonSerializer.Deserialize<long[]>(message.RecommendedPostIdsJson) ?? [])
-                        .Where(publicPosts.ContainsKey)
-                        .Select(id => publicPosts[id])
-                        .Select(post => new AiPostCardDto(post.PostId, post.Title, post.ThumbnailUrl))
-                        .ToArray()
-            }).ToList()));
+            historyMessages));
+    }
+
+    private static string BuildPostRecommendationAnswer(string userMessage, string aiMessage, int count)
+    {
+        var isVietnamese = HasVietnameseLanguageSignal(userMessage) || HasVietnameseLanguageSignal(aiMessage);
+        if (count == 0)
+            return isVietnamese
+                ? "Các bài viết được gợi ý trước đây hiện không còn công khai. Bạn có thể yêu cầu tìm lại để xem kết quả mới."
+                : "The previously suggested posts are no longer publicly available. Ask me to search again for current results.";
+
+        return isVietnamese
+            ? $"Mình tìm được {count} bài viết phù hợp trên VeganHelper. Các thẻ bên dưới là những kết quả đó. Hãy kiểm tra nguyên liệu trong từng bài, đặc biệt nếu bạn có dị ứng."
+            : $"I found {count} matching post{(count == 1 ? string.Empty : "s")} on VeganHelper. The cards below show those results. Please check each post's ingredients, especially if you have allergies.";
+    }
+
+    private static bool HasVietnameseLanguageSignal(string value)
+    {
+        var normalized = new string(value.ToLowerInvariant()
+            .Select(character => char.IsLetterOrDigit(character) || char.IsWhiteSpace(character) ? character : ' ')
+            .ToArray());
+        var indicators = new[]
+        {
+            "mình", "bạn", "tôi", "được", "món", "bài", "tìm", "trên", "có", "không",
+            "nhé", "phù hợp", "dị ứng", "gợi ý", "cho", "với", "các", "là"
+        };
+        return indicators.Any(indicator => $" {normalized} ".Contains($" {indicator} ", StringComparison.Ordinal));
     }
 
     private static string[] CleanIngredients(IReadOnlyList<string>? values, int maximum = 3) =>

@@ -11,6 +11,14 @@ using System.Linq;
 
 public sealed class PostRepository : IPostRepository
 {
+    private static readonly Dictionary<string, string[]> AllergyAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["mushroom"] = ["mushroom", "mushrooms", "nấm"],
+        ["nấm"] = ["mushroom", "mushrooms", "nấm"],
+        ["tomato"] = ["tomato", "tomatoes", "cà chua"],
+        ["cà chua"] = ["tomato", "tomatoes", "cà chua"]
+    };
+
     private readonly AppDbContext _context;
     private IDbContextTransaction? _currentTransaction;
 
@@ -62,14 +70,24 @@ public sealed class PostRepository : IPostRepository
                     (third == null || !EF.Functions.ILike(item.Ingredient!.Name, third, "\\"))));
         }
 
-        if (request.Allergies.Count > 0)
+        var allergyIngredientIds = request.AllergyIngredientIds ?? Array.Empty<long>();
+        if (allergyIngredientIds.Count > 0 || request.Allergies.Count > 0)
         {
-            query = query.Where(post => post.IngredientsVerified);
-            foreach (var allergy in request.Allergies)
+            // A verified flag without structured ingredients cannot establish allergy safety.
+            query = query.Where(post => post.IngredientsVerified && post.PostIngredients.Any());
+
+            if (allergyIngredientIds.Count > 0)
+                query = query.Where(post => !post.PostIngredients.Any(item =>
+                    allergyIngredientIds.Contains(item.IngredientId)));
+
+            foreach (var allergy in GetAllergySearchTerms(request.Allergies)
+                .Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 var pattern = ContainsPattern(allergy);
-                query = query.Where(post => !post.PostIngredients.Any(item =>
-                    EF.Functions.ILike(item.Ingredient!.Name, pattern, "\\")));
+                query = query.Where(post =>
+                    !EF.Functions.ILike(post.Title, pattern, "\\") &&
+                    !post.PostIngredients.Any(item =>
+                        EF.Functions.ILike(item.Ingredient!.Name, pattern, "\\")));
             }
         }
 
@@ -104,6 +122,26 @@ public sealed class PostRepository : IPostRepository
 
     private IQueryable<Post> PublicRecommendationQuery() => _context.Posts.AsNoTracking()
         .Where(post => !post.IsDeleted && post.Status == "published" && !post.ModerationHold);
+
+    private static IEnumerable<string> GetAllergySearchTerms(IEnumerable<string> allergies)
+    {
+        foreach (var allergy in allergies)
+        {
+            if (string.IsNullOrWhiteSpace(allergy))
+                continue;
+
+            var name = allergy.Trim();
+            if (AllergyAliases.TryGetValue(name, out var aliases))
+            {
+                foreach (var alias in aliases)
+                    yield return alias;
+            }
+            else
+            {
+                yield return name;
+            }
+        }
+    }
 
     private static string ContainsPattern(string value) =>
         $"%{value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_")}%";

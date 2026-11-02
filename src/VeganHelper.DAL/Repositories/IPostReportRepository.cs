@@ -7,6 +7,7 @@ public sealed class AdminPostReportProjection
 {
     public long Id { get; init; }
     public long? PostId { get; init; }
+    public int ReportCount { get; set; }
     public string PostTitle { get; init; } = "";
     public long AuthorId { get; init; }
     public string AuthorName { get; init; } = "";
@@ -28,6 +29,7 @@ public interface IPostReportRepository
     Task<Flag?> PendingAsync(long reporterId, long postId, int revision, CancellationToken ct);
     Task<int> RecentCountAsync(long reporterId, DateTime since, CancellationToken ct);
     Task<DatabasePage<AdminPostReportProjection>> ListAsync(string? status, long? postId, int page, int size, CancellationToken ct);
+    Task<IReadOnlyList<AdminPostReportProjection>> ListRevisionAsync(long postId, int? revision, string status, CancellationToken ct);
     Task<AdminPostReportProjection?> GetReportProjectionAsync(long id, CancellationToken ct);
     Task<Flag?> FindAsync(long id, bool forUpdate, CancellationToken ct);
     Task<List<PostModerationAssessment>> HistoryAsync(long postId, CancellationToken ct);

@@ -10,6 +10,8 @@ namespace VeganHelper.BLL.Services;
 public sealed class PostSummaryService(IPostSummaryRepository repository, IVideoSummaryAiClient ai,
     IPostSummaryQueue queue, ILogger<PostSummaryService> logger) : IPostSummaryService
 {
+    private string ProcessingModel => $"{ai.SummaryModel}|speech-v2";
+
     public async Task<PostSummaryDto?> GetAsync(long postId, CancellationToken ct)
     {
         var source = await repository.GetPublicSourceAsync(postId, ct);
@@ -59,24 +61,29 @@ public sealed class PostSummaryService(IPostSummaryRepository repository, IVideo
             var clipNumber = 0;
             foreach (var video in source.Videos)
             {
+                clipNumber++;
                 var text = (await ai.TranscribeAsync(video.Url, ct)).Trim();
-                if (text.Length == 0) throw new InvalidOperationException("One video has no detectable speech.");
-                transcript.AppendLine($"Clip {++clipNumber} (media {video.Id}):");
+                if (text.Length == 0) continue;
+                transcript.AppendLine($"Clip {clipNumber} (media {video.Id}):");
                 transcript.AppendLine(text).AppendLine();
             }
             var combined = transcript.ToString().Trim();
+            if (combined.Length == 0)
+                throw new InvalidOperationException("No reliable cooking speech was detected in these videos.");
             if (combined.Length > 80_000)
                 throw new InvalidOperationException("The combined transcript is too long to summarize.");
             var summary = await SummarizeAsync(combined, ct);
             var latest = await repository.GetPublicSourceAsync(postId, ct);
             if (latest is null || latest.Revision != source.Revision || SourceIds(latest) != ids) return;
-            await repository.CompleteAsync(postId, source.Revision, ids, combined, summary, ai.SummaryModel, ct);
+            await repository.CompleteAsync(postId, source.Revision, ids, combined, summary, ProcessingModel, ct);
         }
         catch (Exception exception)
         {
             logger.LogWarning(exception, "Could not summarize post {PostId}.", postId);
             await repository.FailAsync(postId, source.Revision, ids,
-                "Transcription or summary failed. Please try again later.", CancellationToken.None);
+                exception is InvalidOperationException && exception.Message.StartsWith("No reliable cooking speech", StringComparison.Ordinal)
+                    ? "No reliable cooking speech was detected. Music-only or silent videos cannot be summarized."
+                    : "Transcription or summary failed. Please try again later.", CancellationToken.None);
         }
     }
 
@@ -105,8 +112,9 @@ public sealed class PostSummaryService(IPostSummaryRepository repository, IVideo
         return await ai.SummarizeAsync(combined, ct);
     }
 
-    private static bool Matches(PostSummary summary, SummarySource source) =>
-        summary.ContentRevision == source.Revision && summary.SourceMediaIdsJson == SourceIds(source);
+    private bool Matches(PostSummary summary, SummarySource source) =>
+        summary.ContentRevision == source.Revision && summary.SourceMediaIdsJson == SourceIds(source) &&
+        (summary.Status != "completed" || summary.ModelName == ProcessingModel);
     private static PostSummaryDto Map(PostSummary summary) =>
         new(summary.PostId, summary.Status, summary.Transcript, summary.AiGeneratedText,
             summary.ErrorMessage, summary.RequestedAt, summary.GeneratedAt);
