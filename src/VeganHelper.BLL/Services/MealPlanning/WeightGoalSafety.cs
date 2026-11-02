@@ -8,18 +8,18 @@ public sealed record GoalSafetyResult(bool Allowed, decimal Tdee, decimal Target
 /// <summary>Conservative product screening, not a clinical assessment or a guaranteed outcome.</summary>
 public static class WeightGoalSafety
 {
-    public const string PolicyVersion="goal-safety-v1";
+    public const string PolicyVersion="goal-safety-v2";
     public static GoalSafetyResult Evaluate(UserProfile? profile,DateOnly asOf,decimal targetWeight,
         DateOnly targetDate,bool eligibilityConfirmed)
     {
         var reasons=new List<string>();
-        var tdee=profile is null ? null : MaintenanceEnergy.Estimate(profile,asOf,20);
+        var tdee=profile is null ? null : MaintenanceEnergy.Estimate(profile,asOf,18);
         if(tdee is null) reasons.Add("Complete a supported adult health profile before setting a weight goal.");
         if(targetWeight is <30 or >200) reasons.Add("Target weight must be between 30 and 200 kg.");
         if(tdee is null || targetWeight is <30 or >200)
             return new(false,tdee ?? 0,0,0,0,PolicyVersion,reasons);
         if(profile?.BirthDate is DateOnly birth && birth<=asOf.AddYears(-66))
-            reasons.Add("Weight goal estimates are available for adults aged 20–65. Ask a qualified professional for individual advice.");
+            reasons.Add("Weight goal estimates are available for adults aged 18–65. Ask a qualified professional for individual advice.");
         if(!eligibilityConfirmed) reasons.Add("Confirm that you are not pregnant or breastfeeding and do not need clinician-managed nutrition.");
         var days=targetDate.DayNumber-asOf.DayNumber;
         if(days<7 || days>730) reasons.Add("Choose a target date between 7 and 730 days from the calculation date.");

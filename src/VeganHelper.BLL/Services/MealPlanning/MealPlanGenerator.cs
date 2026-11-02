@@ -18,8 +18,8 @@ public static class MealPlanGenerator
             ("dinner",split.DinnerPercent/100m)
         ];
         var profile=input.Profile ?? throw new ArgumentException("Complete your health profile before generating a meal plan.");
-        var maintenance=MaintenanceEnergy.Estimate(profile,today,20)
-            ?? throw new ArgumentException("Generation requires age 20–120, valid height/weight, male/female energy inputs and a supported activity level.");
+        var maintenance=MaintenanceEnergy.Estimate(profile,today,18)
+            ?? throw new ArgumentException("Generation requires age 18–120, valid height/weight, male/female energy inputs and a supported activity level.");
         var target=targetOverride ?? maintenance;
         if (profile.DietType is not ("vegan" or "lacto_ovo_vegetarian")) throw new ArgumentException("Unsupported diet type.");
         var excluded=AllergyFilter.ExcludedIngredients(input.Allergies,input.Ingredients,
