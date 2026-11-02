@@ -14,6 +14,7 @@ public interface IMealPlanningService
 {
     Task<MealPlanDto> GenerateAsync(long userId,GenerateMealPlanRequest request,CancellationToken ct);
     Task<MealPlanDto> GetAsync(long userId,long id,CancellationToken ct);
+    Task<MealPlanDto> RenameAsync(long userId,long id,UpdateMealPlanNameRequest request,CancellationToken ct);
     Task<PagedResult<MealPlanDto>> ListAsync(long userId,int pageIndex,int pageSize,CancellationToken ct);
 }
 
@@ -26,6 +27,7 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
     public async Task<MealPlanDto> GenerateAsync(long userId,GenerateMealPlanRequest request,CancellationToken ct)
     {
         await validator.ValidateAndThrowAsync(request,ct);
+        var planName=MealPlanNaming.NormalizeOrDefault(request.Name,request.StartDate);
         var access=await payments.GetAccessAsync(userId,ct);
         if(!access.CanGenerate)
             throw new MealPlanAccessRequiredException("Your three free meal-plan trials have been used. Purchase a package to generate more plans.","MEAL_PLAN_TRIAL_LIMIT_REACHED");
@@ -57,7 +59,7 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         var now=clock.GetUtcNow().UtcDateTime;
         var plan=new MealPlan
         {
-            UserId=userId, IsTemplate=false, StartDate=request.StartDate, EndDate=request.StartDate.AddDays(6),
+            UserId=userId, IsTemplate=false, Name=planName, StartDate=request.StartDate, EndDate=request.StartDate.AddDays(6),
             HeightCm=input.Profile!.HeightCm, WeightKg=input.Profile.WeightKg, BmiValue=menu.Bmi, DietType=menu.DietType,
             AllergiesSnapshot=JsonSerializer.Serialize(input.Allergies,JsonOptions), AvailableIngredientsSnapshot="[]",
             GenerationSource="manual", IsTrialGeneration=access.Status!="active", GenerationSnapshot=JsonSerializer.Serialize(menu,JsonOptions),
@@ -87,6 +89,17 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         return dto;
     }
 
+    public async Task<MealPlanDto> RenameAsync(long userId,long id,UpdateMealPlanNameRequest request,CancellationToken ct)
+    {
+        var name=MealPlanNaming.NormalizeRequired(request?.Name);
+        var access=await EnsureCanViewAsync(userId,ct);
+        var plan=await repository.UpdateNameAsync(userId,id,name,!access.CanViewExistingPlans,
+            clock.GetUtcNow().UtcDateTime,ct) ?? throw new NotFoundException("Meal plan not found.");
+        var dto=ToDto(plan);
+        await routines.EnrichAsync(userId,dto,ct);
+        return dto;
+    }
+
     public async Task<PagedResult<MealPlanDto>> ListAsync(long userId,int pageIndex,int pageSize,CancellationToken ct)
     {
         Pagination.Validate(pageIndex,pageSize);
@@ -112,13 +125,16 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
             Items=page.Items.Select(ToDto).ToList(), TotalItems=page.TotalCount,TotalCount=checked((int)page.TotalCount),
             PageIndex=pageIndex,PageSize=pageSize,TotalPages=Pagination.TotalPages(page.TotalCount,pageSize)
         };
-        foreach(var dto in result.Items) await routines.EnrichAsync(userId,dto,ct);
+        await routines.EnrichManyAsync(userId,result.Items.ToArray(),ct);
         return result;
     }
 
     private MealPlanDto ToDto(MealPlan plan)
     {
         var dto=mapper.Map<MealPlanDto>(plan);
+        dto.Name=string.IsNullOrWhiteSpace(plan.Name)
+            ? plan.StartDate is DateOnly startDate ? MealPlanNaming.Default(startDate) : $"Weekly menu #{plan.Id}"
+            : plan.Name;
         dto.Menu=plan.GenerationSnapshot is null ? null : JsonSerializer.Deserialize<WeeklyMenuDto>(plan.GenerationSnapshot,JsonOptions);
         return dto;
     }

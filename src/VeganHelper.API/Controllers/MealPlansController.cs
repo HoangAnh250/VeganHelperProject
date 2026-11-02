@@ -60,6 +60,13 @@ public sealed class MealPlansController(IMealPlanningService service,MealRoutine
         return Ok(await service.GetAsync(userId,id,ct));
     }
 
+    [HttpPatch("{id:long:min(1)}/name")]
+    public async Task<IActionResult> Rename(long id,[FromBody] UpdateMealPlanNameRequest request,CancellationToken ct)
+    {
+        if(UserId is not long userId) return Unauthorized();
+        return Ok(await service.RenameAsync(userId,id,request,ct));
+    }
+
     [HttpGet]
     public async Task<IActionResult> List([FromQuery]int pageIndex=1,[FromQuery]int pageSize=10,CancellationToken ct=default)
     {

@@ -11,8 +11,8 @@ public static class MealPlanGenerator
     public static WeeklyMenuDto Generate(MealPlanningInput input, DateOnly today, Random random, CancellationToken ct=default, decimal? targetOverride=null)
     {
         var profile=input.Profile ?? throw new ArgumentException("Complete your health profile before generating a meal plan.");
-        var maintenance=MaintenanceEnergy.Estimate(profile,today,20)
-            ?? throw new ArgumentException("Generation requires age 20–120, valid height/weight, male/female energy inputs and a supported activity level.");
+        var maintenance=MaintenanceEnergy.Estimate(profile,today,18)
+            ?? throw new ArgumentException("Generation requires age 18–120, valid height/weight, male/female energy inputs and a supported activity level.");
         var target=targetOverride ?? maintenance;
         if (profile.DietType is not ("vegan" or "lacto_ovo_vegetarian")) throw new ArgumentException("Unsupported diet type.");
         var excluded=AllergyFilter.ExcludedIngredients(input.Allergies,input.Ingredients,
@@ -61,6 +61,7 @@ public static class MealPlanGenerator
                     {
                         MealId=options.Meal.Id, Name=options.Meal.Name, ImageUrl=options.Meal.ImageUrl, MealTime=slot.Time,
                         PortionMultiplier=options.Portion, Calories=options.Calories,
+                        CookingSteps=options.Meal.CookingSteps,
                         Ingredients=options.Meal.Ingredients.Select(i=>new MealIngredientDto
                         {
                             IngredientId=i.IngredientId, Name=i.Name, Unit=i.Unit,

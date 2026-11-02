@@ -13,11 +13,6 @@ namespace VeganHelper.API.Controllers;
 public sealed class FollowsController(IFollowService service) : ControllerBase
 {
     [HttpPost("{userId:long:min(1)}/follow")]
-    [ProducesResponseType(typeof(FollowStatusDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Follow(long userId, CancellationToken cancellationToken)
     {
         if (GetUserId() is not long currentUserId) return Unauthorized();
