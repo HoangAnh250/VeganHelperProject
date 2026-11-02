@@ -1079,7 +1079,7 @@ namespace VeganHelper.DAL.PostgresMigrations
                         new
                         {
                             Id = 1,
-                            AmountVnd = 100000,
+                            AmountVnd = 1000,
                             Code = "monthly",
                             CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, 0, DateTimeKind.Utc),
                             DurationMonths = 1,
@@ -1089,7 +1089,7 @@ namespace VeganHelper.DAL.PostgresMigrations
                         new
                         {
                             Id = 2,
-                            AmountVnd = 500000,
+                            AmountVnd = 5000,
                             Code = "half_year",
                             CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, 0, DateTimeKind.Utc),
                             DurationMonths = 6,
@@ -1099,7 +1099,7 @@ namespace VeganHelper.DAL.PostgresMigrations
                         new
                         {
                             Id = 3,
-                            AmountVnd = 1000000,
+                            AmountVnd = 10000,
                             Code = "yearly",
                             CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, 0, DateTimeKind.Utc),
                             DurationMonths = 12,

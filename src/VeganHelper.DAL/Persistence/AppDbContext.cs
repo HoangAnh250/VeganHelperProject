@@ -496,9 +496,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired();
             entity.HasIndex(x => x.Code).IsUnique().HasDatabaseName("UQ_meal_plan_packages_code");
             entity.HasData(
-                new MealPlanPackage { Id = 1, Code = "monthly", Name = "1 month", DurationMonths = 1, AmountVnd = 100_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) },
-                new MealPlanPackage { Id = 2, Code = "half_year", Name = "6 months", DurationMonths = 6, AmountVnd = 500_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) },
-                new MealPlanPackage { Id = 3, Code = "yearly", Name = "12 months", DurationMonths = 12, AmountVnd = 1_000_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) });
+                new MealPlanPackage { Id = 1, Code = "monthly", Name = "1 month", DurationMonths = 1, AmountVnd = 1_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) },
+                new MealPlanPackage { Id = 2, Code = "half_year", Name = "6 months", DurationMonths = 6, AmountVnd = 5_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) },
+                new MealPlanPackage { Id = 3, Code = "yearly", Name = "12 months", DurationMonths = 12, AmountVnd = 10_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) });
         });
         modelBuilder.Entity<MealPlanPaymentOrder>(entity =>
         {
