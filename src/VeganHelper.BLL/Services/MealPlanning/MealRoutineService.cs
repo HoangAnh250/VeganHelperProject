@@ -52,8 +52,25 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
         await access.EnsureAsync(userId,ct);
         var input=await plans.LoadAsync(userId,ct);
         var today=LocalToday(clock,request.TimeZoneId);
-        return WeightGoalSafety.Evaluate(input.Profile,request.StartDate>today?request.StartDate:today,
+        var safety=WeightGoalSafety.Evaluate(input.Profile,request.StartDate>today?request.StartDate:today,
             request.TargetWeightKg ?? 0,request.TargetDate ?? default,request.EligibilityConfirmed);
+        if(!safety.Allowed) return safety;
+
+        try
+        {
+            var menu=MealPlanGenerator.Generate(input,today,new Random(0),ct,safety.TargetCalories,request.MealCalorieSplit);
+            WeightGoalSafety.ValidateGeneratedDays(menu.Days,safety,input.Profile!.BiologicalSex!);
+            return safety with
+            {
+                Tdee = MealPlanPresentation.WholeCalories(safety.Tdee),
+                TargetCalories = MealPlanPresentation.WholeCalories(safety.TargetCalories),
+                DailyAdjustment = MealPlanPresentation.WholeCalories(safety.DailyAdjustment)
+            };
+        }
+        catch(ConflictException ex)
+        {
+            return safety with { Allowed=false, Reasons=[..safety.Reasons,ex.Message] };
+        }
     }
 
     public static void ValidateSettings(GenerateMealPlanRequest request)
@@ -219,6 +236,7 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
         foreach(var day in fresh.Days) { day.Date=start.AddDays(day.DayIndex-1); day.DayOfWeek=(byte)(((int)day.Date.DayOfWeek+6)%7+1); }
         WeightGoalSafety.ValidateGeneratedDays(fresh.Days.Where(d=>d.Date>=preview.EffectiveFrom),safety,input.Profile!.BiologicalSex!);
         if(!request.NextWeek) fresh.Days=fresh.Days.Select(d=>d.Date<preview.EffectiveFrom?old.Days.Single(o=>o.Date==d.Date):d).ToList();
+        MealPlanPresentation.RoundCalories(fresh);
         var now=clock.GetUtcNow().UtcDateTime;
         var result=new MealPlan {UserId=userId,Name=MealPlanNaming.Default(start),StartDate=start,EndDate=start.AddDays(6),DietType=fresh.DietType,
             HeightCm=input.Profile!.HeightCm,WeightKg=input.Profile.WeightKg,BmiValue=fresh.Bmi,

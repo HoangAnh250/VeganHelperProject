@@ -57,6 +57,7 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
             WeightGoalSafety.ValidateGeneratedDays(menu.Days,safety,input.Profile!.BiologicalSex!);
             menu.Goal="weight_goal"; menu.Notes=MealRoutineService.GoalNotes();
         }
+        MealPlanPresentation.RoundCalories(menu);
         foreach(var day in menu.Days)
         {
             day.Date=request.StartDate.AddDays(day.DayIndex-1);
@@ -136,6 +137,7 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
             WeightGoalSafety.ValidateGeneratedDays(menu.Days,safety,input.Profile!.BiologicalSex!);
             menu.Goal="weight_goal"; menu.Notes=MealRoutineService.GoalNotes();
         }
+        MealPlanPresentation.RoundCalories(menu);
         foreach(var day in menu.Days)
         {
             day.Date=startDate.AddDays(day.DayIndex-1);
@@ -241,6 +243,7 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
             ? plan.StartDate is DateOnly startDate ? MealPlanNaming.Default(startDate) : $"Weekly menu #{plan.Id}"
             : plan.Name;
         dto.Menu=plan.GenerationSnapshot is null ? null : JsonSerializer.Deserialize<WeeklyMenuDto>(plan.GenerationSnapshot,JsonOptions);
+        if(dto.Menu is not null) MealPlanPresentation.RoundCalories(dto.Menu);
         return dto;
     }
 

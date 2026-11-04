@@ -17,9 +17,10 @@ public static class MealPlanGenerator
             ("lunch",split.LunchPercent/100m),
             ("dinner",split.DinnerPercent/100m)
         ];
-        var profile=input.Profile ?? throw new ArgumentException("Complete your health profile before generating a meal plan.");
-        var maintenance=MaintenanceEnergy.Estimate(profile,today,18)
-            ?? throw new ArgumentException("Generation requires age 18–120, valid height/weight, male/female energy inputs and a supported activity level.");
+        var profile=input.Profile ?? throw new ArgumentException("Complete your health profile before generating a weekly menu.");
+        var profileIssue=MaintenanceEnergy.ValidationIssue(profile,today);
+        if(profileIssue is not null) throw new ArgumentException(profileIssue);
+        var maintenance=MaintenanceEnergy.Estimate(profile,today)!.Value;
         var target=targetOverride ?? maintenance;
         if (profile.DietType is not ("vegan" or "lacto_ovo_vegetarian")) throw new ArgumentException("Unsupported diet type.");
         var excluded=AllergyFilter.ExcludedIngredients(input.Allergies,input.Ingredients,
@@ -32,8 +33,12 @@ public static class MealPlanGenerator
         var pools=slots.ToDictionary(s=>s.Time,s=>eligible.Where(m=>m.SuitableTimes.Contains(s.Time)
             && BaseCalories(m)*1.5m >= target*s.Ratio*.9m
             && BaseCalories(m)*.75m <= target*s.Ratio*1.1m).ToList());
-        if (pools.Any(p=>p.Value.Count<7) || pools.Values.SelectMany(x=>x).Select(m=>m.Id).Distinct().Count()<21)
-            throw new ConflictException("Not enough distinct suitable dishes within diet, allergy and calorie/portion limits for a full week.");
+        var missingSlots=pools.Where(p=>p.Value.Count<7).Select(p=>$"{p.Key}: {p.Value.Count}/7 suitable dishes").ToArray();
+        if(missingSlots.Length>0)
+            throw new ConflictException($"Not enough dishes for this menu ({string.Join(", ",missingSlots)}). Review your allergies or calorie split.");
+        var distinctDishes=pools.Values.SelectMany(x=>x).Select(m=>m.Id).Distinct().Count();
+        if(distinctDishes<21)
+            throw new ConflictException($"Only {distinctDishes} distinct suitable dishes are available; a weekly menu needs 21. Review your allergies or calorie split.");
 
         List<MealDayDto>? best=null;
         var bestScore=decimal.MaxValue;

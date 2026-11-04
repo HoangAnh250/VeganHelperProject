@@ -1,0 +1,7 @@
+# Meal catalog expansion
+
+Batch `VH-MEAL-VN-EXPANSION-v1` adds 300 single-serving dishes, including 240 Vietnamese-inspired variants. Names and original cooking instructions are in English. Ingredient amounts are edible whole grams. Calories are estimated from the existing USDA FoodData Central SR Legacy references in `ingredients.csv` and rounded to whole kcal. Cooked ingredients are weighed cooked as named. The recipes are sample data and have not been reviewed by a dietitian.
+
+Vietnamese references used for dish styles include [Món Ngon Mỗi Ngày's vegetarian bánh canh and other dishes](https://monngonmoingay.com/wp-content/uploads/2015/08/Booklet88_OL.pdf) and [their Vietnamese vegetarian mushroom soups](https://monngonmoingay.com/cach-nau-canh-nam/). The [Vietnamese Food Composition Table](https://chuyentrang.viendinhduong.vn/viewfilenew/vi/thu-vien-sach-chuyen-nganh/189/1.html) was consulted as a local nutrition reference. The import uses the existing USDA values for its calorie arithmetic.
+
+Photos are representative illustrations reused from the existing hosted Pexels catalog. Each dish records the source page in `expansion-catalog.json`. The catalog derives from `build_expansion.py`. `import-expansion.sql` takes that JSON as the `catalog` Npgsql parameter and runs inside a caller-managed transaction. It resolves ingredients and images from the existing catalog and adds meal, ingredient, meal-time, and cooking-step records.

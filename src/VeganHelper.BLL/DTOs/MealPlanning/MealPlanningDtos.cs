@@ -141,6 +141,7 @@ public sealed class ScheduledMealDto
     public string? ImageUrl { get; set; }
     public string MealTime { get; set; } = "";
     public decimal PortionMultiplier { get; set; }
+    public int PortionPercent => (int)Math.Round(PortionMultiplier * 100m, MidpointRounding.AwayFromZero);
     public decimal Calories { get; set; }
     public List<MealIngredientDto> Ingredients { get; set; } = [];
     public List<string> CookingSteps { get; set; } = [];

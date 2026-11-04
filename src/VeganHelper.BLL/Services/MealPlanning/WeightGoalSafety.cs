@@ -13,8 +13,9 @@ public static class WeightGoalSafety
         DateOnly targetDate,bool eligibilityConfirmed)
     {
         var reasons=new List<string>();
-        var tdee=profile is null ? null : MaintenanceEnergy.Estimate(profile,asOf,18);
-        if(tdee is null) reasons.Add("Complete a supported adult health profile before setting a weight goal.");
+        var profileIssue=MaintenanceEnergy.ValidationIssue(profile,asOf);
+        var tdee=profileIssue is null ? MaintenanceEnergy.Estimate(profile!,asOf) : null;
+        if(profileIssue is not null) reasons.Add(profileIssue);
         if(targetWeight is <30 or >200) reasons.Add("Target weight must be between 30 and 200 kg.");
         if(tdee is null || targetWeight is <30 or >200)
             return new(false,tdee ?? 0,0,0,0,PolicyVersion,reasons);
