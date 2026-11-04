@@ -10,6 +10,10 @@ public interface IPayOSGateway
         PayOSCreatePaymentLink request,
         CancellationToken cancellationToken);
 
+    Task<PayOSPaymentStatus> GetPaymentStatusAsync(
+        long orderCode,
+        CancellationToken cancellationToken);
+
     Task<VerifiedPayOSPayment> VerifyWebhookAsync(
         string payload,
         CancellationToken cancellationToken);

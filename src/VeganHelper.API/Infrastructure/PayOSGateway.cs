@@ -50,6 +50,42 @@ public sealed class PayOSGateway(IOptions<VeganPayOSOptions> options, ILogger<Pa
         return new PayOSCreatedPaymentLink(response.PaymentLinkId, response.CheckoutUrl);
     }
 
+    public async Task<PayOSPaymentStatus> GetPaymentStatusAsync(
+        long orderCode,
+        CancellationToken cancellationToken)
+    {
+        if (orderCode <= 0) throw new ArgumentOutOfRangeException(nameof(orderCode));
+        if (!IsConfigured)
+            throw new PaymentProviderException("The payment service is not configured yet.");
+
+        try
+        {
+            var paymentLink = await CreateClient().PaymentRequests.GetAsync(orderCode, new RequestOptions
+            {
+                CancellationToken = cancellationToken,
+                Signature = new SignatureOptions { Response = ResponseSignatureTypes.Body }
+            });
+
+            return new PayOSPaymentStatus(
+                paymentLink.OrderCode,
+                paymentLink.Amount,
+                paymentLink.AmountPaid,
+                paymentLink.AmountRemaining,
+                paymentLink.Status.ToString(),
+                paymentLink.Id,
+                paymentLink.Transactions?.LastOrDefault()?.Reference);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning("PayOS payment status lookup failed ({ExceptionType}).", exception.GetType().Name);
+            throw new PaymentProviderException("Could not verify payment status with PayOS. Please try again.");
+        }
+    }
+
     public async Task<VerifiedPayOSPayment> VerifyWebhookAsync(
         string payload,
         CancellationToken cancellationToken)

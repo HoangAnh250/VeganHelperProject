@@ -21,7 +21,7 @@ public sealed class MealPlanPaymentApiTests(Member2ApiFixture fixture)
         var catalog = packages ?? throw new InvalidOperationException("Package API returned an empty body.");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(new[] { 100_000, 500_000, 1_000_000 }, catalog.Select(p => p.AmountVnd));
+        Assert.Equal(new[] { 1_000, 5_000, 10_000 }, catalog.Select(p => p.AmountVnd));
         Assert.Equal(new[] { 1, 6, 12 }, catalog.Select(p => p.DurationMonths));
     }
 
@@ -64,7 +64,7 @@ public sealed class MealPlanPaymentApiTests(Member2ApiFixture fixture)
         var checkoutResponse = await client.PostAsJsonAsync("/api/meal-plan-payments/checkout", new { packageCode = "yearly" });
         var checkout = await checkoutResponse.Content.ReadFromJsonAsync<MealPlanCheckoutDto>();
         Assert.Equal(HttpStatusCode.Created, checkoutResponse.StatusCode);
-        Assert.Equal(1_000_000, checkout!.AmountVnd);
+        Assert.Equal(10_000, checkout!.AmountVnd);
         Assert.StartsWith("https://payments.example.invalid/", checkout.CheckoutUrl);
 
         var beforePayment = await client.GetFromJsonAsync<MealPlanAccessDto>("/api/meal-plan-payments/access");
@@ -191,7 +191,7 @@ public sealed class MealPlanPaymentApiTests(Member2ApiFixture fixture)
             PackageCodeSnapshot = "monthly",
             PackageNameSnapshot = "1 month",
             DurationMonthsSnapshot = 1,
-            AmountVnd = 100_000,
+            AmountVnd = 1_000,
             Status = "paid",
             CreatedAt = startsAt,
             PaidAt = startsAt
