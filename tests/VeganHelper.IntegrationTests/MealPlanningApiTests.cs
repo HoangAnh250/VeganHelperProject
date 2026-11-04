@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VeganHelper.BLL.DTOs.MealPlanning;
@@ -43,7 +44,7 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
             db.Ingredients.Add(ingredient); await db.SaveChangesAsync();
             for(var n=0;n<35;n++)
             {
-                var meal=new Meal { OwnerUserId=user.Id,ComboName=$"Test {key} {n}",DietType="vegan",Servings=1,
+                var meal=new Meal { OwnerUserId=user.Id,ComboName=$"Test {key} {n}",ImageUrl=$"https://media.example/{n}.jpg",DietType="vegan",Servings=1,
                     TotalCalories=n<10?550:700,CreatedAt=DateTime.UtcNow };
                 db.Meals.Add(meal); await db.SaveChangesAsync();
                 db.MealSuitableTimes.AddRange((n<10?new[]{"breakfast"}:new[]{"lunch","dinner"})
@@ -54,12 +55,12 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         await db.SaveChangesAsync(); return user.Id;
     }
 
-    private async Task<MealPlanDto> GoalAsync(long owner)
+    private async Task<MealPlanDto> GoalAsync(long owner, int startOffsetDays = 0)
     {
         using var client=fixture.Factory.Client(owner);
         var today=DateOnly.FromDateTime(DateTime.UtcNow);
-        var response=await client.PostAsJsonAsync("/api/MealPlans/generate",new {startDate=today,mode="weight_goal",
-            targetWeightKg=58,targetDate=today.AddDays(84),eligibilityConfirmed=true,timeZoneId="UTC"});
+        var response=await client.PostAsJsonAsync("/api/MealPlans/generate",new {startDate=today.AddDays(startOffsetDays),mode="weight_goal",
+            targetWeightKg=58,targetDate=today.AddDays(startOffsetDays + 84),eligibilityConfirmed=true,timeZoneId="UTC"});
         Assert.Equal(HttpStatusCode.Created,response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<MealPlanDto>())!;
     }
@@ -83,7 +84,7 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         Assert.Equal(initial.Id,revision.Routine.PreviousPlanId);
         await using(var db=fixture.Context())
             Assert.Equal(2,await db.MealPlans.CountAsync(p=>p.UserId==owner && p.IsTrialGeneration));
-        await GoalAsync(owner);
+        await GoalAsync(owner, startOffsetDays: 14);
         var blocked=await client.PostAsJsonAsync($"/api/MealPlans/{revision.Id}/revision-preview",
             new {expectedVersion=0,profileFingerprint="",eligibilityConfirmed=true,nextWeek=true});
         Assert.Equal(HttpStatusCode.PaymentRequired,blocked.StatusCode);
@@ -122,6 +123,15 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         {
             var past=await db.Set<MealPlanEntry>().SingleAsync(e=>e.MealPlanId==plan.Id && e.Date==plan.StartDate && e.MealTime=="breakfast");
             past.Status="changed";past.Note="Recorded before revision";past.LoggedAt=DateTime.UtcNow;
+            var storedPlan=await db.MealPlans.SingleAsync(p=>p.Id==plan.Id);
+            var jsonOptions=new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            var storedMenu=JsonSerializer.Deserialize<WeeklyMenuDto>(storedPlan.GenerationSnapshot!,jsonOptions)!;
+            foreach(var meal in storedMenu.Days.SelectMany(day=>day.Meals))
+            {
+                meal.ImageUrl=null;
+                foreach(var ingredient in meal.Ingredients) { ingredient.Quantity=61.65m;ingredient.Unit="g"; }
+            }
+            storedPlan.GenerationSnapshot=JsonSerializer.Serialize(storedMenu,jsonOptions);
             await db.SaveChangesAsync();
         }
         using var client=fixture.Factory.Client(owner);
@@ -143,6 +153,8 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         Assert.Single(results,r=>r.StatusCode==HttpStatusCode.Created);
         Assert.Single(results,r=>r.StatusCode==HttpStatusCode.Conflict);
         var revision=(await results.Single(r=>r.StatusCode==HttpStatusCode.Created).Content.ReadFromJsonAsync<MealPlanDto>())!;
+        Assert.All(revision.Menu!.Days[0].Meals,meal=>Assert.StartsWith("https://media.example/",meal.ImageUrl));
+        Assert.All(revision.Menu.Days[0].Meals.SelectMany(meal=>meal.Ingredients),ingredient=>Assert.Equal(60m,ingredient.Quantity));
         Assert.Equal(plan.Menu!.Days[0].Meals.Select(m=>m.MealId),revision.Menu!.Days[0].Meals.Select(m=>m.MealId));
         Assert.Equal(plan.Id,revision.Routine!.PreviousPlanId);
         var copied=revision.Routine.Entries.Single(e=>e.Date==plan.StartDate && e.MealTime=="breakfast");
@@ -309,14 +321,14 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
 
         for(var attempt=0;attempt<3;attempt++)
         {
-            var response=await client.PostAsJsonAsync("/api/MealPlans/generate",new { startDate=today.AddDays(attempt) });
+            var response=await client.PostAsJsonAsync("/api/MealPlans/generate",new { startDate=today.AddDays(attempt * 7) });
             Assert.Equal(HttpStatusCode.Created,response.StatusCode);
             var plan=(await response.Content.ReadFromJsonAsync<MealPlanDto>())!;
             await using var db=fixture.Context();
             Assert.True((await db.MealPlans.SingleAsync(p=>p.Id==plan.Id)).IsTrialGeneration);
         }
 
-        var blocked=await client.PostAsJsonAsync("/api/MealPlans/generate",new { startDate=today.AddDays(3) });
+        var blocked=await client.PostAsJsonAsync("/api/MealPlans/generate",new { startDate=today.AddDays(21) });
         Assert.Equal(HttpStatusCode.PaymentRequired,blocked.StatusCode);
         var access=await client.GetFromJsonAsync<MealPlanAccessDto>("/api/meal-plan-payments/access");
         var page=await client.GetFromJsonAsync<VeganHelper.BLL.DTOs.PagedResult<MealPlanDto>>("/api/MealPlans");
@@ -337,8 +349,8 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         {
             db.MealPlans.AddRange(Enumerable.Range(0,2).Select(index=>new MealPlan
             {
-                UserId=owner,IsTemplate=false,StartDate=DateOnly.FromDateTime(now).AddDays(index),
-                EndDate=DateOnly.FromDateTime(now).AddDays(index+6),DietType="vegan",AllergiesSnapshot="[]",
+                UserId=owner,IsTemplate=false,StartDate=DateOnly.FromDateTime(now).AddDays((index - 2) * 7),
+                EndDate=DateOnly.FromDateTime(now).AddDays((index - 2) * 7 + 6),DietType="vegan",AllergiesSnapshot="[]",
                 AvailableIngredientsSnapshot="[]",GenerationSource="manual",Status="completed",
                 IsTrialGeneration=true,CreatedAt=now.AddMinutes(-index)
             }));
@@ -348,7 +360,7 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         using var client=fixture.Factory.Client(owner);
         var start=DateOnly.FromDateTime(now).AddDays(1);
         var requests=Enumerable.Range(0,4).Select(index=>client.PostAsJsonAsync("/api/MealPlans/generate",new
-            { startDate=start.AddDays(index) }));
+            { startDate=start.AddDays(index * 7) }));
         var responses=await Task.WhenAll(requests);
 
         Assert.Single(responses,response=>response.StatusCode==HttpStatusCode.Created);

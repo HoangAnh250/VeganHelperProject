@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Security.Claims;
 using System.Text;
 using FluentValidation;
 using Microsoft.OpenApi.Models;
@@ -28,6 +29,8 @@ using VeganHelper.DAL.Integrations;
 using VeganHelper.API.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using System.Text.Json;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using VeganHelper.DAL.Integrations.Moderation;
 using VeganHelper.API.Configuration;
 using VeganHelper.API.Infrastructure.AI;
@@ -46,11 +49,12 @@ if (args.Contains("--generate-vapid-keys"))
 
 var builder = WebApplication.CreateBuilder(args);
 
-var supabaseConfigPath = DatabaseConnection.FindLocalConfiguration(builder.Environment.ContentRootPath);
+var loadLocalConfiguration = Environment.GetEnvironmentVariable("VEGANHELPER_SKIP_LOCAL_CONFIG") != "1";
+var supabaseConfigPath = loadLocalConfiguration ? DatabaseConnection.FindLocalConfiguration(builder.Environment.ContentRootPath) : null;
 if (supabaseConfigPath is not null)
     builder.Configuration.AddJsonFile(supabaseConfigPath, optional: false, reloadOnChange: false);
 builder.Configuration.AddEnvironmentVariables();
-var envFilePath = FindEnvironmentFile(builder.Environment.ContentRootPath);
+var envFilePath = loadLocalConfiguration ? FindEnvironmentFile(builder.Environment.ContentRootPath) : null;
 if (envFilePath is not null)
 {
     DotNetEnv.Env.Load(envFilePath);
@@ -58,6 +62,46 @@ if (envFilePath is not null)
 }
 
 builder.Services.AddControllers();
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("guest-ai-chat", context =>
+        context.User.Identity?.IsAuthenticated == true
+            ? RateLimitPartition.GetNoLimiter("member")
+            : RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.MapToIPv6().ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 12,
+                    Window = TimeSpan.FromHours(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
+    options.AddPolicy("video-summary", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 6,
+                Window = TimeSpan.FromHours(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        if (context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter))
+            context.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var isVideoSummary = context.HttpContext.Request.Path.Value?.EndsWith("/summary", StringComparison.OrdinalIgnoreCase) == true;
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            error = isVideoSummary
+                ? "Too many video summary requests. Please try again later."
+                : "Too many chat requests from this network. Please try again later.",
+            code = isVideoSummary ? "VIDEO_SUMMARY_RATE_LIMITED" : "GUEST_CHAT_RATE_LIMITED",
+            requiresRegistration = false
+        }, cancellationToken);
+    };
+});
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:3000"];
 builder.Services.AddCors(options =>
@@ -67,6 +111,7 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
+            .WithExposedHeaders("Retry-After")
             .AllowAnyMethod();
     });
 });
@@ -104,6 +149,21 @@ builder.Services.AddScoped<IStatusService, StatusService>();
 builder.Services.AddScoped<IAiChatService, AiChatService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IPostSummaryRepository, PostSummaryRepository>();
+builder.Services.AddScoped<IPostSummaryService, PostSummaryService>();
+builder.Services.AddScoped<PostSummaryJob>();
+if (builder.Configuration.GetValue<bool>("GroqSummary:Enabled"))
+    builder.Services.AddScoped<IPostSummaryQueue, HangfirePostSummaryQueue>();
+else
+    builder.Services.AddScoped<IPostSummaryQueue, DisabledPostSummaryQueue>();
+builder.Services.AddOptions<GroqSummaryOptions>().BindConfiguration("GroqSummary")
+    .Validate(o => !o.Enabled || !string.IsNullOrWhiteSpace(o.ApiKey) &&
+        (o.WhisperModel is "whisper-large-v3" or "whisper-large-v3-turbo") &&
+        !string.IsNullOrWhiteSpace(o.SummaryModel),
+        "Configure the Groq summary key and supported models on the Backend.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IVideoSummaryAiClient, GroqVideoSummaryClient>(client =>
+    client.Timeout = TimeSpan.FromMinutes(4)).RedactLoggedHeaders(["Authorization"]);
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddSingleton<ICommentKeywordFilter, CommentKeywordFilter>();
@@ -175,7 +235,7 @@ builder.Services.AddScoped<PostModerationJob>();
 builder.Services.AddOptions<ModerationAiOptions>().BindConfiguration("ModerationAi")
     .Validate(o => !o.Enabled || !string.IsNullOrWhiteSpace(o.ApiKey) && o.ApiKey.Length <= 256 && !o.ApiKey.Any(char.IsControl)
         && o.Model is not null && System.Text.RegularExpressions.Regex.IsMatch(o.Model, @"\Agemini-[a-z0-9][a-z0-9.-]{0,79}\z")
-        && o.TimeoutSeconds is >= 1 and <= 120 && double.IsFinite(o.MinAutoPublishConfidence) && o.MinAutoPublishConfidence is >= .9 and <= 1
+        && o.TimeoutSeconds is >= 1 and <= 300 && double.IsFinite(o.MinAutoPublishConfidence) && o.MinAutoPublishConfidence is >= .9 and <= 1
         && o.AllowedMediaHosts is not null, "Configure a valid ModerationAi key, model, timeout and confidence threshold.").ValidateOnStart();
 var moderationPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "PostModeration.v2.json");
 var moderationPrompt = JsonSerializer.Deserialize<ModerationPromptDefinition>(File.ReadAllText(moderationPromptPath), JsonSerializerOptions.Web)
@@ -185,8 +245,10 @@ if (string.IsNullOrWhiteSpace(moderationPrompt.Version) || moderationPrompt.Vers
 builder.Services.AddSingleton(moderationPrompt);
 builder.Services.AddHttpClient<IPostModerationAiClient, GeminiPostModerationClient>(client => client.Timeout = Timeout.InfiniteTimeSpan)
     .ConfigurePrimaryHttpMessageHandler(GeminiModerationHttpHandlerFactory.Create)
+    // Resumable-upload URLs contain credentials in their query; emit only our sanitized diagnostics.
+    .RemoveAllLoggers()
     .RedactLoggedHeaders(["x-goog-api-key"]);
-builder.Services.AddOptions<GeminiOptions>().BindConfiguration("Gemini");
+builder.Services.AddOptions<DeepSeekChatOptions>().BindConfiguration("DeepSeekChat");
 var aiChatPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "VeganNutrition.v2.json");
 var aiChatPrompt = JsonSerializer.Deserialize<AiChatPromptDefinition>(
     File.ReadAllText(aiChatPromptPath),
@@ -196,9 +258,9 @@ if (string.IsNullOrWhiteSpace(aiChatPrompt.Version) ||
     string.IsNullOrWhiteSpace(aiChatPrompt.SystemInstruction))
     throw new InvalidOperationException("AI chat prompt is invalid.");
 builder.Services.AddSingleton(aiChatPrompt);
-builder.Services.AddHttpClient<IGeminiChatClient, GeminiChatClient>(client =>
+builder.Services.AddHttpClient<IAiChatClient, DeepSeekChatClient>(client =>
     client.Timeout = Timeout.InfiniteTimeSpan)
-    .RedactLoggedHeaders(["x-goog-api-key"]);
+    .RedactLoggedHeaders(["Authorization"]);
 builder.Services.AddScoped<IAccountAccessService, AccountAccessService>();
 builder.Services.AddScoped<IAuthorizationHandler, ActiveAdminHandler>();
 builder.Services.AddAuthorization(options => options.AddPolicy(AdminPolicies.AdminOnly,
@@ -233,11 +295,14 @@ builder.Services.AddSingleton<IValidateOptions<WebPushSettings>, WebPushOptionsV
 builder.Services.AddOptions<WebPushSettings>().BindConfiguration("WebPush").ValidateOnStart();
 builder.Services.AddHttpClient<IWebPushTransport, WebPushTransport>(client => client.Timeout = TimeSpan.FromSeconds(15))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-var pushWorkerConfigured = builder.Configuration.GetValue<bool>("WebPush:Enabled");
-var moderationWorkerConfigured = builder.Configuration.GetValue<bool>("ModerationAi:Enabled");
-var mealWorkerConfigured = builder.Configuration.GetValue<bool>("MealPlanning:WorkerEnabled");
 var prepareJobs = args.Contains("--prepare-push-jobs") || args.Contains("--prepare-background-jobs");
-if (pushWorkerConfigured || moderationWorkerConfigured || mealWorkerConfigured)
+// Local .env files may enable workers; never start Hangfire during integration tests.
+var allowBackgroundJobs = !builder.Environment.IsEnvironment("Testing") || prepareJobs;
+var pushWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("WebPush:Enabled");
+var moderationWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("ModerationAi:Enabled");
+var mealWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("MealPlanning:WorkerEnabled");
+var summaryWorkerConfigured = allowBackgroundJobs && builder.Configuration.GetValue<bool>("GroqSummary:Enabled");
+if (pushWorkerConfigured || moderationWorkerConfigured || mealWorkerConfigured || summaryWorkerConfigured)
 {
     var jobConnection = DatabaseConnection.Validate(builder.Configuration.GetConnectionString("HangfireConnection")
         ?? builder.Configuration.GetConnectionString("DefaultConnection"));
@@ -265,8 +330,8 @@ var app = builder.Build();
 
 if (prepareJobs)
 {
-    if (!pushWorkerConfigured && !moderationWorkerConfigured && !mealWorkerConfigured)
-        throw new InvalidOperationException("Enable WebPush or ModerationAi before preparing Hangfire storage.");
+    if (!pushWorkerConfigured && !moderationWorkerConfigured && !mealWorkerConfigured && !summaryWorkerConfigured)
+        throw new InvalidOperationException("Enable a background worker before preparing Hangfire storage.");
     _ = app.Services.GetRequiredService<JobStorage>();
     // Hangfire uses a private schema; never expose its serialized job data through Data API roles.
     await using var jobDatabase = new Npgsql.NpgsqlConnection(DatabaseConnection.Validate(
@@ -316,6 +381,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseCors("Frontend");
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapControllers();

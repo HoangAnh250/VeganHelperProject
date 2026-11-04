@@ -6,6 +6,6 @@ public sealed class DeleteCommentRequest
 {
     public const int MaxReasonLength = 500;
 
-    [StringLength(MaxReasonLength, MinimumLength = 1)]
+    [StringLength(MaxReasonLength)]
     public string? Reason { get; set; }
 }

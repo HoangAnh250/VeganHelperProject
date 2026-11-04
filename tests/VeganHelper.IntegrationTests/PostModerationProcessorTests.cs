@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Net;
+using System.Net.Http.Json;
 using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
@@ -59,6 +61,46 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         Assert.Equal("pending_review", (await verify.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
         Assert.True(await verify.Flags.AnyAsync(f => f.PostId == job.PostId && f.Status == "pending"));
         Assert.True(await verify.Set<Notification>().AnyAsync(n => n.UserId == job.AuthorId));
+    }
+
+    [Theory]
+    [InlineData("safe", false)]
+    [InlineData("flagged", false)]
+    [InlineData("uncertain", false)]
+    [InlineData("flagged", true)]
+    public async Task ReportTriggeredReview_IsAdvisoryEvenWhenReportArrivesDuringAiRequest(string verdict, bool reportDuringReview)
+    {
+        var job = await SeedAsync();
+        await using (var setup = fixture.Context())
+            await setup.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, "published"));
+        using var reporter = fixture.Factory.Client(await UserAsync());
+        async Task ReportAsync()
+        {
+            var response = await reporter.PostAsJsonAsync($"/api/posts/{job.PostId}/reports",
+                new { reasonCategory = "spam", reason = "Please investigate this post", expectedRevision = 1 });
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        if (!reportDuringReview) await ReportAsync();
+        await RunAsync(new FakeClient(async (_, _) =>
+        {
+            if (reportDuringReview) await ReportAsync();
+            return Result(verdict);
+        }));
+        await using var verify = fixture.Context();
+        var post = await verify.Posts.SingleAsync(p => p.Id == job.PostId);
+        Assert.Equal("published", post.Status);
+        Assert.False(post.ModerationHold);
+        var report = Assert.Single(await verify.Flags.Where(f => f.PostId == job.PostId).ToListAsync());
+        Assert.Equal("user", report.SourceType);
+        Assert.Equal("pending", report.Status);
+        Assert.Null(report.ModerationScanId);
+        Assert.Empty((await new ModerationRepository(verify).ListFlagsAsync(job.PostId, null, 1, 20, default)).Items);
+        Assert.Single((await new PostReportRepository(verify).ListAsync("pending", job.PostId, 1, 20, default)).Items);
+        var scan = await verify.Set<PostModerationScan>().SingleAsync(s => s.Id == job.ScanId);
+        Assert.True(scan.ReportRecheckRequested);
+        Assert.Equal(verdict == "safe" ? "safe" : "flagged", scan.State);
+        Assert.Single(await verify.Set<PostModerationAssessment>().Where(a => a.PostId == job.PostId).ToListAsync());
+        await AssertNoDecisionOrNotificationAsync(verify, job);
     }
 
     [Theory]
@@ -645,6 +687,40 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         var processor = new PostModerationProcessor(new ModerationRepository(db), client, notifications,
             Options.Create(new ModerationAiOptions { Enabled = enabled, MinAutoPublishConfidence = .9, Model = model }), Clock);
         await processor.RunAsync(ct);
+    }
+
+    [Theory]
+    [InlineData("video", true)]
+    [InlineData("image", false)]
+    public async Task OldUnsupportedVideoScanIsRecoveredWithoutReleasingAnAdminHold(string mediaType, bool shouldScan)
+    {
+        var job = await SeedAsync(state: "manual_required", attempts: 1);
+        await using (var db = fixture.Context())
+        {
+            await db.Set<PostModerationScan>().Where(s => s.Id == job.ScanId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.ErrorCode, "unsupported_media"));
+            await db.Posts.Where(p => p.Id == job.PostId)
+                .ExecuteUpdateAsync(p => p.SetProperty(x => x.ModerationHold, true));
+            db.Add(new PostMedia { PostId = job.PostId, MediaType = mediaType, MediaUrl = "https://media.example.org/legacy",
+                IsPrimary = true, ProcessingStatus = "ready", CreatedAt = Now.UtcDateTime });
+            await db.SaveChangesAsync();
+        }
+        var client = new FakeClient((_, _) => Task.FromResult(Result()));
+        await RunAsync(client);
+        await using var verify = fixture.Context();
+        var scan = await verify.Set<PostModerationScan>().SingleAsync(s => s.Id == job.ScanId);
+        Assert.Equal(shouldScan ? "safe" : "manual_required", scan.State);
+        Assert.Equal(shouldScan ? 2 : 1, scan.Attempts);
+        var post = await verify.Posts.SingleAsync(p => p.Id == job.PostId);
+        Assert.Equal("pending_review", post.Status);
+        Assert.True(post.ModerationHold);
+        if (shouldScan)
+        {
+            var input = Assert.Single(client.Inputs);
+            Assert.Null(Assert.Single(input.Media).DurationSeconds); // Older videos must still reach the client for metadata inspection.
+        }
+        else Assert.Empty(client.Inputs);
+        await AssertNoDecisionOrNotificationAsync(verify, job);
     }
 
     private async Task<Job> SeedAsync(string state = "queued", int attempts = 0, DateTime? leaseUntil = null)

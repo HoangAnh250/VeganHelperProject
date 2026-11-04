@@ -61,6 +61,9 @@ public static class DatabaseConnection
                 }.ConnectionString;
             }
             var builder = new NpgsqlConnectionStringBuilder(connection);
+            // The Supabase shared session pool is commonly capped at 15 clients per project.
+            // Keep each BE process small so concurrent developer instances do not consume every slot.
+            builder.MaxPoolSize = 5;
             if (string.IsNullOrWhiteSpace(builder.Host) || string.IsNullOrWhiteSpace(builder.Database))
                 throw new ArgumentException();
             if (builder.Host.EndsWith(".supabase.com", StringComparison.OrdinalIgnoreCase)

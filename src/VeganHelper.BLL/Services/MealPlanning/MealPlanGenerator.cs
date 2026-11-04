@@ -6,13 +6,21 @@ namespace VeganHelper.BLL.Services.MealPlanning;
 
 public static class MealPlanGenerator
 {
-    private static readonly (string Time, decimal Ratio)[] Slots = [("breakfast",.30m),("lunch",.35m),("dinner",.35m)];
-
-    public static WeeklyMenuDto Generate(MealPlanningInput input, DateOnly today, Random random, CancellationToken ct=default, decimal? targetOverride=null)
+    public static WeeklyMenuDto Generate(MealPlanningInput input, DateOnly today, Random random,
+        CancellationToken ct=default, decimal? targetOverride=null, MealCalorieSplitDto? mealCalorieSplit=null)
     {
-        var profile=input.Profile ?? throw new ArgumentException("Complete your health profile before generating a meal plan.");
-        var maintenance=MaintenanceEnergy.Estimate(profile,today,20)
-            ?? throw new ArgumentException("Generation requires age 20–120, valid height/weight, male/female energy inputs and a supported activity level.");
+        var split=mealCalorieSplit ?? MealCalorieSplitDto.LegacyDefault();
+        if(!split.IsValid()) throw new ArgumentException("Meal calorie percentages must total 100%.");
+        (string Time, decimal Ratio)[] slots =
+        [
+            ("breakfast",split.BreakfastPercent/100m),
+            ("lunch",split.LunchPercent/100m),
+            ("dinner",split.DinnerPercent/100m)
+        ];
+        var profile=input.Profile ?? throw new ArgumentException("Complete your health profile before generating a weekly menu.");
+        var profileIssue=MaintenanceEnergy.ValidationIssue(profile,today);
+        if(profileIssue is not null) throw new ArgumentException(profileIssue);
+        var maintenance=MaintenanceEnergy.Estimate(profile,today)!.Value;
         var target=targetOverride ?? maintenance;
         if (profile.DietType is not ("vegan" or "lacto_ovo_vegetarian")) throw new ArgumentException("Unsupported diet type.");
         var excluded=AllergyFilter.ExcludedIngredients(input.Allergies,input.Ingredients,
@@ -22,11 +30,15 @@ public static class MealPlanGenerator
             && (profile.DietType=="lacto_ovo_vegetarian" || m.DietType=="vegan")
             && m.Ingredients.Count>0 && m.Ingredients.All(i=>i.Quantity>0 && !excluded.Contains(i.IngredientId))).ToList();
         // Preserve reasonable serving sizes. Never relax allergies/diet to fill the week.
-        var pools=Slots.ToDictionary(s=>s.Time,s=>eligible.Where(m=>m.SuitableTimes.Contains(s.Time)
+        var pools=slots.ToDictionary(s=>s.Time,s=>eligible.Where(m=>m.SuitableTimes.Contains(s.Time)
             && BaseCalories(m)*1.5m >= target*s.Ratio*.9m
             && BaseCalories(m)*.75m <= target*s.Ratio*1.1m).ToList());
-        if (pools.Any(p=>p.Value.Count<7) || pools.Values.SelectMany(x=>x).Select(m=>m.Id).Distinct().Count()<21)
-            throw new ConflictException("Not enough distinct suitable dishes within diet, allergy and calorie/portion limits for a full week.");
+        var missingSlots=pools.Where(p=>p.Value.Count<7).Select(p=>$"{p.Key}: {p.Value.Count}/7 suitable dishes").ToArray();
+        if(missingSlots.Length>0)
+            throw new ConflictException($"Not enough dishes for this menu ({string.Join(", ",missingSlots)}). Review your allergies or calorie split.");
+        var distinctDishes=pools.Values.SelectMany(x=>x).Select(m=>m.Id).Distinct().Count();
+        if(distinctDishes<21)
+            throw new ConflictException($"Only {distinctDishes} distinct suitable dishes are available; a weekly menu needs 21. Review your allergies or calorie split.");
 
         List<MealDayDto>? best=null;
         var bestScore=decimal.MaxValue;
@@ -40,7 +52,7 @@ public static class MealPlanGenerator
             for (byte day=1; day<=7; day++)
             {
                 var result=new MealDayDto { DayIndex=day };
-                foreach(var slot in Slots)
+                foreach(var slot in slots)
                 {
                     var desired=target*slot.Ratio;
                     var options=pools[slot.Time].Where(m=>!used.Contains(m.Id)).Select(m=>
@@ -59,12 +71,14 @@ public static class MealPlanGenerator
                     score+=options.Penalty;
                     result.Meals.Add(new ScheduledMealDto
                     {
-                        MealId=options.Meal.Id, Name=options.Meal.Name, MealTime=slot.Time,
+                        MealId=options.Meal.Id, Name=options.Meal.Name, ImageUrl=options.Meal.ImageUrl, MealTime=slot.Time,
                         PortionMultiplier=options.Portion, Calories=options.Calories,
+                        CookingSteps=options.Meal.CookingSteps,
                         Ingredients=options.Meal.Ingredients.Select(i=>new MealIngredientDto
                         {
                             IngredientId=i.IngredientId, Name=i.Name, Unit=i.Unit,
-                            Quantity=Math.Round(i.Quantity!.Value/options.Meal.Servings*options.Portion,3)
+                            Quantity=IngredientQuantityFormatter.RoundForDisplay(
+                                i.Quantity!.Value/options.Meal.Servings*options.Portion,i.Unit)
                         }).ToList()
                     });
                 }
@@ -77,7 +91,7 @@ public static class MealPlanGenerator
         if(best is null) throw new ConflictException("No complete weekly menu was found within the calorie and portion limits. Try a broader suitable dish catalog.");
         return new WeeklyMenuDto
         {
-            DietType=profile.DietType, TargetDailyCalories=target,
+            DietType=profile.DietType, TargetDailyCalories=target, MealCalorieSplit=split,
             EnergyProfile=new EnergyProfileDto
             {
                 EstimatedOn=today, BirthDate=profile.BirthDate!.Value,

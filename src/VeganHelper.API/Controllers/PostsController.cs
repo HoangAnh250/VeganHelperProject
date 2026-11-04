@@ -26,6 +26,8 @@ public class PostsController : ControllerBase
     /// Creates a new post (article, video, recipe).
     /// </summary>
     [HttpPost]
+    [RequestSizeLimit(220L * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 220L * 1024 * 1024)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -130,6 +132,8 @@ public class PostsController : ControllerBase
     /// Updates an existing post.
     /// </summary>
     [HttpPut("{id}")]
+    [RequestSizeLimit(220L * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 220L * 1024 * 1024)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

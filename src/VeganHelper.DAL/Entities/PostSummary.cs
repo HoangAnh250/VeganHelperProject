@@ -3,7 +3,8 @@ namespace VeganHelper.DAL.Entities;
 public sealed class PostSummary
 {
     public long PostId { get; set; }
-    public long SourceMediaId { get; set; }
+    public string SourceMediaIdsJson { get; set; } = "[]";
+    public int ContentRevision { get; set; }
     public string? Transcript { get; set; }
     public string? AiGeneratedText { get; set; }
     public string Status { get; set; } = string.Empty;

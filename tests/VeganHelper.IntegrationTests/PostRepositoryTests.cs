@@ -132,6 +132,89 @@ public partial class PostRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+
+    public async Task AiRecommendations_ReturnOnlyPublicMatchingPostsWithoutDeclaredAllergens()
+    {
+        var user = await AddUser();
+        var mushroom = new Ingredient { Name = "Nấm test " + Guid.NewGuid().ToString("N"), DefaultUnit = "g" };
+        var peanut = new Ingredient { Name = "Peanut test " + Guid.NewGuid().ToString("N"), DefaultUnit = "g" };
+        _context.Ingredients.AddRange(mushroom, peanut);
+        await _context.SaveChangesAsync();
+
+        Post Recipe(string status, bool hold = false)
+        {
+            var post = NewPost(user.Id);
+            post.Title = "Mushroom recipe";
+            post.Status = status;
+            post.ModerationHold = hold;
+            post.MealType = "lunch";
+            post.DietType = "vegan";
+            post.PrepTimeMins = 10;
+            post.CookingTimeMins = 10;
+            post.IngredientsVerified = true;
+            post.PostIngredients.Add(new PostIngredient { IngredientId = mushroom.Id, Unit = "g" });
+            return post;
+        }
+
+        var safe = Recipe("published");
+        var allergic = Recipe("published");
+        allergic.PostIngredients.Add(new PostIngredient { IngredientId = peanut.Id, Unit = "g" });
+        var hidden = Recipe("hidden");
+        var held = Recipe("published", hold: true);
+        _context.Posts.AddRange(safe, allergic, hidden, held);
+        await _context.SaveChangesAsync();
+
+        var query = new PostRecommendationQuery(["Nấm"], [], ["Peanut"], [], "lunch", "vegan", 30, false);
+        var found = await _postRepository.SearchRecommendationsAsync(query);
+        Assert.Equal(safe.Id, Assert.Single(found.Posts).PostId);
+        Assert.False(found.HasMore);
+
+        var excluded = await _postRepository.SearchRecommendationsAsync(query with { ExcludedPostIds = [safe.Id] });
+        Assert.Empty(excluded.Posts);
+        Assert.Empty(await _postRepository.GetPublicRecommendationsAsync([hidden.Id, held.Id]));
+    }
+
+    [Fact]
+    public async Task TrendingFeed_OrdersByLikesFromLastThreeDaysBeforePagination_OnPostgreSql()
+    {
+        var author = await AddUser();
+        var firstLiker = await AddUser();
+        var secondLiker = await AddUser();
+        var category = new Category { Name = "Trending " + Guid.NewGuid().ToString("N"), Slug = Guid.NewGuid().ToString("N"), CategoryType = "post", PostCategoryKind = "recipe", IsActive = true };
+        _context.Categories.Add(category);
+        await _context.SaveChangesAsync();
+
+        var newest = NewPost(author.Id);
+        var mostLiked = NewPost(author.Id);
+        var oneLike = NewPost(author.Id);
+        newest.CreatedAt = DateTime.UtcNow;
+        mostLiked.CreatedAt = newest.CreatedAt.AddMinutes(-1);
+        oneLike.CreatedAt = newest.CreatedAt.AddMinutes(-2);
+        foreach (var post in new[] { newest, mostLiked, oneLike })
+            post.PostCategories.Add(new PostCategory { CategoryId = category.Id });
+        _context.Posts.AddRange(newest, mostLiked, oneLike);
+        await _context.SaveChangesAsync();
+        _context.PostLikes.AddRange(
+            new PostLike { PostId = mostLiked.Id, UserId = firstLiker.Id, CreatedAt = DateTime.UtcNow },
+            new PostLike { PostId = mostLiked.Id, UserId = secondLiker.Id, CreatedAt = DateTime.UtcNow },
+            new PostLike { PostId = oneLike.Id, UserId = firstLiker.Id, CreatedAt = DateTime.UtcNow },
+            new PostLike { PostId = newest.Id, UserId = firstLiker.Id, CreatedAt = DateTime.UtcNow.AddDays(-4) },
+            new PostLike { PostId = newest.Id, UserId = secondLiker.Id, CreatedAt = DateTime.UtcNow.AddDays(-4) });
+        await _context.SaveChangesAsync();
+
+        var firstPage = await _postRepository.GetTrendingFeedAsync(1, 1, category.Id, null, null, null);
+        var secondPage = await _postRepository.GetTrendingFeedAsync(2, 1, category.Id, null, null, null);
+        var latest = await _postRepository.GetFeedAsync(1, 1, category.Id);
+
+        Assert.Equal(3, firstPage.TotalCount);
+        Assert.Equal(mostLiked.Id, Assert.Single(firstPage.Items).Id);
+        Assert.Equal(2, Assert.Single(firstPage.Items).LikeCount);
+        Assert.Equal(oneLike.Id, Assert.Single(secondPage.Items).Id);
+        Assert.Equal(newest.Id, Assert.Single(latest.Items).Id);
+
+    }
+
+    [Fact]
     public async Task MyPosts_LoadsCategoryAndPaginatesEqualTimestampsDeterministically()
     {
         var user = await AddUser();

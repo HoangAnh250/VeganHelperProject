@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace VeganHelper.DAL.Integrations.Moderation;
 
-public record ModerationAiMedia(long Id, string Url, string MediaType);
+public record ModerationAiMedia(long Id, string Url, string MediaType, int? DurationSeconds = null);
 
 public record ModerationAiInput(long PostId, int Revision, string Title, string? Content,
     IReadOnlyList<ModerationAiMedia> Media, IReadOnlyList<string> Ingredients, IReadOnlyList<string> Steps);
@@ -33,7 +33,7 @@ public sealed class ModerationAiOptions
     // Legacy scored results only; the PASS/FAIL Gemini contract does not supply confidence.
     public double MinAutoPublishConfidence { get; set; } = .9;
     public string[] AllowedMediaHosts { get; set; } = [];
-    public int TimeoutSeconds { get; set; } = 60;
+    public int TimeoutSeconds { get; set; } = 180;
 }
 
 public sealed class ModerationPromptDefinition

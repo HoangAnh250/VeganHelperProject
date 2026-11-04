@@ -13,6 +13,7 @@ public sealed class TestPayOSGateway : IPayOSGateway
 {
     public const string TestSignature = "integration-test-signature";
     public bool IsConfigured => true;
+    public PayOSPaymentStatus? NextPaymentStatus { get; set; }
 
     public Task<PayOSCreatedPaymentLink> CreatePaymentLinkAsync(
         PayOSCreatePaymentLink request,
@@ -42,5 +43,18 @@ public sealed class TestPayOSGateway : IPayOSGateway
             root.GetProperty("currency").GetString() ?? string.Empty,
             root.TryGetProperty("paymentLinkId", out var paymentLinkId) ? paymentLinkId.GetString() : null,
             root.TryGetProperty("providerReference", out var providerReference) ? providerReference.GetString() : null));
+    }
+
+    public Task<PayOSPaymentStatus> GetPaymentStatusAsync(long orderCode, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(NextPaymentStatus ?? new PayOSPaymentStatus(
+            orderCode,
+            1_000,
+            0,
+            1_000,
+            "Pending",
+            $"test-link-{orderCode}",
+            null));
     }
 }

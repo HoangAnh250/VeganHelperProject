@@ -52,8 +52,25 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
         await access.EnsureAsync(userId,ct);
         var input=await plans.LoadAsync(userId,ct);
         var today=LocalToday(clock,request.TimeZoneId);
-        return WeightGoalSafety.Evaluate(input.Profile,request.StartDate>today?request.StartDate:today,
+        var safety=WeightGoalSafety.Evaluate(input.Profile,request.StartDate>today?request.StartDate:today,
             request.TargetWeightKg ?? 0,request.TargetDate ?? default,request.EligibilityConfirmed);
+        if(!safety.Allowed) return safety;
+
+        try
+        {
+            var menu=MealPlanGenerator.Generate(input,today,new Random(0),ct,safety.TargetCalories,request.MealCalorieSplit);
+            WeightGoalSafety.ValidateGeneratedDays(menu.Days,safety,input.Profile!.BiologicalSex!);
+            return safety with
+            {
+                Tdee = MealPlanPresentation.WholeCalories(safety.Tdee),
+                TargetCalories = MealPlanPresentation.WholeCalories(safety.TargetCalories),
+                DailyAdjustment = MealPlanPresentation.WholeCalories(safety.DailyAdjustment)
+            };
+        }
+        catch(ConflictException ex)
+        {
+            return safety with { Allowed=false, Reasons=[..safety.Reasons,ex.Message] };
+        }
     }
 
     public static void ValidateSettings(GenerateMealPlanRequest request)
@@ -88,10 +105,36 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
 
     public async Task EnrichAsync(long userId,MealPlanDto dto,CancellationToken ct)
     {
-        var routine=await routines.GetAsync(userId,dto.Id,false,ct);
-        if(routine is null) return;
-        dto.Routine=mapper.Map<MealRoutineDto>(routine);
-        dto.Routine.Entries=mapper.Map<List<MealEntryDto>>(await routines.EntriesAsync(dto.Id,ct));
+        await EnrichManyAsync(userId,[dto],ct);
+    }
+
+    public async Task EnrichManyAsync(long userId,IReadOnlyCollection<MealPlanDto> mealPlans,CancellationToken ct)
+    {
+        if(mealPlans.Count==0) return;
+        var planIds=mealPlans.Select(dto=>dto.Id).Distinct().ToArray();
+        var menus=mealPlans.Where(dto=>dto.Menu is not null).Select(dto=>dto.Menu!).ToList();
+        var meals=menus.SelectMany(menu=>menu.Days).SelectMany(day=>day.Meals).ToList();
+        if(meals.Count>0)
+        {
+            var images=await plans.GetImageUrlsAsync(meals.Select(meal=>meal.MealId).Distinct().ToArray(),ct);
+            var mealsMissingInstructions=meals.Where(meal=>meal.CookingSteps.Count==0)
+                .Select(meal=>meal.MealId).Distinct().ToArray();
+            var cookingSteps=await plans.GetCookingStepsAsync(mealsMissingInstructions,ct);
+            foreach(var menu in menus) MealPlanPresentation.Apply(menu,images,cookingSteps);
+        }
+
+        var routineRows=await routines.GetManyAsync(userId,planIds,ct);
+        if(routineRows.Count==0) return;
+        var routineIds=routineRows.Select(routine=>routine.MealPlanId).ToArray();
+        var entriesByPlan=(await routines.EntriesAsync(routineIds,ct)).GroupBy(entry=>entry.MealPlanId)
+            .ToDictionary(group=>group.Key,group=>group.ToList());
+        var routinesByPlan=routineRows.ToDictionary(routine=>routine.MealPlanId);
+        foreach(var dto in mealPlans)
+        {
+            if(!routinesByPlan.TryGetValue(dto.Id,out var routine)) continue;
+            dto.Routine=mapper.Map<MealRoutineDto>(routine);
+            dto.Routine.Entries=mapper.Map<List<MealEntryDto>>(entriesByPlan.GetValueOrDefault(dto.Id) ?? []);
+        }
     }
 
     public async Task<MealRoutineDto> LogAsync(long userId,long id,LogMealRequest request,CancellationToken ct)
@@ -185,15 +228,17 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
         var today=LocalToday(clock,r.TimeZoneId);
         var safety=WeightGoalSafety.Evaluate(input.Profile,preview.EffectiveFrom>today?preview.EffectiveFrom:today,
             request.TargetWeightKg ?? r.TargetWeightKg!.Value,request.TargetDate ?? r.TargetDate!.Value,request.EligibilityConfirmed);
-        var fresh=MealPlanGenerator.Generate(input,today,new Random(Random.Shared.Next()),ct,safety.TargetCalories);
-        fresh.Goal="weight_goal"; fresh.Notes=GoalNotes();
         var old=JsonSerializer.Deserialize<WeeklyMenuDto>(original.GenerationSnapshot!,Json)!;
+        var split=old.MealCalorieSplit ?? MealCalorieSplitDto.LegacyDefault();
+        var fresh=MealPlanGenerator.Generate(input,today,new Random(Random.Shared.Next()),ct,safety.TargetCalories,split);
+        fresh.Goal="weight_goal"; fresh.Notes=GoalNotes();
         var start=request.NextWeek?preview.EffectiveFrom:original.StartDate!.Value;
         foreach(var day in fresh.Days) { day.Date=start.AddDays(day.DayIndex-1); day.DayOfWeek=(byte)(((int)day.Date.DayOfWeek+6)%7+1); }
         WeightGoalSafety.ValidateGeneratedDays(fresh.Days.Where(d=>d.Date>=preview.EffectiveFrom),safety,input.Profile!.BiologicalSex!);
         if(!request.NextWeek) fresh.Days=fresh.Days.Select(d=>d.Date<preview.EffectiveFrom?old.Days.Single(o=>o.Date==d.Date):d).ToList();
+        MealPlanPresentation.RoundCalories(fresh);
         var now=clock.GetUtcNow().UtcDateTime;
-        var result=new MealPlan {UserId=userId,StartDate=start,EndDate=start.AddDays(6),DietType=fresh.DietType,
+        var result=new MealPlan {UserId=userId,Name=MealPlanNaming.Default(start),StartDate=start,EndDate=start.AddDays(6),DietType=fresh.DietType,
             HeightCm=input.Profile!.HeightCm,WeightKg=input.Profile.WeightKg,BmiValue=fresh.Bmi,
             AllergiesSnapshot=JsonSerializer.Serialize(input.Allergies,Json),AvailableIngredientsSnapshot="[]",
             GenerationSource="manual",GenerationSnapshot=JsonSerializer.Serialize(fresh,Json),Status="completed",CreatedAt=now,UpdatedAt=now};

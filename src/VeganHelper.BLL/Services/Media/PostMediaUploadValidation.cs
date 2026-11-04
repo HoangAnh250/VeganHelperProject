@@ -1,11 +1,38 @@
 using Microsoft.AspNetCore.Http;
+using System.Linq;
 using System.Text;
+using VeganHelper.DAL.Media;
 
 namespace VeganHelper.BLL.Services.Media;
 
 internal static class PostMediaUploadValidation
 {
-    public static async Task ValidateAsync(IFormFile? file, CancellationToken ct)
+    public const double MaximumVideoDurationSeconds = 60;
+    public const int MaximumMediaCount = 10;
+    public const long MaximumPostMediaBytes = 200L * 1024 * 1024;
+
+    public static async Task<int?[]> ValidateBatchAsync(IEnumerable<IFormFile> files, CancellationToken ct)
+    {
+        var batch = files.ToList();
+        if (batch.Count > MaximumMediaCount)
+            throw new ArgumentException($"A post can contain at most {MaximumMediaCount} media files.");
+
+        long totalBytes = 0;
+        foreach (var file in batch)
+        {
+            if (file is null) throw new ArgumentException("Media file must not be empty.");
+            if (file.Length > MaximumPostMediaBytes - totalBytes)
+                throw new ArgumentException("Media files in one upload must total no more than 200 MB.");
+            totalBytes += file.Length;
+        }
+
+        var durations = new int?[batch.Count];
+        for (var index = 0; index < batch.Count; index++)
+            durations[index] = await ValidateAsync(batch[index], ct);
+        return durations;
+    }
+
+    public static async Task<int?> ValidateAsync(IFormFile? file, CancellationToken ct)
     {
         if (file is null || file.Length <= 0) throw new ArgumentException("Media file must not be empty.");
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -16,12 +43,12 @@ internal static class PostMediaUploadValidation
             ".png" => mime == "image/png",
             ".webp" => mime == "image/webp",
             ".mp4" => mime == "video/mp4",
-            ".mov" => mime == "video/quicktime",
+            ".mov" => mime is "video/quicktime" or "video/mov",
             ".webm" => mime == "video/webm",
             _ => false
         };
         if (!validType) throw new ArgumentException("Unsupported media extension or content type.");
-        var maximum = mime.StartsWith("image/") ? 5L * 1024 * 1024 : 200L * 1024 * 1024;
+        var maximum = mime.StartsWith("image/") ? 5L * 1024 * 1024 : MaximumPostMediaBytes;
         if (file.Length > maximum) throw new ArgumentException("Images must be at most 5 MB; videos at most 200 MB.");
         await using var stream = file.OpenReadStream();
         var header = new byte[12];
@@ -37,5 +64,13 @@ internal static class PostMediaUploadValidation
             _ => false
         };
         if (!validSignature) throw new ArgumentException("Media content does not match its declared format.");
+        if (!mime.StartsWith("video/", StringComparison.Ordinal)) return null;
+
+        var durationSeconds = VideoDurationReader.ReadSeconds(stream, mime);
+        if (durationSeconds is not double duration || !double.IsFinite(duration) || duration <= 0)
+            throw new ArgumentException("Video duration metadata is missing or unreadable. Re-export as MP4, MOV or WebM with a known duration.");
+        if (duration > MaximumVideoDurationSeconds)
+            throw new ArgumentException("Videos must be 60 seconds or shorter.");
+        return checked((int)Math.Ceiling(duration));
     }
 }

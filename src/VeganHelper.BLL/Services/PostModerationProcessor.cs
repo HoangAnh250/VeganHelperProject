@@ -28,6 +28,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (ModerationAiException ex) { failure = ex; }
                 catch (Exception) { failure = new("provider_error", false); }
+                if (input is not null && result is not null) result = NonVeganEndorsementGuard.Apply(input, ModerationTitlePolicy.Apply(input, result));
             }
             await FinishAsync(scan, input, result, failure, ct);
         }
@@ -60,7 +61,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                     ? Math.Clamp(requested, 60, 86400) : 900;
                 scan.State = "queued"; scan.Attempts = Math.Max(0, scan.Attempts - 1);
                 scan.ErrorCode = "provider_quota"; scan.NextAttemptAt = now.AddSeconds(seconds);
-                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.1"; scan.CompletedAt = null;
+                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.6"; scan.CompletedAt = null;
                 await repository.DeferProviderAsync(scan.NextAttemptAt, ct);
             }
             else
@@ -68,7 +69,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                 var retry = failure?.Retryable == true && scan.Attempts < 5;
                 scan.State = retry ? "queued" : failure?.Retryable == true ? "failed" : "manual_required";
                 scan.ErrorCode = SafeCode(failure?.Code);
-                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.1";
+                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.6";
                 scan.NextAttemptAt = now.AddSeconds(30 * Math.Pow(3, Math.Max(0, scan.Attempts - 1)));
                 scan.CompletedAt = retry ? null : now;
             }
@@ -82,15 +83,20 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
             if (result.Verdict is "flagged" or "uncertain")
             {
                 scan.State = "flagged";
-                var wasPublic = post.Status == "published";
-                post.Status = "pending_review"; post.ModerationHold = true; post.UpdatedAt = now;
-                repository.AddFlag(new Flag { PostId = post.Id, PostRevision = scan.Revision, ModerationScanId = scan.Id, SourceType = "ai",
-                    AiModelName = result.Model, Reason = result.Summary, Status = "pending", CreatedAt = now,
-                    ReportedSnapshotJson = JsonSerializer.Serialize(new { input.Title, input.Content,
-                        media = input.Media.Select(m => new { m.Id, mediaUrl = m.Url, m.MediaType }),
-                        input.Ingredients, input.Steps, findings = result.Findings, confidence = result.Confidence }, JsonSerializerOptions.Web) });
-                if (wasPublic)
-                    await notifications.NotifyModerationHoldAsync(post.Id, post.AuthorId, scan.Revision, result.Summary, ct);
+                // A member report requests evidence for Admin, never an automatic sanction.
+                // Read the locked scan, since a report can arrive while the AI request is in flight.
+                if (!scan.ReportRecheckRequested)
+                {
+                    var wasPublic = post.Status == "published";
+                    post.Status = "pending_review"; post.ModerationHold = true; post.UpdatedAt = now;
+                    repository.AddFlag(new Flag { PostId = post.Id, PostRevision = scan.Revision, ModerationScanId = scan.Id, SourceType = "ai",
+                        AiModelName = result.Model, Reason = result.Summary, Status = "pending", CreatedAt = now,
+                        ReportedSnapshotJson = JsonSerializer.Serialize(new { input.Title, input.Content,
+                            media = input.Media.Select(m => new { m.Id, mediaUrl = m.Url, m.MediaType }),
+                            input.Ingredients, input.Steps, findings = result.Findings, confidence = result.Confidence }, JsonSerializerOptions.Web) });
+                    if (wasPublic)
+                        await notifications.NotifyModerationHoldAsync(post.Id, post.AuthorId, scan.Revision, result.Summary, ct);
+                }
             }
             else if (result.Confidence is double legacyScore && (!double.IsFinite(options.Value.MinAutoPublishConfidence) || legacyScore < Math.Max(.9, options.Value.MinAutoPublishConfidence)))
             { scan.State = "manual_required"; scan.ErrorCode = "low_confidence"; }
@@ -110,7 +116,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
         await repository.SaveAsync(ct); await transaction.CommitAsync(ct);
     }
     private static string SafeCode(string? code) => code is "provider_quota" or "provider_timeout" or "provider_error" or "provider_unavailable" or "invalid_response" or
-        "unsupported_media" or "media_unavailable" or "invalid_media" or "invalid_image" or "unsafe_media_url" or "provider_blocked" or
+        "unsupported_media" or "video_too_long" or "media_unavailable" or "invalid_media" or "invalid_image" or "unsafe_media_url" or "provider_blocked" or
         "invalid_configuration" or "invalid_input" or "media_too_large" or "input_too_large" or "request_too_large" or "ai_disabled"
         ? code : "review_unavailable";
 }

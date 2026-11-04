@@ -25,6 +25,12 @@ public class ExceptionHandlingMiddleware
         {
             await _next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            if (!context.Response.HasStarted) context.Response.StatusCode = 499;
+            _logger.LogDebug("Client cancelled {Method} {Path} request {TraceIdentifier}.",
+                context.Request.Method, context.Request.Path, context.TraceIdentifier);
+        }
         catch (ValidationException ex)
         {
             _logger.LogWarning(ex, "Validation error occurred.");

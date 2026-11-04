@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using VeganHelper.DAL.Entities;
 using VeganHelper.DAL.Persistence;
@@ -46,17 +47,90 @@ public sealed class ChatRepository(AppDbContext db) : IChatRepository
         return messages;
     }
 
-    public Task<long> CountCompletedGuestChatRequestsAsync(
-        Guid guestSessionId,
+    public Task<int> CountMessagesAfterAsync(
+        long sessionId,
+        long? afterMessageId,
         CancellationToken cancellationToken = default) =>
-        db.AiUsage
-            .AsNoTracking()
-            .LongCountAsync(usage =>
-                usage.GuestSessionId == guestSessionId &&
-                usage.UserId == null &&
-                usage.FeatureType == "chatbot" &&
-                usage.Status == "completed",
-                cancellationToken);
+        db.ChatMessages.CountAsync(message => message.SessionId == sessionId &&
+            (!afterMessageId.HasValue || message.Id > afterMessageId.Value), cancellationToken);
+
+    public async Task<IReadOnlyList<ChatMessage>> GetMessagesAfterAsync(
+        long sessionId,
+        long? afterMessageId,
+        int maximum,
+        CancellationToken cancellationToken = default) =>
+        await db.ChatMessages.AsNoTracking()
+            .Where(message => message.SessionId == sessionId &&
+                (!afterMessageId.HasValue || message.Id > afterMessageId.Value))
+            .OrderBy(message => message.Id)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+
+    public async Task<bool> TryUpdateSummaryAsync(
+        long sessionId,
+        long? expectedThroughMessageId,
+        string summary,
+        long throughMessageId,
+        CancellationToken cancellationToken = default)
+    {
+        var query = db.ChatSessions.Where(session => session.Id == sessionId);
+        query = expectedThroughMessageId.HasValue
+            ? query.Where(session => session.SummaryThroughMessageId == expectedThroughMessageId.Value)
+            : query.Where(session => session.SummaryThroughMessageId == null);
+
+        return await query.ExecuteUpdateAsync(setters => setters
+            .SetProperty(session => session.ContextSummary, summary)
+            .SetProperty(session => session.SummaryThroughMessageId, throughMessageId), cancellationToken) == 1;
+    }
+
+    public async Task<IReadOnlyList<long>> GetRecommendedPostIdsAsync(
+        long sessionId, CancellationToken cancellationToken = default)
+    {
+        var snapshots = await db.ChatMessages.AsNoTracking()
+            .Where(message => message.SessionId == sessionId && message.RecommendedPostIdsJson != null)
+            .Select(message => message.RecommendedPostIdsJson!)
+            .ToListAsync(cancellationToken);
+        return snapshots.SelectMany(snapshot => JsonSerializer.Deserialize<long[]>(snapshot) ?? [])
+            .Where(id => id > 0).Distinct().Take(1_000).ToArray();
+    }
+
+    public async Task<long?> TryStartGuestChatAsync(
+        Guid guestSessionId,
+        ChatSession session,
+        ChatMessage message,
+        AiUsage usage,
+        int maximumQuestions,
+        CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var lockId = BitConverter.ToInt32(guestSessionId.ToByteArray());
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock({3913035}, {lockId})",
+            cancellationToken);
+
+        var recentPending = DateTime.UtcNow.AddMinutes(-3);
+        var reserved = await db.AiUsage.AsNoTracking().LongCountAsync(
+            item => item.GuestSessionId == guestSessionId &&
+                item.UserId == null && item.FeatureType == "chatbot" &&
+                (item.Status == "completed" ||
+                 item.Status == "pending" && item.CreatedAt >= recentPending),
+            cancellationToken);
+        if (reserved >= maximumQuestions)
+            return null;
+
+        if (session.Id == 0)
+        {
+            db.ChatSessions.Add(session);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        message.SessionId = session.Id;
+        db.ChatMessages.Add(message);
+        db.AiUsage.Add(usage);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return reserved;
+    }
 
     public void AddSession(ChatSession session) => db.ChatSessions.Add(session);
 

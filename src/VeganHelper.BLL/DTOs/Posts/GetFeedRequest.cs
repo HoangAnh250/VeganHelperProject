@@ -8,4 +8,5 @@ public class GetFeedRequest
     public string? DifficultyLevel { get; set; }
     public string? DietType { get; set; }
     public int? PrepTimeMax { get; set; }
+    public string SortBy { get; set; } = "latest";
 }

@@ -15,14 +15,62 @@ public sealed class PostReportRepository(AppDbContext db) : IPostReportRepositor
             f.ReporterId == reporterId && f.PostId == postId && f.PostRevision == revision, ct);
     public Task<int> RecentCountAsync(long reporterId, DateTime since, CancellationToken ct) =>
         db.Flags.CountAsync(f => f.SourceType == "user" && f.ReporterId == reporterId && f.CreatedAt >= since, ct);
-    public async Task<DatabasePage<Flag>> ListAsync(string? status, long? postId, int page, int size, CancellationToken ct)
+    private IQueryable<AdminPostReportProjection> ReportQuery(string? status, long? postId)
     {
         var q = db.Flags.AsNoTracking().Where(f => f.SourceType == "user" && f.PostId != null);
         if (status is not null) q = q.Where(f => f.Status == status);
         if (postId.HasValue) q = q.Where(f => f.PostId == postId);
-        return new(await q.LongCountAsync(ct), await q.OrderBy(f => f.CreatedAt).ThenBy(f => f.Id)
-            .Skip((page - 1) * size).Take(size).ToListAsync(ct));
+
+        return
+            from f in q
+            join p in db.Posts.AsNoTracking() on f.PostId equals (long?)p.Id into posts
+            from p in posts.DefaultIfEmpty()
+            join author in db.Users.AsNoTracking() on p.AuthorId equals author.Id into authors
+            from author in authors.DefaultIfEmpty()
+            join authorProfile in db.UserProfiles.AsNoTracking() on author.Id equals authorProfile.UserId into authorProfiles
+            from authorProfile in authorProfiles.DefaultIfEmpty()
+            join reporter in db.Users.AsNoTracking() on f.ReporterId equals (long?)reporter.Id into reporters
+            from reporter in reporters.DefaultIfEmpty()
+            join reporterProfile in db.UserProfiles.AsNoTracking() on reporter.Id equals reporterProfile.UserId into reporterProfiles
+            from reporterProfile in reporterProfiles.DefaultIfEmpty()
+            select new AdminPostReportProjection
+            {
+                Id = f.Id,
+                PostId = f.PostId,
+                PostTitle = p == null ? "" : p.Title,
+                ReportCount = db.Flags.Count(other => other.SourceType == "user" && other.PostId == f.PostId && other.PostRevision == f.PostRevision && other.Status == f.Status),
+                AuthorId = p == null ? 0 : p.AuthorId,
+                AuthorName = author == null ? "Unknown" : (authorProfile == null || authorProfile.DisplayName == "" ? author.Username : authorProfile.DisplayName),
+                ReporterId = f.ReporterId,
+                ReporterName = reporter == null ? "Unknown" : (reporterProfile == null || reporterProfile.DisplayName == "" ? reporter.Username : reporterProfile.DisplayName),
+                PostRevision = f.PostRevision,
+                Reason = f.Reason,
+                ReasonCategory = f.ReasonCategory,
+                Status = f.Status,
+                CreatedAt = f.CreatedAt,
+                ResolutionNote = f.ResolutionNote,
+                ReportedSnapshotJson = f.ReportedSnapshotJson
+            };
     }
+    public async Task<DatabasePage<AdminPostReportProjection>> ListAsync(string? status, long? postId, int page, int size, CancellationToken ct)
+    {
+        var query = ReportQuery(status, postId);
+        // Filtered detail requests retain every report; the queue has one row per post revision/status.
+        if (!postId.HasValue)
+            query = query.Where(report => report.Id == db.Flags.Where(other => other.SourceType == "user" &&
+                other.PostId == report.PostId && other.PostRevision == report.PostRevision && other.Status == report.Status)
+                .Max(other => other.Id));
+        var count = await query.LongCountAsync(ct);
+        var items = await query.OrderByDescending(f => f.CreatedAt).ThenByDescending(f => f.Id)
+            .Skip((page - 1) * size).Take(size).ToListAsync(ct);
+        return new(count, items);
+    }
+    public async Task<IReadOnlyList<AdminPostReportProjection>> ListRevisionAsync(long postId, int? revision, string status, CancellationToken ct) =>
+        await ReportQuery(status, postId).Where(report => report.PostRevision == revision)
+            .OrderByDescending(report => report.CreatedAt).ThenByDescending(report => report.Id).Take(100).ToListAsync(ct);
+
+    public Task<AdminPostReportProjection?> GetReportProjectionAsync(long id, CancellationToken ct) =>
+        ReportQuery(null, null).SingleOrDefaultAsync(r => r.Id == id, ct);
     public Task<Flag?> FindAsync(long id, bool forUpdate, CancellationToken ct) => forUpdate
         ? db.Flags.FromSqlInterpolated($"SELECT * FROM flags WHERE id = {id} FOR UPDATE").SingleOrDefaultAsync(ct)
         : db.Flags.AsNoTracking().SingleOrDefaultAsync(f => f.Id == id, ct);

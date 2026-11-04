@@ -1,5 +1,17 @@
 # FN17 - Keyword Filter Draft (v0.1)
 
+## Implemented admin review queue
+
+- Hard-blocked comments remain rejected without a stored comment or review record.
+- Keyword-hidden comments create a pending `flags` record with `source_type = 'keyword'`, no human reporter and no AI model.
+- Creation and edits both enqueue keyword-hidden content in the same transaction as the comment change.
+- The existing admin comment-reports list/detail/decision endpoints handle both user reports and keyword records. The existing page displays `Keyword filter` as the reporter for system records.
+- A partial unique index permits only one pending keyword review per comment; later filtered edits refresh its reason.
+- A comment with several pending user reports and a keyword record appears once. One admin decision resolves all pending records for that comment. Keyword records do not count toward the three-distinct-users report threshold.
+- The dashboard count includes both sources. Admin list defaults to 20 items per page; supported page size is 1-100. The current FE requests 10 items per page.
+- Migration `20261031003000_AddKeywordCommentReview` expands the source constraint and adds the unique index. It also queues legacy hidden, non-deleted comments that have no moderation records; this is recovery of orphaned hidden content, not a new AI finding.
+- Apply this PostgreSQL migration before running the updated BE against the target database. No new table or column is introduced.
+
 ## 1. Scope
 
 This document is a review draft for the Sprint 2 comment moderation rule.
@@ -25,7 +37,7 @@ The first implementation can keep the list in a configuration file. If Admin nee
 When a comment is submitted:
 
 1. Trim leading and trailing whitespace.
-2. Normalize Unicode, lowercase, and create an accent-insensitive comparison key (`đ` becomes `d`); keep the original text for display.
+2. Normalize Unicode and lowercase, then fold Vietnamese hoi/nga tone marks to the same comparison key. Preserve other accents and keep the original text for display. Accentless spellings match only the explicitly listed rules.
 3. Collapse repeated whitespace and check both exact tokens and approved phrases.
 4. Do not use a raw substring search for short terms such as `cc`, `cl`, or `dm`; this creates many false positives.
 5. If a rule has action `hide_pending_review`, create the comment as hidden and mark it for Admin review.
@@ -96,7 +108,7 @@ súc vật
 đụ con mẹ mày
 ```
 
-The comparison key should be accent-insensitive, so both `địt mẹ` and `dit me` match the same rule. Keep the accented forms in the review document so Admin can recognize what the rule means.
+The filter normalizes both dictionary terms and comment text. It treats hoi/nga variants such as `đĩ` and `đỉ` alike, including decomposed Unicode input. Other accents remain distinct so ordinary `đi` does not match `đĩ`; whole-word matching also keeps `đỉa` separate. Accentless forms such as `dit me` remain explicit dictionary entries. Original comment text is preserved for Admin review.
 
 ### 4.2 Direct harassment or threats
 

@@ -6,6 +6,7 @@ public sealed class MealPlan
     public long? UserId { get; set; }
     public bool IsTemplate { get; set; }
     public string? TemplateName { get; set; }
+    public string? Name { get; set; }
     public DateOnly? StartDate { get; set; }
     public DateOnly? EndDate { get; set; }
     public decimal? HeightCm { get; set; }

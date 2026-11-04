@@ -1,7 +1,7 @@
 using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.Posts;
 
-namespace VeganHelper.BLL.Services;
+namespace VeganHelper.BLL.Contracts;
 
 public interface IPostInteractionService
 {

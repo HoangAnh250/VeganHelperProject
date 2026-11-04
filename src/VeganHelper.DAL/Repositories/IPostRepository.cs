@@ -6,6 +6,10 @@ using VeganHelper.DAL.Entities;
 
 public interface IPostRepository
 {
+    Task<(IReadOnlyList<PostRecommendationProjection> Posts, bool HasMore)> SearchRecommendationsAsync(
+        PostRecommendationQuery query, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PostRecommendationProjection>> GetPublicRecommendationsAsync(
+        IReadOnlyList<long> postIds, CancellationToken cancellationToken = default);
     Task<PostPublicationState?> LockPublicationAsync(long id, int revision, CancellationToken ct);
     Task<bool> IsEvidenceMediaAsync(string url, CancellationToken ct);
     Task<Post> CreatePostAsync(Post post, CancellationToken cancellationToken = default);
@@ -19,6 +23,9 @@ public interface IPostRepository
         string? dietType = null,
         int? prepTimeMax = null,
         CancellationToken cancellationToken = default);
+    Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> GetTrendingFeedAsync(
+        int pageIndex, int pageSize, int? categoryId, string? difficultyLevel,
+        string? dietType, int? prepTimeMax, CancellationToken cancellationToken = default);
     Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> SearchPostsAsync(
         string keyword,
         int pageIndex,
@@ -32,6 +39,9 @@ public interface IPostRepository
 
     Task IncrementViewCountAsync(long postId, CancellationToken cancellationToken = default);
     Task<bool> DeletePostAsync(long postId, CancellationToken cancellationToken = default);
+
+    Task<long> CountCommentsAsync(long postId, CancellationToken cancellationToken = default);
+    Task<System.Collections.Generic.Dictionary<long, long>> CountCommentsForPostsAsync(long[] postIds, CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
     Task StagePostUpdateRemovalsAsync(Post post, IReadOnlyCollection<PostMedia> media,

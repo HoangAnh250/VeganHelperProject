@@ -31,6 +31,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<MealPlanPaymentOrder> MealPlanPaymentOrders => Set<MealPlanPaymentOrder>();
     public DbSet<UserMealPlanAccess> UserMealPlanAccesses => Set<UserMealPlanAccess>();
     public DbSet<Meal> Meals => Set<Meal>();
+    public DbSet<MealCookingStep> MealCookingSteps => Set<MealCookingStep>();
     public DbSet<MealSuitableTime> MealSuitableTimes => Set<MealSuitableTime>();
     public DbSet<MealPlanSchedule> MealPlanSchedule => Set<MealPlanSchedule>();
     public DbSet<MealIngredient> MealIngredients => Set<MealIngredient>();
@@ -280,7 +281,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             });
             entity.HasKey(x => new { x.PostId }).HasName("PK_post_summaries");
             entity.Property(x => x.PostId).HasColumnName("post_id").HasColumnType("bigint").IsRequired(true).ValueGeneratedNever();
-            entity.Property(x => x.SourceMediaId).HasColumnName("source_media_id").HasColumnType("bigint").IsRequired(true);
+            entity.Property(x => x.SourceMediaIdsJson).HasColumnName("source_media_ids_json").HasColumnType("text").IsRequired(true);
+            entity.Property(x => x.ContentRevision).HasColumnName("content_revision").HasColumnType("integer").IsRequired(true);
             entity.Property(x => x.Transcript).HasColumnName("transcript").HasColumnType("text").IsRequired(false);
             entity.Property(x => x.AiGeneratedText).HasColumnName("ai_generated_text").HasColumnType("text").IsRequired(false);
             entity.Property(x => x.Status).HasColumnName("status").HasColumnType("character varying(20)").IsRequired(true).HasDefaultValueSql("'pending'");
@@ -289,7 +291,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.RequestedAt).HasColumnName("requested_at").HasColumnType("timestamp with time zone").IsRequired(true).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(x => x.GeneratedAt).HasColumnName("generated_at").HasColumnType("timestamp with time zone").IsRequired(false);
             entity.HasOne<Post>().WithMany().HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_summaries_1");
-            entity.HasOne<PostMedia>().WithMany().HasForeignKey(x => new { x.PostId, x.SourceMediaId }).HasPrincipalKey(x => new { x.PostId, x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_summaries_2");
         });
         modelBuilder.Entity<Category>(entity =>
         {
@@ -457,6 +458,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("bigint").IsRequired(false);
             entity.Property(x => x.IsTemplate).HasColumnName("is_template").HasColumnType("boolean").IsRequired(true).HasDefaultValueSql("0");
             entity.Property(x => x.TemplateName).HasColumnName("template_name").HasColumnType("character varying(255)").IsRequired(false);
+            entity.Property(x => x.Name).HasColumnName("name").HasColumnType("character varying(100)").IsRequired(false);
             entity.Property(x => x.StartDate).HasColumnName("start_date").HasColumnType("date").IsRequired(false);
             entity.Property(x => x.EndDate).HasColumnName("end_date").HasColumnType("date").IsRequired(false);
             entity.Property(x => x.HeightCm).HasColumnName("height_cm").HasColumnType("numeric(5,2)").IsRequired(false);
@@ -494,9 +496,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired();
             entity.HasIndex(x => x.Code).IsUnique().HasDatabaseName("UQ_meal_plan_packages_code");
             entity.HasData(
-                new MealPlanPackage { Id = 1, Code = "monthly", Name = "1 month", DurationMonths = 1, AmountVnd = 100_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) },
-                new MealPlanPackage { Id = 2, Code = "half_year", Name = "6 months", DurationMonths = 6, AmountVnd = 500_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) },
-                new MealPlanPackage { Id = 3, Code = "yearly", Name = "12 months", DurationMonths = 12, AmountVnd = 1_000_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) });
+                new MealPlanPackage { Id = 1, Code = "monthly", Name = "1 month", DurationMonths = 1, AmountVnd = 1_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) },
+                new MealPlanPackage { Id = 2, Code = "half_year", Name = "6 months", DurationMonths = 6, AmountVnd = 5_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) },
+                new MealPlanPackage { Id = 3, Code = "yearly", Name = "12 months", DurationMonths = 12, AmountVnd = 10_000, IsActive = true, CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc) });
         });
         modelBuilder.Entity<MealPlanPaymentOrder>(entity =>
         {
@@ -561,11 +563,26 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.OwnerUserId).HasColumnName("owner_user_id").HasColumnType("bigint").IsRequired(false);
             entity.Property(x => x.ComboName).HasColumnName("combo_name").HasColumnType("character varying(255)").IsRequired(true);
             entity.Property(x => x.Description).HasColumnName("description").HasColumnType("text").IsRequired(false);
+            entity.Property(x => x.ImageUrl).HasColumnName("image_url").HasColumnType("text").IsRequired(false);
             entity.Property(x => x.Servings).HasColumnName("servings").HasColumnType("numeric(6,2)").IsRequired(true).HasDefaultValueSql("1");
             entity.Property(x => x.TotalCalories).HasColumnName("total_calories").HasColumnType("numeric(10,2)").IsRequired(false);
             entity.Property(x => x.DietType).HasColumnName("diet_type").HasColumnType("character varying(30)").IsRequired(true);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired(true).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasOne<User>().WithMany().HasForeignKey(x => new { x.OwnerUserId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_meals_1");
+        });
+        modelBuilder.Entity<MealCookingStep>(entity =>
+        {
+            entity.ToTable("meal_cooking_steps", table =>
+            {
+                table.HasCheckConstraint("CK_meal_cooking_steps_step_number", "step_number > 0");
+                table.HasCheckConstraint("CK_meal_cooking_steps_instruction", "length(trim(instruction)) > 0");
+            });
+            entity.HasKey(x => new { x.MealId, x.StepNumber }).HasName("PK_meal_cooking_steps");
+            entity.Property(x => x.MealId).HasColumnName("meal_id").HasColumnType("bigint").IsRequired();
+            entity.Property(x => x.StepNumber).HasColumnName("step_number").HasColumnType("smallint").IsRequired();
+            entity.Property(x => x.Instruction).HasColumnName("instruction").HasColumnType("text").IsRequired();
+            entity.HasOne<Meal>().WithMany().HasForeignKey(x => x.MealId)
+                .OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_meal_cooking_steps_meals");
         });
         modelBuilder.Entity<MealPlanSchedule>(entity =>
         {
@@ -630,6 +647,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.SessionId).HasColumnName("session_id").HasColumnType("bigint").IsRequired(true);
             entity.Property(x => x.SenderType).HasColumnName("sender_type").HasColumnType("character varying(20)").IsRequired(true);
             entity.Property(x => x.MessageText).HasColumnName("message_text").HasColumnType("text").IsRequired(true);
+            entity.Property(x => x.RecommendedPostIdsJson).HasColumnName("recommended_post_ids_json").HasColumnType("text").IsRequired(false);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired(true).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasOne<ChatSession>().WithMany().HasForeignKey(x => new { x.SessionId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_chat_messages_1");
             entity.HasIndex(x => new { x.SessionId, x.Id }).HasDatabaseName("IX_chat_messages_1");
@@ -722,7 +740,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 table.HasCheckConstraint("CK_flags_1", "status IN ('pending','resolved','dismissed')");
                 table.HasCheckConstraint("CK_flags_2", "(CASE WHEN post_id IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN comment_id IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN shop_id IS NOT NULL THEN 1 ELSE 0 END) = 1");
                 table.HasCheckConstraint("CK_flags_3", "(status = 'pending' AND resolved_by_admin_id IS NULL AND resolved_at IS NULL) OR (status IN ('resolved','dismissed') AND resolved_by_admin_id IS NOT NULL AND resolved_at IS NOT NULL)");
-                table.HasCheckConstraint("CK_flags_4", "(source_type = 'user' AND reporter_id IS NOT NULL AND ai_model_name IS NULL) OR (source_type = 'ai' AND reporter_id IS NULL AND ai_model_name IS NOT NULL AND post_id IS NOT NULL)");
+                table.HasCheckConstraint("CK_flags_4", "(source_type = 'user' AND reporter_id IS NOT NULL AND ai_model_name IS NULL) OR (source_type = 'ai' AND reporter_id IS NULL AND ai_model_name IS NOT NULL AND post_id IS NOT NULL) OR (source_type = 'keyword' AND reporter_id IS NULL AND ai_model_name IS NULL AND comment_id IS NOT NULL)");
             });
             entity.HasKey(x => new { x.Id }).HasName("PK_flags");
             entity.Property(x => x.Id).HasColumnName("id").HasColumnType("bigint").IsRequired(true).UseIdentityByDefaultColumn();
@@ -748,6 +766,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 .IsUnique()
                 .HasDatabaseName("UX_flags_user_comment_report")
                 .HasFilter("source_type = 'user' AND comment_id IS NOT NULL AND reporter_id IS NOT NULL");
+            entity.HasIndex(x => x.CommentId)
+                .IsUnique()
+                .HasDatabaseName("UX_flags_pending_keyword_comment")
+                .HasFilter("source_type = 'keyword' AND status = 'pending'");
         });
         Member2ModelConfiguration.Configure(modelBuilder);
         MealPlanRoutineConfiguration.Configure(modelBuilder);

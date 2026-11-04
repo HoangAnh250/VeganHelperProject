@@ -13,7 +13,6 @@ namespace VeganHelper.DAL.PostgresMigrations
     [DbContext(typeof(AppDbContext))]
     partial class AppDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -346,6 +345,10 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnType("text")
                         .HasColumnName("message_text");
 
+                    b.Property<string>("RecommendedPostIdsJson")
+                        .HasColumnType("text")
+                        .HasColumnName("recommended_post_ids_json");
+
                     b.Property<string>("SenderType")
                         .IsRequired()
                         .HasColumnType("character varying(20)")
@@ -642,6 +645,11 @@ namespace VeganHelper.DAL.PostgresMigrations
 
                     b.HasIndex("ModerationScanId");
 
+                    b.HasIndex("CommentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_flags_pending_keyword_comment")
+                        .HasFilter("source_type = 'keyword' AND status = 'pending'");
+
                     b.HasIndex("PostId");
 
                     b.HasIndex("ResolvedByAdminId");
@@ -670,7 +678,7 @@ namespace VeganHelper.DAL.PostgresMigrations
 
                             t.HasCheckConstraint("CK_flags_3", "(status = 'pending' AND resolved_by_admin_id IS NULL AND resolved_at IS NULL) OR (status IN ('resolved','dismissed') AND resolved_by_admin_id IS NOT NULL AND resolved_at IS NOT NULL)");
 
-                            t.HasCheckConstraint("CK_flags_4", "(source_type = 'user' AND reporter_id IS NOT NULL AND ai_model_name IS NULL) OR (source_type = 'ai' AND reporter_id IS NULL AND ai_model_name IS NOT NULL AND post_id IS NOT NULL)");
+                            t.HasCheckConstraint("CK_flags_4", "(source_type = 'user' AND reporter_id IS NOT NULL AND ai_model_name IS NULL) OR (source_type = 'ai' AND reporter_id IS NULL AND ai_model_name IS NOT NULL AND post_id IS NOT NULL) OR (source_type = 'keyword' AND reporter_id IS NULL AND ai_model_name IS NULL AND comment_id IS NOT NULL)");
                         });
                 });
 
@@ -738,6 +746,10 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("diet_type");
 
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("image_url");
+
                     b.Property<long?>("OwnerUserId")
                         .HasColumnType("bigint")
                         .HasColumnName("owner_user_id");
@@ -764,6 +776,32 @@ namespace VeganHelper.DAL.PostgresMigrations
                             t.HasCheckConstraint("CK_meals_2", "total_calories >= 0");
 
                             t.HasCheckConstraint("CK_meals_3", "diet_type IN ('vegan','lacto_ovo_vegetarian')");
+                        });
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealCookingStep", b =>
+                {
+                    b.Property<long>("MealId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("meal_id");
+
+                    b.Property<short>("StepNumber")
+                        .HasColumnType("smallint")
+                        .HasColumnName("step_number");
+
+                    b.Property<string>("Instruction")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("instruction");
+
+                    b.HasKey("MealId", "StepNumber")
+                        .HasName("PK_meal_cooking_steps");
+
+                    b.ToTable("meal_cooking_steps", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_meal_cooking_steps_instruction", "length(trim(instruction)) > 0");
+
+                            t.HasCheckConstraint("CK_meal_cooking_steps_step_number", "step_number > 0");
                         });
                 });
 
@@ -875,6 +913,10 @@ namespace VeganHelper.DAL.PostgresMigrations
                     b.Property<string>("ModelName")
                         .HasColumnType("character varying(100)")
                         .HasColumnName("model_name");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
 
                     b.Property<DateTime?>("SavedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1037,7 +1079,7 @@ namespace VeganHelper.DAL.PostgresMigrations
                         new
                         {
                             Id = 1,
-                            AmountVnd = 100000,
+                            AmountVnd = 1000,
                             Code = "monthly",
                             CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, 0, DateTimeKind.Utc),
                             DurationMonths = 1,
@@ -1047,7 +1089,7 @@ namespace VeganHelper.DAL.PostgresMigrations
                         new
                         {
                             Id = 2,
-                            AmountVnd = 500000,
+                            AmountVnd = 5000,
                             Code = "half_year",
                             CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, 0, DateTimeKind.Utc),
                             DurationMonths = 6,
@@ -1057,7 +1099,7 @@ namespace VeganHelper.DAL.PostgresMigrations
                         new
                         {
                             Id = 3,
-                            AmountVnd = 1000000,
+                            AmountVnd = 10000,
                             Code = "yearly",
                             CreatedAt = new DateTime(2026, 10, 17, 0, 0, 0, 0, DateTimeKind.Utc),
                             DurationMonths = 12,
@@ -2204,6 +2246,10 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnType("text")
                         .HasColumnName("ai_generated_text");
 
+                    b.Property<int>("ContentRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("content_revision");
+
                     b.Property<string>("ErrorMessage")
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("error_message");
@@ -2222,9 +2268,10 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnName("requested_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<long>("SourceMediaId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("source_media_id");
+                    b.Property<string>("SourceMediaIdsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_media_ids_json");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2239,8 +2286,6 @@ namespace VeganHelper.DAL.PostgresMigrations
 
                     b.HasKey("PostId")
                         .HasName("PK_post_summaries");
-
-                    b.HasIndex("PostId", "SourceMediaId");
 
                     b.ToTable("post_summaries", null, t =>
                         {
@@ -3158,6 +3203,16 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasConstraintName("FK_meals_1");
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.MealCookingStep", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.Meal", null)
+                        .WithMany()
+                        .HasForeignKey("MealId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_meal_cooking_steps_meals");
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.MealIngredient", b =>
                 {
                     b.HasOne("VeganHelper.DAL.Entities.Ingredient", null)
@@ -3468,14 +3523,6 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_post_summaries_1");
-
-                    b.HasOne("VeganHelper.DAL.Entities.PostMedia", null)
-                        .WithMany()
-                        .HasForeignKey("PostId", "SourceMediaId")
-                        .HasPrincipalKey("PostId", "Id")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired()
-                        .HasConstraintName("FK_post_summaries_2");
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.RefreshToken", b =>

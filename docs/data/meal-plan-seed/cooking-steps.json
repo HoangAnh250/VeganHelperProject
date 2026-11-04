@@ -1,0 +1,1816 @@
+{
+  "batch": "VH-MEAL-SEED-20261012-v1",
+  "language": "en",
+  "provenance": "General sample cooking instructions authored from the listed ingredients and dish style; not dietitian-reviewed.",
+  "recipes": [
+    {
+      "meal_name": "Banana Walnut Overnight Oats",
+      "steps": [
+        "Stir the dry rolled oats and soy milk together in a lidded jar until every oat is moistened.",
+        "Fold in banana, english walnuts, and ground cinnamon.",
+        "Cover and refrigerate for at least 6 hours, preferably overnight, until thick and spoonable.",
+        "Stir before serving; loosen with a small splash of soy milk if needed and serve chilled."
+      ]
+    },
+    {
+      "meal_name": "Apple Cinnamon Overnight Oats",
+      "steps": [
+        "Stir the dry rolled oats and soy milk together in a lidded jar until every oat is moistened.",
+        "Fold in fuji apple with skin, almond, and ground cinnamon.",
+        "Cover and refrigerate for at least 6 hours, preferably overnight, until thick and spoonable.",
+        "Stir before serving; loosen with a small splash of soy milk if needed and serve chilled."
+      ]
+    },
+    {
+      "meal_name": "Mango Chia Overnight Oats",
+      "steps": [
+        "Stir the dry rolled oats and soy milk together in a lidded jar until every oat is moistened.",
+        "Fold in mango, dried chia seeds, and ground cinnamon.",
+        "Cover and refrigerate for at least 6 hours, preferably overnight, until thick and spoonable.",
+        "Stir before serving; loosen with a small splash of soy milk if needed and serve chilled."
+      ]
+    },
+    {
+      "meal_name": "Blueberry Almond Overnight Oats",
+      "steps": [
+        "Stir the dry rolled oats and soy milk together in a lidded jar until every oat is moistened.",
+        "Fold in blueberry, almond, and ground cinnamon.",
+        "Cover and refrigerate for at least 6 hours, preferably overnight, until thick and spoonable.",
+        "Stir before serving; loosen with a small splash of soy milk if needed and serve chilled."
+      ]
+    },
+    {
+      "meal_name": "Strawberry Flax Overnight Oats",
+      "steps": [
+        "Stir the dry rolled oats and soy milk together in a lidded jar until every oat is moistened.",
+        "Fold in strawberry, flaxseed, and ground cinnamon.",
+        "Cover and refrigerate for at least 6 hours, preferably overnight, until thick and spoonable.",
+        "Stir before serving; loosen with a small splash of soy milk if needed and serve chilled."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Pumpkin Mung Bean Rice Porridge",
+      "steps": [
+        "Combine the cooked rice, water, and ginger root in a saucepan. Bring to a gentle simmer, stirring to break up the rice.",
+        "Simmer for 10–15 minutes until the rice releases starch and the porridge is creamy; add a little water if it thickens too much.",
+        "Stir in pumpkin and mung beans and cook until the vegetables are tender and the protein is heated through.",
+        "Finish with salt and sesame oil and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Mushroom Tofu Rice Porridge",
+      "steps": [
+        "Combine the cooked rice, water, and ginger root in a saucepan. Bring to a gentle simmer, stirring to break up the rice.",
+        "Simmer for 10–15 minutes until the rice releases starch and the porridge is creamy; add a little water if it thickens too much.",
+        "Stir in mushroom and firm calcium-set tofu and cook until the vegetables are tender and the protein is heated through.",
+        "Finish with salt and sesame oil and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Carrot Lentil Rice Porridge",
+      "steps": [
+        "Combine the cooked rice, water, and ginger root in a saucepan. Bring to a gentle simmer, stirring to break up the rice.",
+        "Simmer for 10–15 minutes until the rice releases starch and the porridge is creamy; add a little water if it thickens too much.",
+        "Stir in carrot and lentils and cook until the vegetables are tender and the protein is heated through.",
+        "Finish with salt and sesame oil and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Sweet Corn Chickpea Rice Porridge",
+      "steps": [
+        "Combine the cooked rice, water, and ginger root in a saucepan. Bring to a gentle simmer, stirring to break up the rice.",
+        "Simmer for 10–15 minutes until the rice releases starch and the porridge is creamy; add a little water if it thickens too much.",
+        "Stir in sweet corn and chickpeas and cook until the vegetables are tender and the protein is heated through.",
+        "Finish with salt and sesame oil and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Spinach Edamame Rice Porridge",
+      "steps": [
+        "Combine the cooked rice, water, and ginger root in a saucepan. Bring to a gentle simmer, stirring to break up the rice.",
+        "Simmer for 10–15 minutes until the rice releases starch and the porridge is creamy; add a little water if it thickens too much.",
+        "Stir in spinach and green soybeans and cook until the vegetables are tender and the protein is heated through.",
+        "Finish with salt and sesame oil and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Avocado Chickpea Toast",
+      "steps": [
+        "Toast the bread until crisp at the edges but still tender in the middle.",
+        "Mash avocado and chickpeas with a little lemon juice until spreadable; leave a few small pieces for texture.",
+        "Spread the mash over the warm toast and arrange the tomato or fruit on top if listed.",
+        "Season with the listed salt if present and serve straight away, while the bread is still crisp."
+      ]
+    },
+    {
+      "meal_name": "Tomato White Bean Toast",
+      "steps": [
+        "Toast the bread until crisp at the edges but still tender in the middle.",
+        "Mash navy beans with a little lemon juice until spreadable; leave a few small pieces for texture.",
+        "Spread the mash over the warm toast and arrange the tomato or fruit on top if listed.",
+        "Season with the listed salt if present and serve straight away, while the bread is still crisp."
+      ]
+    },
+    {
+      "meal_name": "Banana Peanut Butter Toast",
+      "steps": [
+        "Toast the bread until crisp at the edges but still tender in the middle.",
+        "Spread unsalted peanut butter over the toast in an even layer.",
+        "Toss sliced fruit with a few drops of lemon juice to slow browning. Arrange banana over the spread.",
+        "Season with the listed salt if present and serve straight away, while the bread is still crisp."
+      ]
+    },
+    {
+      "meal_name": "Mushroom Tofu Toast",
+      "steps": [
+        "Toast the bread until crisp at the edges but still tender in the middle.",
+        "Warm a little oil in a skillet and cook mushroom and firm calcium-set tofu for 4–6 minutes, until hot and lightly browned.",
+        "Pile mushroom and firm calcium-set tofu onto the toast and add lemon juice if listed.",
+        "Season with the listed salt if present and serve straight away, while the bread is still crisp."
+      ]
+    },
+    {
+      "meal_name": "Strawberry Almond Toast",
+      "steps": [
+        "Toast the bread until crisp at the edges but still tender in the middle.",
+        "Spread almond over the toast in an even layer.",
+        "Toss sliced fruit with a few drops of lemon juice to slow browning. Arrange strawberry over the spread.",
+        "Season with the listed salt if present and serve straight away, while the bread is still crisp."
+      ]
+    },
+    {
+      "meal_name": "Vegan Banana Oat Pancakes",
+      "steps": [
+        "Whisk rolled oats, all-purpose wheat flour, and double-acting baking powder in a bowl. In a second bowl, combine plain soy milk, banana, and flaxseed; rest for 5 minutes so the flax thickens.",
+        "Stir the wet mixture into the dry ingredients just until combined. Do not overmix.",
+        "Warm a lightly oiled skillet over medium heat. Pour small rounds of batter and cook until bubbles appear and the edges look set, about 2 minutes.",
+        "Flip and cook the other side for 1–2 minutes until golden and cooked through. Serve warm with the fruit from the ingredient list."
+      ]
+    },
+    {
+      "meal_name": "Vegan Apple Oat Pancakes",
+      "steps": [
+        "Whisk rolled oats, all-purpose wheat flour, and double-acting baking powder in a bowl. In a second bowl, combine plain soy milk and flaxseed; rest for 5 minutes so the flax thickens.",
+        "Stir the wet mixture into the dry ingredients just until combined. Fold in fuji apple with skin. Do not overmix.",
+        "Warm a lightly oiled skillet over medium heat. Pour small rounds of batter and cook until bubbles appear and the edges look set, about 2 minutes.",
+        "Flip and cook the other side for 1–2 minutes until golden and cooked through. Serve warm with the fruit from the ingredient list."
+      ]
+    },
+    {
+      "meal_name": "Vegan Blueberry Oat Pancakes",
+      "steps": [
+        "Whisk rolled oats, all-purpose wheat flour, and double-acting baking powder in a bowl. In a second bowl, combine plain soy milk and flaxseed; rest for 5 minutes so the flax thickens.",
+        "Stir the wet mixture into the dry ingredients just until combined. Fold in blueberry. Do not overmix.",
+        "Warm a lightly oiled skillet over medium heat. Pour small rounds of batter and cook until bubbles appear and the edges look set, about 2 minutes.",
+        "Flip and cook the other side for 1–2 minutes until golden and cooked through. Serve warm with the fruit from the ingredient list."
+      ]
+    },
+    {
+      "meal_name": "Vegan Pineapple Oat Pancakes",
+      "steps": [
+        "Whisk rolled oats, all-purpose wheat flour, and double-acting baking powder in a bowl. In a second bowl, combine plain soy milk and flaxseed; rest for 5 minutes so the flax thickens.",
+        "Stir the wet mixture into the dry ingredients just until combined. Fold in pineapple. Do not overmix.",
+        "Warm a lightly oiled skillet over medium heat. Pour small rounds of batter and cook until bubbles appear and the edges look set, about 2 minutes.",
+        "Flip and cook the other side for 1–2 minutes until golden and cooked through. Serve warm with the fruit from the ingredient list."
+      ]
+    },
+    {
+      "meal_name": "Vegan Mango Oat Pancakes",
+      "steps": [
+        "Whisk rolled oats, all-purpose wheat flour, and double-acting baking powder in a bowl. In a second bowl, combine plain soy milk and flaxseed; rest for 5 minutes so the flax thickens.",
+        "Stir the wet mixture into the dry ingredients just until combined. Fold in mango. Do not overmix.",
+        "Warm a lightly oiled skillet over medium heat. Pour small rounds of batter and cook until bubbles appear and the edges look set, about 2 minutes.",
+        "Flip and cook the other side for 1–2 minutes until golden and cooked through. Serve warm with the fruit from the ingredient list."
+      ]
+    },
+    {
+      "meal_name": "Banana Cocoa Oat Smoothie",
+      "steps": [
+        "Add the soy milk and rolled oats to a blender first, then add banana, unsalted peanut butter, and unsweetened cocoa powder.",
+        "Blend until completely smooth, stopping once to scrape down the sides if needed.",
+        "Let the smoothie stand for 2 minutes so the oats soften, then blend briefly again.",
+        "Pour into a glass and serve immediately; add a little cold water only if it is too thick to drink."
+      ]
+    },
+    {
+      "meal_name": "Mango Coconut Oat Smoothie",
+      "steps": [
+        "Add the soy milk and rolled oats to a blender first, then add mango, dried chia seeds, and canned coconut milk.",
+        "Blend until completely smooth, stopping once to scrape down the sides if needed.",
+        "Let the smoothie stand for 2 minutes so the oats soften, then blend briefly again.",
+        "Pour into a glass and serve immediately; add a little cold water only if it is too thick to drink."
+      ]
+    },
+    {
+      "meal_name": "Strawberry Almond Oat Smoothie",
+      "steps": [
+        "Add the soy milk and rolled oats to a blender first, then add strawberry, almond, and medjool dates.",
+        "Blend until completely smooth, stopping once to scrape down the sides if needed.",
+        "Let the smoothie stand for 2 minutes so the oats soften, then blend briefly again.",
+        "Pour into a glass and serve immediately; add a little cold water only if it is too thick to drink."
+      ]
+    },
+    {
+      "meal_name": "Blueberry Walnut Oat Smoothie",
+      "steps": [
+        "Add the soy milk and rolled oats to a blender first, then add blueberry, english walnuts, and medjool dates.",
+        "Blend until completely smooth, stopping once to scrape down the sides if needed.",
+        "Let the smoothie stand for 2 minutes so the oats soften, then blend briefly again.",
+        "Pour into a glass and serve immediately; add a little cold water only if it is too thick to drink."
+      ]
+    },
+    {
+      "meal_name": "Pineapple Spinach Oat Smoothie",
+      "steps": [
+        "Add the soy milk and rolled oats to a blender first, then add pineapple, flaxseed, and spinach.",
+        "Blend until completely smooth, stopping once to scrape down the sides if needed.",
+        "Let the smoothie stand for 2 minutes so the oats soften, then blend briefly again.",
+        "Pour into a glass and serve immediately; add a little cold water only if it is too thick to drink."
+      ]
+    },
+    {
+      "meal_name": "Quinoa Apple Coconut Breakfast Pudding",
+      "steps": [
+        "Combine the cooked quinoa with canned coconut milk and plain soy milk in a small saucepan over medium-low heat.",
+        "Simmer for 8–10 minutes, stirring often, until thick and creamy; add a splash of soy milk if it becomes too dense.",
+        "Fold in fuji apple with skin, dried chia seeds, and ground cinnamon and warm for 1–2 minutes until the fruit softens and the raisins plump.",
+        "Serve warm, or cool and refrigerate for 2 hours for a chilled pudding."
+      ]
+    },
+    {
+      "meal_name": "Millet Mango Coconut Breakfast Pudding",
+      "steps": [
+        "Combine the cooked millet with canned coconut milk and plain soy milk in a small saucepan over medium-low heat.",
+        "Simmer for 8–10 minutes, stirring often, until thick and creamy; add a splash of soy milk if it becomes too dense.",
+        "Fold in mango, dried chia seeds, and ground cinnamon and warm for 1–2 minutes until the fruit softens and the raisins plump.",
+        "Serve warm, or cool and refrigerate for 2 hours for a chilled pudding."
+      ]
+    },
+    {
+      "meal_name": "Sticky Rice Banana Coconut Breakfast Pudding",
+      "steps": [
+        "Combine the cooked sticky rice with canned coconut milk and plain soy milk in a small saucepan over medium-low heat.",
+        "Simmer for 8–10 minutes, stirring often, until thick and creamy; add a splash of soy milk if it becomes too dense.",
+        "Fold in banana, dried chia seeds, and ground cinnamon and warm for 1–2 minutes until the fruit softens and the raisins plump.",
+        "Serve warm, or cool and refrigerate for 2 hours for a chilled pudding."
+      ]
+    },
+    {
+      "meal_name": "Brown Rice Raisin Coconut Breakfast Pudding",
+      "steps": [
+        "Combine the cooked brown rice with canned coconut milk and plain soy milk in a small saucepan over medium-low heat.",
+        "Simmer for 8–10 minutes, stirring often, until thick and creamy; add a splash of soy milk if it becomes too dense.",
+        "Fold in dark seedless raisins, dark seedless raisins, dried chia seeds, and ground cinnamon and warm for 1–2 minutes until the fruit softens and the raisins plump.",
+        "Serve warm, or cool and refrigerate for 2 hours for a chilled pudding."
+      ]
+    },
+    {
+      "meal_name": "Barley Blueberry Coconut Breakfast Pudding",
+      "steps": [
+        "Combine the cooked pearl barley with canned coconut milk and plain soy milk in a small saucepan over medium-low heat.",
+        "Simmer for 8–10 minutes, stirring often, until thick and creamy; add a splash of soy milk if it becomes too dense.",
+        "Fold in blueberry, dried chia seeds, and ground cinnamon and warm for 1–2 minutes until the fruit softens and the raisins plump.",
+        "Serve warm, or cool and refrigerate for 2 hours for a chilled pudding."
+      ]
+    },
+    {
+      "meal_name": "Turmeric Tofu Scramble",
+      "steps": [
+        "Cut potato into small, even pieces. Heat oil in a lidded skillet and cook them with a pinch of salt for 10–14 minutes, turning until tender.",
+        "Add onion and cook until fragrant, then stir in firm calcium-set tofu and spinach.",
+        "Cook uncovered for 5–8 minutes, turning occasionally, until the vegetables are tender and the protein is hot and lightly browned.",
+        "Season with ground turmeric and salt and serve directly from the pan."
+      ]
+    },
+    {
+      "meal_name": "Chickpea Breakfast Hash",
+      "steps": [
+        "Cut potato into small, even pieces. Heat oil in a lidded skillet and cook them with a pinch of salt for 10–14 minutes, turning until tender.",
+        "Add onion and cook until fragrant, then stir in chickpeas and red bell pepper.",
+        "Cook uncovered for 5–8 minutes, turning occasionally, until the vegetables are tender and the protein is hot and lightly browned.",
+        "Season with ground turmeric and salt and serve directly from the pan."
+      ]
+    },
+    {
+      "meal_name": "Black Bean Sweet Potato Hash",
+      "steps": [
+        "Cut sweet potato into small, even pieces. Heat oil in a lidded skillet and cook them with a pinch of salt for 10–14 minutes, turning until tender.",
+        "Add onion and cook until fragrant, then stir in black beans and tomato.",
+        "Cook uncovered for 5–8 minutes, turning occasionally, until the vegetables are tender and the protein is hot and lightly browned.",
+        "Season with ground turmeric and salt and serve directly from the pan."
+      ]
+    },
+    {
+      "meal_name": "Tempeh Mushroom Breakfast Skillet",
+      "steps": [
+        "Cut potato into small, even pieces. Heat oil in a lidded skillet and cook them with a pinch of salt for 10–14 minutes, turning until tender.",
+        "Add onion and cook until fragrant, then stir in tempeh and mushroom.",
+        "Cook uncovered for 5–8 minutes, turning occasionally, until the vegetables are tender and the protein is hot and lightly browned.",
+        "Season with ground turmeric and salt and serve directly from the pan."
+      ]
+    },
+    {
+      "meal_name": "White Bean Tomato Breakfast Skillet",
+      "steps": [
+        "Cut potato into small, even pieces. Heat oil in a lidded skillet and cook them with a pinch of salt for 10–14 minutes, turning until tender.",
+        "Add onion and cook until fragrant, then stir in navy beans and tomato.",
+        "Cook uncovered for 5–8 minutes, turning occasionally, until the vegetables are tender and the protein is hot and lightly browned.",
+        "Season with ground turmeric and salt and serve directly from the pan."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Mushroom Rice Noodle Soup",
+      "steps": [
+        "Warm the sesame oil in a pot and soften ginger root for 1–2 minutes. Add plain drinking water and reduced-sodium soy sauce and bring to a gentle simmer.",
+        "Add firm calcium-set tofu and mushroom and simmer for 5–8 minutes, until the vegetables are tender and the protein is heated through.",
+        "Stir in bok choy for the final 1–2 minutes, keeping them bright and just wilted.",
+        "Divide the cooked noodles between bowls, ladle over the hot broth and toppings, and finish with the listed herbs or sesame oil."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Lemongrass Tofu Rice Noodle Bowl",
+      "steps": [
+        "Separate the cooked noodles and set them beside the prepared toppings.",
+        "Warm a little oil in a skillet and cook lemongrass, firm calcium-set tofu, and carrot until the vegetables are tender and the protein is hot.",
+        "Add the noodles and lime juice and reduced-sodium soy sauce with a splash of water; toss until evenly coated and hot.",
+        "Fold in cucumber with peel, peanut, and lime juice at the end and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Tomato Tofu Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook onion and garlic until fragrant, then add tomato and firm calcium-set tofu; cook until the vegetables are tender and the protein is hot.",
+        "season with salt; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Mushroom Braised Tofu Rice",
+      "steps": [
+        "Warm the cooked brown rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook ginger root until fragrant, then add mushroom and firm calcium-set tofu; cook until the vegetables are tender and the protein is hot.",
+        "Stir in reduced-sodium soy sauce and cook for another 1–2 minutes; season with reduced-sodium soy sauce; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm brown rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Turmeric Tofu Fried Rice",
+      "steps": [
+        "Set out the cooked rice and firm calcium-set tofu, green peas, carrot, and ground turmeric; separate any clumps of rice with a fork.",
+        "Heat the oil in a wide skillet or wok. Add add green peas and carrot and cook for 3–5 minutes, stirring often.",
+        "Add firm calcium-set tofu and the cooked rice. Stir-fry until steaming hot and lightly toasted in spots.",
+        "Season with the listed soy sauce, salt, or spices and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Pineapple Cashew Fried Rice",
+      "steps": [
+        "Set out the cooked rice and pineapple, cashews, firm calcium-set tofu, and green peas; separate any clumps of rice with a fork.",
+        "Heat the oil in a wide skillet or wok. Add add green peas and cook for 3–5 minutes, stirring often.",
+        "Add firm calcium-set tofu and the cooked rice. Stir-fry until steaming hot and lightly toasted in spots.",
+        "Season with the listed soy sauce, salt, or spices and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Sweet Corn Mushroom Fried Rice",
+      "steps": [
+        "Set out the cooked rice and sweet corn, mushroom, green soybeans, and onion; separate any clumps of rice with a fork.",
+        "Heat the oil in a wide skillet or wok. Cook onion until fragrant, then add sweet corn and mushroom and cook for 3–5 minutes, stirring often.",
+        "Add green soybeans and the cooked rice. Stir-fry until steaming hot and lightly toasted in spots.",
+        "Season with the listed soy sauce, salt, or spices and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Mixed Vegetable Crispy Rice Pancake",
+      "steps": [
+        "Whisk the rice flour with canned coconut milk and the listed turmeric until smooth; rest the batter for 10 minutes.",
+        "Cook firm calcium-set tofu and mung bean sprouts in a lightly oiled pan until hot, then transfer the filling to a plate.",
+        "Pour a thin layer of batter into the hot skillet and swirl it to cover the base. Cook until the edges lift and the underside is golden.",
+        "Add the filling and butterhead lettuce and lime juice if included, fold the crepe, and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Mushroom Rice Flour Crepe",
+      "steps": [
+        "Whisk the rice flour with plain drinking water and the listed turmeric until smooth; rest the batter for 10 minutes.",
+        "Cook mushroom and firm calcium-set tofu in a lightly oiled pan until hot, then transfer the filling to a plate.",
+        "Pour a thin layer of batter into the hot skillet and swirl it to cover the base. Cook until the edges lift and the underside is golden.",
+        "Add the filling and reduced-sodium soy sauce if included, fold the crepe, and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Mung Bean Sticky Rice",
+      "steps": [
+        "Warm the cooked sticky rice in a steamer or covered pan with a spoonful of water until soft and steaming.",
+        "Warm the coconut gently with the listed salt or sugar; do not let it boil hard.",
+        "Fold mung beans and dried sesame seeds into the rice, or spoon it over the top if it is a garnish.",
+        "Serve warm, finishing with the listed sesame or coconut mixture."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Peanut Sticky Rice",
+      "steps": [
+        "Warm the cooked sticky rice in a steamer or covered pan with a spoonful of water until soft and steaming.",
+        "Warm the coconut gently with the listed salt or sugar; do not let it boil hard.",
+        "Fold peanut and dried sesame seeds into the rice, or spoon it over the top if it is a garnish.",
+        "Serve warm, finishing with the listed sesame or coconut mixture."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Pumpkin Sticky Rice",
+      "steps": [
+        "Warm the cooked sticky rice in a steamer or covered pan with a spoonful of water until soft and steaming.",
+        "Warm the coconut gently with the listed salt or sugar; do not let it boil hard.",
+        "Fold pumpkin and mung beans into the rice, or spoon it over the top if it is a garnish.",
+        "Serve warm, finishing with the listed sesame or coconut mixture."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Coconut Corn Sticky Rice",
+      "steps": [
+        "Warm the cooked sticky rice in a steamer or covered pan with a spoonful of water until soft and steaming.",
+        "Warm the coconut gently with the listed salt or sugar; do not let it boil hard.",
+        "Fold sweet corn and dried sesame seeds into the rice, or spoon it over the top if it is a garnish.",
+        "Serve warm, finishing with the listed sesame or coconut mixture."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Ginger Mushroom Noodle Soup",
+      "steps": [
+        "Warm the sesame oil in a pot and soften ginger root for 1–2 minutes. Add plain drinking water and reduced-sodium soy sauce and bring to a gentle simmer.",
+        "Add tempeh and mushroom and simmer for 5–8 minutes, until the vegetables are tender and the protein is heated through.",
+        "Stir in bok choy for the final 1–2 minutes, keeping them bright and just wilted.",
+        "Divide the cooked noodles between bowls, ladle over the hot broth and toppings, and finish with the listed herbs or sesame oil."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Sour Pineapple Tofu Soup",
+      "steps": [
+        "Warm the olive oil in a heavy pot.",
+        "Add pineapple, mung bean sprouts, firm calcium-set tofu, and tomato. Add plain drinking water; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 6–10 minutes until the vegetables are tender and the flavors come together. Stir in the cooked white rice near the end to heat through.",
+        "Taste and season with lime juice. Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Coconut Tofu Curry Rice",
+      "steps": [
+        "Warm the listed oil in a saucepan. Cook onion with the curry powder for 1–2 minutes, stirring until fragrant.",
+        "Add potato, carrot, and firm calcium-set tofu and stir to coat. Pour in canned coconut milk and add a splash of water if needed.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender.",
+        "Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Lemongrass Tempeh Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook lemongrass and onion until fragrant, then add red bell pepper and tempeh; cook until the vegetables are tender and the protein is hot.",
+        "Stir in reduced-sodium soy sauce and cook for another 1–2 minutes; season with reduced-sodium soy sauce; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Sesame Tofu Rice Noodles",
+      "steps": [
+        "Separate the cooked noodles and set them beside the prepared toppings.",
+        "Warm a little oil in a skillet and cook firm calcium-set tofu and carrot until the vegetables are tender and the protein is hot.",
+        "Add the noodles and dried sesame seeds, reduced-sodium soy sauce, and lime juice with a splash of water; toss until evenly coated and hot.",
+        "Fold in dried sesame seeds, cucumber with peel, and lime juice at the end and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Peanut Sauce Noodle Salad",
+      "steps": [
+        "Warm the cooked rice noodles briefly according to their package directions, drain, rinse with cool water, and drain again.",
+        "Whisk the peanut butter with lime juice and enough water to make a pourable dressing.",
+        "Toss the noodles with the dressing, tofu, cabbage, and carrot until evenly coated.",
+        "Taste and adjust with only the listed ingredients. Serve chilled or at room temperature."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Ginger Eggplant Rice",
+      "steps": [
+        "Cook eggplant and ginger root in a lightly oiled skillet until tender.",
+        "Stir in firm calcium-set tofu and heat through.",
+        "Beat the eggs in a small bowl, pour them into the pan, and stir gently until fully set.",
+        "Serve hot with white rice and the listed herbs."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Braised Mushroom Brown Rice",
+      "steps": [
+        "Warm the cooked brown rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook garlic until fragrant, then add mushroom and chickpeas; cook until the vegetables are tender and the protein is hot.",
+        "Stir in reduced-sodium soy sauce and cook for another 1–2 minutes; season with reduced-sodium soy sauce; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm brown rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Bok Choy Tofu Noodles",
+      "steps": [
+        "Separate the cooked noodles and set them beside the prepared toppings.",
+        "Warm a little oil in a skillet and cook garlic, firm calcium-set tofu, and bok choy until the vegetables are tender and the protein is hot.",
+        "Add the noodles and sesame oil and reduced-sodium soy sauce with a splash of water; toss until evenly coated and hot.",
+        "Taste, season with the listed ingredients, and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Chili Garlic Edamame Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook garlic until fragrant, then add red bell pepper and green soybeans; cook until the vegetables are tender and the protein is hot.",
+        "Stir in chili powder and cook for another 1–2 minutes; season with chili powder; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Caramel-Style Tofu Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Warm firm calcium-set tofu in a lightly oiled skillet until heated through.",
+        "Stir in reduced-sodium soy sauce and cook for another 1–2 minutes; season with granulated sugar, reduced-sodium soy sauce, and ground black pepper; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Cabbage Mushroom Rice Skillet",
+      "steps": [
+        "Warm the cooked white rice and keep it covered. Dice the vegetables into small, even pieces.",
+        "Heat oil in a skillet. Soften garlic in the oil. Then add cabbage and mushroom and cook until tender-crisp.",
+        "Stir in tempeh and the cooked rice; toss until steaming hot.",
+        "serve hot from the skillet."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Sweet Potato Mung Bean Rice",
+      "steps": [
+        "Warm the cooked white rice and keep it covered.",
+        "Heat oil in a skillet and cook sweet potato for 8–12 minutes, stirring until the vegetables are tender.",
+        "Stir in mung beans, canned coconut milk, and dried sesame seeds with a splash of water; simmer until thick and hot.",
+        "Spoon the coconut mixture over the warm white rice and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Coconut Pumpkin Noodle Soup",
+      "steps": [
+        "Warm the sesame oil in a pot and soften ginger root for 1–2 minutes. Add canned coconut milk and plain drinking water and bring to a gentle simmer.",
+        "Add firm calcium-set tofu and pumpkin and simmer for 5–8 minutes, until the vegetables are tender and the protein is heated through.",
+        "Taste the broth and keep it at a gentle simmer.",
+        "Divide the cooked noodles between bowls, ladle over the hot broth and toppings, and finish with the listed herbs or sesame oil."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Green Bean Tofu Fried Rice",
+      "steps": [
+        "Set out the cooked rice and green beans, firm calcium-set tofu, and carrot; separate any clumps of rice with a fork.",
+        "Heat the oil in a wide skillet or wok. Add add carrot and cook for 3–5 minutes, stirring often.",
+        "Add firm calcium-set tofu and the cooked rice. Stir-fry until steaming hot and lightly toasted in spots.",
+        "Season with the listed soy sauce, salt, or spices and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Tomato Lentil Rice Soup",
+      "steps": [
+        "Warm the olive oil in a heavy pot and soften onion for 2–3 minutes.",
+        "Add lentils and tomato. Add plain drinking water; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 6–10 minutes until the vegetables are tender and the flavors come together. Stir in the cooked white rice near the end to heat through.",
+        "Taste and season with fresh cilantro. Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Lemongrass Mushroom Fried Noodles",
+      "steps": [
+        "Separate the cooked noodles and prepare firm calcium-set tofu and mushroom; drain excess liquid so the noodles can brown.",
+        "Heat oil in a wide pan and stir-fry lemongrass and mushroom for 3–4 minutes until crisp-tender.",
+        "Add firm calcium-set tofu and the noodles. Toss over high heat until everything is hot and evenly coated.",
+        "Season with reduced-sodium soy sauce and serve at once while the noodles are glossy and hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Sesame Tempeh Noodle Bowl",
+      "steps": [
+        "Warm the cooked rice noodles according to their package directions, drain well, and set aside.",
+        "Pan-sear the cooked tempeh in a lightly oiled skillet until browned on both sides; let it cool slightly, then slice it.",
+        "Whisk the lime juice with a spoonful of warm water. Toss the noodles with this dressing, then fold in the carrot and cucumber.",
+        "Top with the tempeh and sesame seeds. Serve warm or at room temperature."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Pineapple Chickpea Rice",
+      "steps": [
+        "Warm the cooked brown rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and add red bell pepper and chickpeas; cook until the vegetables are tender and the protein is hot.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm brown rice. Add fresh cilantro and serve."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Ginger Corn Rice Porridge",
+      "steps": [
+        "Combine the cooked rice, water, and ginger root in a saucepan. Bring to a gentle simmer, stirring to break up the rice.",
+        "Simmer for 10–15 minutes until the rice releases starch and the porridge is creamy; add a little water if it thickens too much.",
+        "Stir in sweet corn and firm calcium-set tofu and cook until the vegetables are tender and the protein is heated through.",
+        "Finish with peanut and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Mushroom Lentil Rice Porridge",
+      "steps": [
+        "Combine the cooked rice and water in a saucepan. Bring to a gentle simmer, stirring to break up the rice.",
+        "Simmer for 10–15 minutes until the rice releases starch and the porridge is creamy; add a little water if it thickens too much.",
+        "Stir in mushroom and lentils and cook until the vegetables are tender and the protein is heated through.",
+        "Finish with sesame oil and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Coconut Sweet Potato Rice Porridge",
+      "steps": [
+        "Cut the sweet potato into small cubes. Combine it with the water in a saucepan and bring to a gentle simmer.",
+        "Cook for 10–15 minutes, stirring occasionally, until the sweet potato is fork-tender.",
+        "Stir in the cooked rice, mung beans, and coconut milk. Simmer for 8–10 minutes, stirring and adding a little water if the porridge gets too thick.",
+        "Taste, season with the listed salt if available, and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Turmeric Cauliflower Rice Bowl",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook garlic until fragrant, then add cauliflower and firm calcium-set tofu; cook until the vegetables are tender and the protein is hot.",
+        "Stir in ground turmeric and cook for another 1–2 minutes; season with ground turmeric; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Lime Herb Chickpea Noodles",
+      "steps": [
+        "Warm the cooked rice noodles according to their package directions, drain well, and let them cool until just warm.",
+        "Whisk the lime juice with a spoonful of warm water. Crush the peanuts coarsely and set them aside.",
+        "Toss the noodles with the dressing, chickpeas, and cucumber until evenly coated.",
+        "Fold in the mint and cilantro, scatter the crushed peanuts over the top, and serve at room temperature."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Charred Eggplant Tofu Noodles",
+      "steps": [
+        "Warm sesame oil in a skillet and cook eggplant and garlic for 3–4 minutes until tender.",
+        "Beat the egg and pour it into the pan; stir until fully set. Add firm calcium-set tofu and heat through.",
+        "Add the cooked noodles and a splash of the listed soy sauce or water; toss until hot and evenly coated.",
+        "Taste, finish with the listed sesame seeds or herbs, and serve at once."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Tomato White Bean Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook onion until fragrant, then add tomato and navy beans; cook until the vegetables are tender and the protein is hot.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Add fresh basil and serve."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Peanut Pumpkin Rice Bowl",
+      "steps": [
+        "Warm the cooked brown rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and add pumpkin and firm calcium-set tofu; cook until the vegetables are tender and the protein is hot.",
+        "season with salt; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm brown rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Chickpea Spinach Coconut Curry",
+      "steps": [
+        "Warm the listed oil in a saucepan. Cook onion with the curry powder for 1–2 minutes, stirring until fragrant.",
+        "Add chickpeas and stir to coat. Pour in canned coconut milk and add a splash of water if needed.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender. Stir in spinach for the final 2 minutes.",
+        "Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Red Kidney Bean Tomato Curry",
+      "steps": [
+        "Warm the listed oil in a saucepan. Cook onion with the curry powder for 1–2 minutes, stirring until fragrant.",
+        "Add red kidney beans and stir to coat. Pour in tomato and add a splash of water if needed.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender.",
+        "Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Lentil Turmeric Rice Stew",
+      "steps": [
+        "Warm the olive oil in a heavy pot. Stir in ground turmeric for 30 seconds.",
+        "Add carrot, lentils, and unsalted tomato paste. Add enough water to make a light broth; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 12–18 minutes until the raw root vegetables are fork-tender. Stir in the cooked white rice near the end to heat through.",
+        "Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Potato Cauliflower Chickpea Curry",
+      "steps": [
+        "Warm the listed oil in a saucepan. Stir the curry powder in the oil for 30 seconds until fragrant.",
+        "Add potato, cauliflower, and chickpeas and stir to coat. Pour in tomato and add a splash of water if needed.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender.",
+        "Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Eggplant Lentil Coconut Curry",
+      "steps": [
+        "Warm the listed oil in a saucepan. Stir the curry powder in the oil for 30 seconds until fragrant.",
+        "Add eggplant and lentils and stir to coat. Pour in canned coconut milk and add a splash of water if needed.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender.",
+        "Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Pumpkin Chickpea Coconut Curry",
+      "steps": [
+        "Warm the listed oil in a saucepan. Cook ginger root with the curry powder for 1–2 minutes, stirring until fragrant.",
+        "Add pumpkin and chickpeas and stir to coat. Pour in canned coconut milk and add a splash of water if needed.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender.",
+        "Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Thai-Inspired Basil Tofu Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and add red bell pepper and firm calcium-set tofu; cook until the vegetables are tender and the protein is hot.",
+        "Stir in reduced-sodium soy sauce and cook for another 1–2 minutes; season with reduced-sodium soy sauce; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Add fresh basil and serve."
+      ]
+    },
+    {
+      "meal_name": "Thai-Inspired Peanut Rice Noodles",
+      "steps": [
+        "Separate the cooked noodles and set them beside the prepared toppings.",
+        "Warm a little oil in a skillet and cook firm calcium-set tofu and carrot until the vegetables are tender and the protein is hot.",
+        "Add the noodles and unsalted peanut butter, lime juice, and reduced-sodium soy sauce with a splash of water; toss until evenly coated and hot.",
+        "Fold in lime juice at the end and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Thai-Inspired Coconut Mushroom Noodle Soup",
+      "steps": [
+        "Warm the sesame oil in a pot and soften ginger root for 1–2 minutes. Add canned coconut milk and plain drinking water and bring to a gentle simmer.",
+        "Add firm calcium-set tofu and mushroom and simmer for 5–8 minutes, until the vegetables are tender and the protein is heated through.",
+        "Taste the broth and keep it at a gentle simmer.",
+        "Divide the cooked noodles between bowls, ladle over the hot broth and toppings, and finish with the listed herbs or sesame oil."
+      ]
+    },
+    {
+      "meal_name": "Thai-Inspired Pineapple Tempeh Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Warm tempeh in a lightly oiled skillet until heated through.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Sesame Ginger Tofu Rice Bowl",
+      "steps": [
+        "Warm the cooked brown rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook ginger root until fragrant, then add broccoli and firm calcium-set tofu; cook until the vegetables are tender and the protein is hot.",
+        "Stir in reduced-sodium soy sauce and cook for another 1–2 minutes; season with reduced-sodium soy sauce; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm brown rice. Add dried sesame seeds and serve."
+      ]
+    },
+    {
+      "meal_name": "Edamame Cucumber Rice Bowl",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Warm green soybeans in a lightly oiled skillet until heated through.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Add cucumber with peel, avocado, and dried sesame seeds and serve."
+      ]
+    },
+    {
+      "meal_name": "Mushroom Soy Noodle Soup",
+      "steps": [
+        "Warm the sesame oil in a pot and soften ginger root for 1–2 minutes. Add plain drinking water and reduced-sodium soy sauce and bring to a gentle simmer.",
+        "Add firm calcium-set tofu and mushroom and simmer for 5–8 minutes, until the vegetables are tender and the protein is heated through.",
+        "Taste the broth and keep it at a gentle simmer.",
+        "Divide the cooked noodles between bowls, ladle over the hot broth and toppings, and finish with the listed herbs or sesame oil."
+      ]
+    },
+    {
+      "meal_name": "Broccoli Tempeh Sesame Noodles",
+      "steps": [
+        "Separate the cooked noodles and set them beside the prepared toppings.",
+        "Warm a little oil in a skillet and cook tempeh and broccoli until the vegetables are tender and the protein is hot.",
+        "Add the noodles and dried sesame seeds and reduced-sodium soy sauce with a splash of water; toss until evenly coated and hot.",
+        "Fold in dried sesame seeds at the end and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Garlic Green Bean Tofu Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Warm firm calcium-set tofu in a lightly oiled skillet until heated through.",
+        "Stir in reduced-sodium soy sauce and cook for another 1–2 minutes; season with reduced-sodium soy sauce; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Chili Tofu Mushroom Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook garlic until fragrant, then add mushroom and firm calcium-set tofu; cook until the vegetables are tender and the protein is hot.",
+        "Stir in chili powder and cook for another 1–2 minutes; season with chili powder; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Ginger Cabbage Tofu Fried Noodles",
+      "steps": [
+        "Separate the cooked noodles and prepare firm calcium-set tofu and cabbage; drain excess liquid so the noodles can brown.",
+        "Heat oil in a wide pan and stir-fry ginger root and cabbage for 3–4 minutes until crisp-tender.",
+        "Add firm calcium-set tofu and the noodles. Toss over high heat until everything is hot and evenly coated.",
+        "Season with reduced-sodium soy sauce and serve at once while the noodles are glossy and hot."
+      ]
+    },
+    {
+      "meal_name": "Peanut Tempeh Vegetable Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and add carrot and tempeh; cook until the vegetables are tender and the protein is hot.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Add lime juice and serve."
+      ]
+    },
+    {
+      "meal_name": "Coconut Lentil Rice",
+      "steps": [
+        "Warm the cooked white rice and keep it covered.",
+        "Heat oil in a skillet and cook onion for 8–12 minutes, stirring until the vegetables are tender.",
+        "Stir in lentils and canned coconut milk with a splash of water; simmer until thick and hot.",
+        "Spoon the coconut mixture over the warm white rice and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Turmeric Peanut Chickpea Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Warm chickpeas in a lightly oiled skillet until heated through.",
+        "Stir in ground turmeric and cook for another 1–2 minutes; season with ground turmeric; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Add cucumber with peel and serve."
+      ]
+    },
+    {
+      "meal_name": "Black Bean Corn Burrito Bowl",
+      "steps": [
+        "Warm the cooked brown rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and add sweet corn, tomato, and black beans; cook until the vegetables are tender and the protein is hot.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm brown rice. Add avocado and serve."
+      ]
+    },
+    {
+      "meal_name": "Pinto Bean Sweet Potato Tacos",
+      "steps": [
+        "Warm the tortillas in a dry skillet for about 30 seconds per side, then wrap in a clean towel.",
+        "Cook sweet potato in a lightly oiled pan until browned and tender.",
+        "Warm pinto beans with the listed spices in a skillet.",
+        "Prepare cabbage, then squeeze over lime juice.",
+        "Fill the tortillas with the warm beans and vegetables, fold, and serve at once."
+      ]
+    },
+    {
+      "meal_name": "Chickpea Pepper Fajita Tacos",
+      "steps": [
+        "Warm the tortillas in a dry skillet for about 30 seconds per side, then wrap in a clean towel.",
+        "Warm chickpeas with the listed spices in a skillet.",
+        "Prepare red bell pepper.",
+        "Fill the tortillas with the warm beans and vegetables, fold, and serve at once."
+      ]
+    },
+    {
+      "meal_name": "Black Bean Pumpkin Chili",
+      "steps": [
+        "Warm the olive oil in a heavy pot. Stir in chili powder for 30 seconds.",
+        "Add pumpkin, sweet corn, black beans, and tomato. Add enough water to make a light broth; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 12–18 minutes until the raw root vegetables are fork-tender.",
+        "Taste and season with chili powder. Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Red Kidney Bean Rice Chili",
+      "steps": [
+        "Warm the olive oil in a heavy pot. Stir in cumin seed for 30 seconds.",
+        "Add red bell pepper, red kidney beans, and tomato. Add enough water to make a light broth; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 6–10 minutes until the vegetables are tender and the flavors come together. Stir in the cooked white rice near the end to heat through.",
+        "Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "White Bean Tomato Pasta",
+      "steps": [
+        "Warm the tomato sauce in a skillet over medium-low heat. Stir in the navy beans and simmer for 4–5 minutes.",
+        "Tear or chop the fresh basil and stir half of it into the sauce.",
+        "Add the cooked pasta and a spoonful of pasta water; toss until the sauce coats the pasta evenly.",
+        "Finish with the olive oil and remaining basil, then serve hot."
+      ]
+    },
+    {
+      "meal_name": "Lentil Tomato Pasta",
+      "steps": [
+        "Warm the oil in a skillet. Cook onion in the oil until softened and fragrant.",
+        "Stir in unsalted canned tomato sauce and lentils and a few spoonfuls of pasta water; simmer until glossy.",
+        "Add the cooked pasta and toss until evenly coated. Keep the heat low and toss until the pasta is hot.",
+        "Taste, then serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Walnut Basil Chickpea Pasta",
+      "steps": [
+        "Crush the walnuts finely. Stir them with the olive oil and a spoonful of pasta water to make a loose, coarse sauce.",
+        "Warm the chickpeas in a skillet over medium-low heat, then stir in the walnut mixture and lemon juice.",
+        "Add the cooked pasta and toss until evenly coated, loosening with more pasta water if needed.",
+        "Fold in the fresh basil and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Mushroom Spinach Pasta",
+      "steps": [
+        "Warm the oil in a skillet. Cook garlic in the oil until softened and fragrant.",
+        "Blend cashews with a few spoonfuls of hot pasta water until creamy, then stir the sauce into the vegetables.",
+        "Add the cooked pasta and toss until evenly coated. Keep the heat low and toss until the pasta is hot.",
+        "Taste, then serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Eggplant Tomato Pasta",
+      "steps": [
+        "Warm the oil in a skillet. Cook eggplant in the oil until tender and lightly browned.",
+        "Stir in unsalted canned tomato sauce and navy beans and a few spoonfuls of pasta water; simmer until glossy.",
+        "Add the cooked pasta and toss until evenly coated. Keep the heat low and toss until the pasta is hot.",
+        "Taste, then serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Zucchini Chickpea Pasta",
+      "steps": [
+        "Warm the oil in a skillet. Cook zucchini in the oil until tender and lightly browned.",
+        "Stir in fresh basil and chickpeas and a few spoonfuls of pasta water; simmer until glossy.",
+        "Add the cooked pasta and toss until evenly coated. Keep the heat low and toss until the pasta is hot.",
+        "Season with fresh basil and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Pumpkin White Bean Pasta",
+      "steps": [
+        "Warm the oil in a skillet. Cook pumpkin in the oil until tender and lightly browned.",
+        "Stir in navy beans and a few spoonfuls of pasta water; simmer until glossy.",
+        "Add the cooked pasta and toss until evenly coated. Keep the heat low and toss until the pasta is hot.",
+        "Season with fresh parsley and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Asparagus Lemon Lentil Pasta",
+      "steps": [
+        "Warm the oil in a skillet. Cook asparagus in the oil until tender and lightly browned.",
+        "Stir in lemon juice and lentils and a few spoonfuls of pasta water; simmer until glossy.",
+        "Add the cooked pasta and toss until evenly coated. Keep the heat low and toss until the pasta is hot.",
+        "Season with lemon juice and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Mushroom Barley Risotto",
+      "steps": [
+        "Warm the oil or butter in a saucepan and soften leek. Stir in the cooked grain and toast it gently for 1 minute.",
+        "Add plain drinking water a little at a time, stirring until each addition is absorbed and the grain is creamy.",
+        "Fold in mushroom and navy beans and cook gently until the vegetables are tender and everything is hot.",
+        "serve while creamy; loosen with a splash of water if it thickens while standing."
+      ]
+    },
+    {
+      "meal_name": "Pumpkin Rice Risotto",
+      "steps": [
+        "Finely dice the pumpkin and onion so they cook evenly.",
+        "Warm the olive oil in a saucepan and cook the onion for 2–3 minutes. Add the pumpkin and a splash of water; cover and cook until fork-tender.",
+        "Stir in the cooked rice and chickpeas. Add small splashes of water and stir until the mixture is creamy and hot.",
+        "Taste, season with the listed ingredients, and serve while warm."
+      ]
+    },
+    {
+      "meal_name": "Mediterranean Chickpea Quinoa Salad",
+      "steps": [
+        "If the grain is not already cooked, prepare it according to its package directions, then cool it until just warm or room temperature.",
+        "Combine the cooked quinoa with chickpeas in a serving bowl; fluff the grain and break up any clumps.",
+        "Whisk olive oil and lemon juice together with a spoonful of water if needed, then toss with cucumber with peel, tomato, and fresh parsley.",
+        "Taste, adjust the dressing using only the listed seasonings, and serve at room temperature or chilled."
+      ]
+    },
+    {
+      "meal_name": "Lentil Bulgur Herb Salad",
+      "steps": [
+        "If the grain is not already cooked, prepare it according to its package directions, then cool it until just warm or room temperature.",
+        "Combine the cooked bulgur with lentils in a serving bowl; fluff the grain and break up any clumps.",
+        "Whisk olive oil together with a spoonful of water if needed, then toss with tomato, cucumber with peel, and fresh parsley.",
+        "Taste, adjust the dressing using only the listed seasonings, and serve at room temperature or chilled."
+      ]
+    },
+    {
+      "meal_name": "White Bean Couscous Salad",
+      "steps": [
+        "If the grain is not already cooked, prepare it according to its package directions, then cool it until just warm or room temperature.",
+        "Combine the cooked couscous with navy beans in a serving bowl; fluff the grain and break up any clumps.",
+        "Whisk olive oil and lemon juice together with a spoonful of water if needed, then toss with red bell pepper and zucchini.",
+        "Taste, adjust the dressing using only the listed seasonings, and serve at room temperature or chilled."
+      ]
+    },
+    {
+      "meal_name": "Roasted Vegetable Chickpea Couscous",
+      "steps": [
+        "Heat the oven to 220°C (425°F) and line a small tray with parchment.",
+        "Toss carrot and eggplant with the listed oil and spices; spread in one layer and roast for 18–25 minutes, turning once, until browned and tender.",
+        "Warm chickpeas in a skillet with a spoonful of water until hot; fluff the cooked grain if one is listed.",
+        "Spoon couscous into a bowl, top with the roasted vegetables and beans, and finish with the listed lemon or herbs."
+      ]
+    },
+    {
+      "meal_name": "Sweet Potato Lentil Couscous",
+      "steps": [
+        "Fluff the cooked couscous with a fork and warm it gently with a spoonful of water if it has cooled.",
+        "Cook sweet potato in a lightly oiled skillet until tender; warm lentils through in the same pan. Add the listed spices near the end.",
+        "Fold the warm vegetables and protein into the couscous.",
+        "Taste and serve warm or at room temperature."
+      ]
+    },
+    {
+      "meal_name": "Lemon Garlic White Bean Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook garlic until fragrant, then add spinach and navy beans; cook until the vegetables are tender and the protein is hot.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Add lemon juice and serve."
+      ]
+    },
+    {
+      "meal_name": "Chickpea Tomato Rice Pilaf",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook onion until fragrant, then add tomato and chickpeas; cook until the vegetables are tender and the protein is hot.",
+        "Stir in paprika and cook for another 1–2 minutes; season with paprika; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Eggplant Lentil Bulgur Skillet",
+      "steps": [
+        "Warm oil in a skillet. Cook eggplant until softened.",
+        "Stir in lentils and the listed seasonings; warm until hot.",
+        "Make a small space in the pan, add the eggs, and stir gently until fully set.",
+        "Serve straight from the skillet with the bread or cooked grain listed."
+      ]
+    },
+    {
+      "meal_name": "Parsley Chickpea Millet Salad",
+      "steps": [
+        "If the grain is not already cooked, prepare it according to its package directions, then cool it until just warm or room temperature.",
+        "Combine the cooked millet with chickpeas in a serving bowl; fluff the grain and break up any clumps.",
+        "Whisk lemon juice and olive oil together with a spoonful of water if needed, then toss with cucumber with peel and fresh parsley.",
+        "Taste, adjust the dressing using only the listed seasonings, and serve at room temperature or chilled."
+      ]
+    },
+    {
+      "meal_name": "Sesame Chickpea Quinoa Bowl",
+      "steps": [
+        "Warm the cooked quinoa and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and add carrot and chickpeas; cook until the vegetables are tender and the protein is hot.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm quinoa. Add dried sesame seeds and lemon juice and serve."
+      ]
+    },
+    {
+      "meal_name": "Spanish-Inspired Chickpea Vegetable Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and add red bell pepper, green peas, and chickpeas; cook until the vegetables are tender and the protein is hot.",
+        "Stir in paprika and cook for another 1–2 minutes; season with paprika; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Tomato Mushroom White Bean Rice",
+      "steps": [
+        "Warm the cooked brown rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and add mushroom and navy beans; cook until the vegetables are tender and the protein is hot.",
+        "Stir in unsalted canned tomato sauce and cook for another 1–2 minutes; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm brown rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "French-Inspired Lentil Mushroom Stew",
+      "steps": [
+        "Warm the olive oil in a heavy pot.",
+        "Add potato, carrot, mushroom, and lentils. Add enough water to make a light broth; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 12–18 minutes until the raw root vegetables are fork-tender.",
+        "Taste and season with fresh parsley. Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "French-Inspired Ratatouille Chickpea Rice",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and add eggplant, zucchini, tomato, and chickpeas; cook until the vegetables are tender and the protein is hot.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Potato White Bean Leek Soup",
+      "steps": [
+        "Warm the olive oil in a heavy pot and soften leek for 2–3 minutes.",
+        "Add potato and navy beans. Add plain drinking water; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 12–18 minutes until the raw root vegetables are fork-tender.",
+        "Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Carrot Lentil Ginger Soup",
+      "steps": [
+        "Add a splash of water to a heavy pot and soften ginger root for 2–3 minutes.",
+        "Add carrot and lentils. Add canned coconut milk and plain drinking water; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 12–18 minutes until the raw root vegetables are fork-tender.",
+        "Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Pumpkin Chickpea Soup",
+      "steps": [
+        "Set a heavy pot over medium heat.",
+        "Add pumpkin and chickpeas. Add canned coconut milk and plain drinking water; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 12–18 minutes until the raw root vegetables are fork-tender.",
+        "Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Broccoli White Bean Soup",
+      "steps": [
+        "Set a heavy pot over medium heat.",
+        "Add potato, broccoli, navy beans, and cashews. Add plain drinking water; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 12–18 minutes until the raw root vegetables are fork-tender.",
+        "Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Mushroom Barley Vegetable Soup",
+      "steps": [
+        "Warm the olive oil in a heavy pot.",
+        "Add carrot, mushroom, and navy beans. Add plain drinking water; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 12–18 minutes until the raw root vegetables are fork-tender. Stir in the cooked pearl barley near the end to heat through.",
+        "Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Sweet Potato Black Bean Bake",
+      "steps": [
+        "Heat the oven to 190°C (375°F) and lightly oil a small baking dish.",
+        "Arrange sweet potato, sweet corn, olive oil, black beans, and tomato in the dish; spread into an even layer.",
+        "Cover with foil and bake for 20 minutes. Uncover and bake another 10–15 minutes until the vegetables are tender and the top is bubbling and lightly browned.",
+        "Rest for 5 minutes before serving so the sauce settles and the bake holds together."
+      ]
+    },
+    {
+      "meal_name": "Lentil Potato Shepherds Pie",
+      "steps": [
+        "Heat the oven to 200°C (400°F). Peel and cube the potatoes, then simmer them in water until fork-tender, about 12–15 minutes.",
+        "Meanwhile, warm oil in a skillet. Add the lentils, carrot, and peas with a splash of water; simmer until the carrot is tender and the filling is thick.",
+        "Drain and mash the potatoes until smooth, using a little cooking water and the listed oil to loosen them.",
+        "Spread the lentil filling in a small baking dish, cover with mashed potato, and rough up the top with a fork. Bake for 20–25 minutes until golden at the edges."
+      ]
+    },
+    {
+      "meal_name": "Walnut Mushroom Lentil Loaf",
+      "steps": [
+        "Heat the oven to 190°C (375°F) and line a small loaf pan with parchment.",
+        "Mash lentils coarsely, then mix with mushroom and the listed oats, tomato paste, and oil until the mixture holds together.",
+        "Press firmly into the pan and bake for 35–45 minutes until set and browned on top; rest for 10 minutes before slicing.",
+        "Serve warm, spooning over any tomato paste mixture left in the bowl as a simple glaze."
+      ]
+    },
+    {
+      "meal_name": "Chickpea Oat Vegetable Patties",
+      "steps": [
+        "Mash chickpeas in a bowl, leaving some texture. Stir in carrot, lemon juice, onion, and rolled oats and the listed spices.",
+        "Let the mixture stand for 10 minutes so the oats absorb moisture, then shape it into small, firm patties.",
+        "Pan-fry in a thin layer of oil over medium heat for 3–4 minutes per side until browned and hot in the center.",
+        "Drain briefly on a plate and serve with the listed lemon or fresh vegetables."
+      ]
+    },
+    {
+      "meal_name": "Black Bean Quinoa Patties",
+      "steps": [
+        "Mash black beans in a bowl, leaving some texture. Stir in red bell pepper, quinoa, and rolled oats and the listed spices.",
+        "Let the mixture stand for 10 minutes so the oats absorb moisture, then shape it into small, firm patties.",
+        "Pan-fry in a thin layer of oil over medium heat for 3–4 minutes per side until browned and hot in the center.",
+        "Drain briefly on a plate and serve with the listed lemon or fresh vegetables."
+      ]
+    },
+    {
+      "meal_name": "Tempeh Sweet Potato Skillet",
+      "steps": [
+        "Cut sweet potato into small, even pieces. Heat oil in a lidded skillet and cook them with a pinch of salt for 10–14 minutes, turning until tender.",
+        "Add onion and cook until fragrant, then stir in tempeh and spinach.",
+        "Cook uncovered for 5–8 minutes, turning occasionally, until the vegetables are tender and the protein is hot and lightly browned.",
+        "serve directly from the pan."
+      ]
+    },
+    {
+      "meal_name": "Roasted Cauliflower Chickpea Quinoa",
+      "steps": [
+        "Heat the oven to 220°C (425°F) and line a small tray with parchment.",
+        "Toss cauliflower with the listed oil and spices; spread in one layer and roast for 18–25 minutes, turning once, until browned and tender.",
+        "Warm chickpeas in a skillet with a spoonful of water until hot; fluff the cooked grain if one is listed.",
+        "Spoon quinoa into a bowl, top with the roasted vegetables and beans, and finish with the listed lemon or herbs."
+      ]
+    },
+    {
+      "meal_name": "Sesame Pumpkin Edamame Millet",
+      "steps": [
+        "Set out millet, pumpkin, green soybeans, dried sesame seeds, and reduced-sodium soy sauce. Cut the fresh produce into bite-size pieces and drain any cooked beans.",
+        "Warm the oil and cook pumpkin until tender.",
+        "Add green soybeans and the cooked millet; heat through and season with reduced-sodium soy sauce.",
+        "Taste once more and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Avocado Corn Black Bean Rice Salad",
+      "steps": [
+        "If the grain is not already cooked, prepare it according to its package directions, then cool it until just warm or room temperature.",
+        "Combine the cooked brown rice with black beans in a serving bowl; fluff the grain and break up any clumps.",
+        "Whisk lime juice together with a spoonful of water if needed, then toss with sweet corn, avocado, and fresh cilantro.",
+        "Taste, adjust the dressing using only the listed seasonings, and serve at room temperature or chilled."
+      ]
+    },
+    {
+      "meal_name": "Lemon Asparagus Tempeh Couscous",
+      "steps": [
+        "Cut the asparagus into short lengths and the cooked tempeh into bite-size pieces.",
+        "Warm a little olive oil in a skillet. Cook the asparagus for 4–6 minutes until crisp-tender, then add the tempeh and heat through.",
+        "Fluff the cooked couscous with a fork and fold it into the skillet. Add a spoonful of water if it seems dry.",
+        "Remove from the heat, stir in the lemon juice, and serve warm."
+      ]
+    },
+    {
+      "meal_name": "Ginger Broccoli Lentil Rice Bowl",
+      "steps": [
+        "Warm the cooked brown rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and cook ginger root until fragrant, then add broccoli and lentils; cook until the vegetables are tender and the protein is hot.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm brown rice. Serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Tomato Egg Rice",
+      "steps": [
+        "Cook tomato and onion in a lightly oiled skillet until tender.",
+        "Lower the heat and prepare the eggs in the same skillet.",
+        "Beat the eggs in a small bowl, pour them into the pan, and stir gently until fully set.",
+        "Serve hot with white rice and the listed herbs."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Mushroom Egg Rice Porridge",
+      "steps": [
+        "Combine the cooked rice, water, and ginger root in a saucepan. Bring to a gentle simmer, stirring to break up the rice.",
+        "Simmer for 10–15 minutes until the rice releases starch and the porridge is creamy; add a little water if it thickens too much.",
+        "Stir in mushroom and cook until the vegetables are tender. Beat the egg and drizzle it into the simmering porridge while stirring; cook until fully set.",
+        "Finish with sesame oil and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Spinach Egg Rice Porridge",
+      "steps": [
+        "Combine the cooked rice and water in a saucepan. Bring to a gentle simmer, stirring to break up the rice.",
+        "Simmer for 10–15 minutes until the rice releases starch and the porridge is creamy; add a little water if it thickens too much.",
+        "Stir in spinach and cook until the vegetables are tender. Beat the egg and drizzle it into the simmering porridge while stirring; cook until fully set.",
+        "Finish with dried sesame seeds and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Corn Egg Fried Rice",
+      "steps": [
+        "Set out the cooked rice and whole egg, sweet corn, and carrot; separate any clumps of rice with a fork.",
+        "Beat the egg and scramble it in the hot skillet until fully set; transfer it to a plate.",
+        "Heat the oil in a wide skillet or wok. Add add sweet corn and carrot and cook for 3–5 minutes, stirring often.",
+        "Fold in the cooked rice and stir-fry until steaming hot and lightly toasted in spots.",
+        "Return the egg to the pan and toss until evenly distributed. Season with the listed soy sauce, salt, or spices and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Tofu Egg Breakfast Rice",
+      "steps": [
+        "Cook tomato in a lightly oiled skillet until tender.",
+        "Stir in firm calcium-set tofu and heat through.",
+        "Beat the eggs in a small bowl, pour them into the pan, and stir gently until fully set.",
+        "Serve hot with white rice and the listed herbs."
+      ]
+    },
+    {
+      "meal_name": "Spinach Cheddar Omelet",
+      "steps": [
+        "Beat the eggs until the whites and yolks are fully combined; prepare spinach.",
+        "Cook the vegetables in a lightly oiled nonstick skillet over medium heat until tender, about 3–5 minutes.",
+        "Pour in the eggs and tilt the pan so they cover the base. Cook gently, lifting the set edge to let uncooked egg run underneath.",
+        "When the top is nearly set, add vegetarian-rennet cheddar cheese if present, fold the omelet, and cook until the eggs are fully set. Serve with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Mushroom Mozzarella Omelet",
+      "steps": [
+        "Beat the eggs until the whites and yolks are fully combined; prepare mushroom.",
+        "Cook the vegetables in a lightly oiled nonstick skillet over medium heat until tender, about 3–5 minutes.",
+        "Pour in the eggs and tilt the pan so they cover the base. Cook gently, lifting the set edge to let uncooked egg run underneath.",
+        "When the top is nearly set, add vegetarian-rennet mozzarella cheese if present, fold the omelet, and cook until the eggs are fully set. Serve with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "Tomato Basil Scrambled Eggs",
+      "steps": [
+        "Cook tomato in a lightly oiled skillet until tender.",
+        "Lower the heat and prepare the eggs in the same skillet.",
+        "Beat the eggs in a small bowl, pour them into the pan, and stir gently until fully set.",
+        "Serve hot with vegan whole-wheat bread and the listed herbs."
+      ]
+    },
+    {
+      "meal_name": "Broccoli Cottage Cheese Egg Bake",
+      "steps": [
+        "Heat the oven to 190°C (375°F) and lightly oil a small baking dish.",
+        "Arrange broccoli, potato, olive oil, whole egg, cottage cheese, and cottage cheese in the dish; spread into an even layer.",
+        "Cover with foil and bake for 20 minutes. Uncover and bake another 10–15 minutes until the vegetables are tender and the top is bubbling and lightly browned.",
+        "Rest for 5 minutes before serving so the sauce settles and the bake holds together."
+      ]
+    },
+    {
+      "meal_name": "Avocado Egg Breakfast Toast",
+      "steps": [
+        "Toast the bread until crisp at the edges but still tender in the middle.",
+        "Heat a little oil in a small skillet and fry the egg until the white is set and the yolk is cooked to your preference.",
+        "Mash avocado until spreadable; leave a few small pieces for texture.",
+        "Spread the mash over the warm toast and arrange the tomato or fruit on top if listed.",
+        "Layer the warm vegetables and avocado on the toast, then place the cooked egg on top.",
+        "Season with the listed salt if present and serve straight away, while the bread is still crisp."
+      ]
+    },
+    {
+      "meal_name": "Banana Yogurt Oat Bowl",
+      "steps": [
+        "Spoon the rolled oats and plain low-fat yogurt into a bowl; stir until the oats are evenly coated.",
+        "Slice or prepare banana and english walnuts and fold half into the oat mixture.",
+        "Let the bowl stand for 5–10 minutes so the oats soften, or chill it overnight for a thicker texture.",
+        "Arrange the remaining fruit, seeds, or nuts on top and serve chilled or at room temperature."
+      ]
+    },
+    {
+      "meal_name": "Blueberry Greek Yogurt Oat Bowl",
+      "steps": [
+        "Spoon the rolled oats and plain nonfat Greek yogurt into a bowl; stir until the oats are evenly coated.",
+        "Slice or prepare blueberry and almond and fold half into the oat mixture.",
+        "Let the bowl stand for 5–10 minutes so the oats soften, or chill it overnight for a thicker texture.",
+        "Arrange the remaining fruit, seeds, or nuts on top and serve chilled or at room temperature."
+      ]
+    },
+    {
+      "meal_name": "Mango Cottage Cheese Oat Bowl",
+      "steps": [
+        "Spoon the rolled oats and cottage cheese into a bowl; stir until the oats are evenly coated.",
+        "Slice or prepare mango and dried chia seeds and fold half into the oat mixture.",
+        "Let the bowl stand for 5–10 minutes so the oats soften, or chill it overnight for a thicker texture.",
+        "Arrange the remaining fruit, seeds, or nuts on top and serve chilled or at room temperature."
+      ]
+    },
+    {
+      "meal_name": "Apple Cinnamon Milk Porridge",
+      "steps": [
+        "Combine the dry rolled oats and reduced-fat milk in a saucepan over medium-low heat.",
+        "Simmer for 5–7 minutes, stirring often, until the oats are soft and the porridge is creamy.",
+        "Fold in fuji apple with skin, dark seedless raisins, and ground cinnamon and cook for another minute, until the apple softens and the raisins plump if included.",
+        "Serve warm, with the listed cinnamon stirred through."
+      ]
+    },
+    {
+      "meal_name": "Strawberry Yogurt Chia Oats",
+      "steps": [
+        "Spoon the rolled oats and plain low-fat yogurt into a bowl; stir until the oats are evenly coated.",
+        "Slice or prepare strawberry and dried chia seeds and fold half into the oat mixture.",
+        "Let the bowl stand for 5–10 minutes so the oats soften, or chill it overnight for a thicker texture.",
+        "Arrange the remaining fruit, seeds, or nuts on top and serve chilled or at room temperature."
+      ]
+    },
+    {
+      "meal_name": "Banana Egg Pancakes",
+      "steps": [
+        "Whisk all-purpose wheat flour and double-acting baking powder in a bowl. In a second bowl, combine whole egg, reduced-fat milk, and banana.",
+        "Stir the wet mixture into the dry ingredients just until combined. Do not overmix.",
+        "Warm a lightly oiled skillet over medium heat. Pour small rounds of batter and cook until bubbles appear and the edges look set, about 2 minutes.",
+        "Flip and cook the other side for 1–2 minutes until golden and cooked through. Serve warm with the fruit from the ingredient list."
+      ]
+    },
+    {
+      "meal_name": "Blueberry Milk Pancakes",
+      "steps": [
+        "Whisk all-purpose wheat flour and double-acting baking powder in a bowl. In a second bowl, combine whole egg and reduced-fat milk.",
+        "Stir the wet mixture into the dry ingredients just until combined. Fold in blueberry. Do not overmix.",
+        "Warm a lightly oiled skillet over medium heat. Pour small rounds of batter and cook until bubbles appear and the edges look set, about 2 minutes.",
+        "Flip and cook the other side for 1–2 minutes until golden and cooked through. Serve warm with the fruit from the ingredient list."
+      ]
+    },
+    {
+      "meal_name": "Apple Cottage Cheese Pancakes",
+      "steps": [
+        "Whisk all-purpose wheat flour in a bowl. In a second bowl, combine whole egg and cottage cheese.",
+        "Stir the wet mixture into the dry ingredients just until combined. Fold in fuji apple with skin. Do not overmix.",
+        "Warm a lightly oiled skillet over medium heat. Pour small rounds of batter and cook until bubbles appear and the edges look set, about 2 minutes.",
+        "Flip and cook the other side for 1–2 minutes until golden and cooked through. Serve warm with the fruit from the ingredient list."
+      ]
+    },
+    {
+      "meal_name": "Cheddar Spinach Breakfast Tortilla",
+      "steps": [
+        "Warm the tortilla briefly in a dry skillet until pliable; set it aside under a clean towel.",
+        "Cook spinach in a little oil until just wilted, then transfer them to a plate.",
+        "Scramble the egg in the same skillet until fully set. Fold in vegetarian-rennet cheddar cheese while the egg is still warm.",
+        "Fill the tortilla with the egg and vegetables, fold in the sides, and serve warm."
+      ]
+    },
+    {
+      "meal_name": "Mozzarella Tomato Egg Breakfast Tortilla",
+      "steps": [
+        "Warm the tortilla briefly in a dry skillet until pliable; set it aside under a clean towel.",
+        "Cook tomato in a little oil until just wilted, then transfer them to a plate.",
+        "Scramble the egg in the same skillet until fully set. Fold in vegetarian-rennet mozzarella cheese while the egg is still warm.",
+        "Fill the tortilla with the egg and vegetables, fold in the sides, and serve warm."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Vegetable Egg Fried Rice",
+      "steps": [
+        "Set out the cooked rice and whole egg, green peas, and carrot; separate any clumps of rice with a fork.",
+        "Beat the egg and scramble it in the hot skillet until fully set; transfer it to a plate.",
+        "Heat the oil in a wide skillet or wok. Add add green peas and carrot and cook for 3–5 minutes, stirring often.",
+        "Fold in the cooked rice and stir-fry until steaming hot and lightly toasted in spots.",
+        "Return the egg to the pan and toss until evenly distributed. Season with the listed soy sauce, salt, or spices and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Mushroom Egg Rice Noodles",
+      "steps": [
+        "Warm sesame oil in a skillet and cook mushroom and bok choy for 3–4 minutes until tender.",
+        "Beat the egg and pour it into the pan; stir until fully set.",
+        "Add the cooked noodles and a splash of the listed soy sauce or water; toss until hot and evenly coated.",
+        "Taste, finish with the listed sesame seeds or herbs, and serve at once."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Tomato Tofu Egg Rice Skillet",
+      "steps": [
+        "Warm oil in a skillet. Cook tomato until softened.",
+        "Stir in firm calcium-set tofu and the listed seasonings; warm until hot.",
+        "Make a small space in the pan, add the eggs, and stir gently until fully set.",
+        "Serve straight from the skillet with the bread or cooked grain listed."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Corn Cheese Rice Skillet",
+      "steps": [
+        "Warm the cooked white rice and keep it covered. Dice the vegetables into small, even pieces.",
+        "Heat oil in a skillet. Cook sweet corn in the oil until tender-crisp.",
+        "Stir in firm calcium-set tofu and the cooked rice; toss until steaming hot. Off the heat, fold in vegetarian-rennet mozzarella cheese.",
+        "serve hot from the skillet."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Egg Tofu Savory Rice Pancake",
+      "steps": [
+        "Whisk the rice flour with whole egg and canned coconut milk and the listed turmeric until smooth; rest the batter for 10 minutes.",
+        "Cook firm calcium-set tofu and mung bean sprouts in a lightly oiled pan until hot, then transfer the filling to a plate.",
+        "Pour a thin layer of batter into the hot skillet and swirl it to cover the base. Cook until the edges lift and the underside is golden.",
+        "Add the filling, fold the crepe, and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Ginger Egg Brown Rice",
+      "steps": [
+        "Cook mushroom and ginger root in a lightly oiled skillet until tender.",
+        "Lower the heat and prepare the eggs in the same skillet.",
+        "Beat the eggs in a small bowl, pour them into the pan, and stir gently until fully set.",
+        "Serve hot with brown rice and the listed herbs."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Coconut Milk Egg Curry Rice",
+      "steps": [
+        "Hard-boil the egg for 9–10 minutes, cool it, peel it, and set it aside.",
+        "Warm the listed oil in a saucepan. Stir the curry powder in the oil for 30 seconds until fragrant.",
+        "Add potato and stir to coat. Pour in canned coconut milk and reduced-fat milk and add a splash of water if needed.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender. Add the peeled egg now.",
+        "Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Spinach Egg Noodle Soup",
+      "steps": [
+        "Warm the sesame oil in a pot, add plain drinking water, and bring to a gentle simmer.",
+        "Add firm calcium-set tofu and simmer for 5–8 minutes, until the vegetables are tender and the protein is heated through.",
+        "Stir in spinach for the final 1–2 minutes, keeping them bright and just wilted.",
+        "If the soup contains egg, crack it into the simmering broth and cook until fully set.",
+        "Divide the cooked noodles between bowls, ladle over the hot broth and toppings, and finish with the listed herbs or sesame oil."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Tomato Egg Sticky Rice",
+      "steps": [
+        "Warm the cooked sticky rice in a steamer or covered pan with a spoonful of water until soft and steaming.",
+        "Warm the coconut gently with the listed salt or sugar; do not let it boil hard.",
+        "Fold whole egg, tomato, dried sesame seeds, and olive oil into the rice, or spoon it over the top if it is a garnish.",
+        "Serve warm, finishing with the listed sesame or coconut mixture."
+      ]
+    },
+    {
+      "meal_name": "Vietnamese Mushroom Cheese Rice Bake",
+      "steps": [
+        "Heat the oven to 190°C (375°F) and lightly oil a small baking dish.",
+        "Combine white rice with mushroom, green peas, vegetarian-rennet mozzarella cheese, vegetarian-rennet mozzarella cheese, and reduced-fat milk in the dish; spread into an even layer.",
+        "Cover with foil and bake for 20 minutes. Uncover and bake another 10–15 minutes until the vegetables are tender and the top is bubbling and lightly browned.",
+        "Rest for 5 minutes before serving so the sauce settles and the bake holds together."
+      ]
+    },
+    {
+      "meal_name": "Tomato Mozzarella Pasta Bake",
+      "steps": [
+        "Heat the oven to 190°C (375°F). Combine the cooked pasta with unsalted canned tomato sauce and fresh basil in a small baking dish.",
+        "Stir in vegetarian-rennet mozzarella cheese and a spoonful of water if needed so the pasta is lightly coated, not dry.",
+        "Cover loosely and bake for 15 minutes, then uncover and bake 8–12 minutes more until bubbling and golden at the edges.",
+        "Rest for 5 minutes before serving so the sauce settles around the pasta."
+      ]
+    },
+    {
+      "meal_name": "Spinach Cottage Cheese Pasta Bake",
+      "steps": [
+        "Heat the oven to 190°C (375°F). Combine the cooked pasta with spinach in a small baking dish.",
+        "Stir in cottage cheese and vegetarian-rennet mozzarella cheese and a spoonful of water if needed so the pasta is lightly coated, not dry.",
+        "Cover loosely and bake for 15 minutes, then uncover and bake 8–12 minutes more until bubbling and golden at the edges.",
+        "Rest for 5 minutes before serving so the sauce settles around the pasta."
+      ]
+    },
+    {
+      "meal_name": "Mushroom Cheddar Pasta",
+      "steps": [
+        "Warm the oil in a skillet. Cook mushroom in the oil until tender and lightly browned.",
+        "Add a few spoonfuls of pasta water and stir until glossy.",
+        "Add the cooked pasta and toss until evenly coated. Fold in vegetarian-rennet cheddar cheese and reduced-fat milk over low heat until just warmed through.",
+        "Taste, then serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Broccoli Mozzarella Pasta",
+      "steps": [
+        "Warm the oil in a skillet. Cook garlic in the oil until softened and fragrant.",
+        "Add a few spoonfuls of pasta water and stir until glossy.",
+        "Add the cooked pasta and toss until evenly coated. Fold in vegetarian-rennet mozzarella cheese over low heat until just warmed through.",
+        "Taste, then serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Eggplant Mozzarella Rice Bake",
+      "steps": [
+        "Heat the oven to 190°C (375°F) and lightly oil a small baking dish.",
+        "Combine white rice with eggplant, olive oil, vegetarian-rennet mozzarella cheese, unsalted canned tomato sauce, and vegetarian-rennet mozzarella cheese in the dish; spread into an even layer.",
+        "Cover with foil and bake for 20 minutes. Uncover and bake another 10–15 minutes until the vegetables are tender and the top is bubbling and lightly browned.",
+        "Rest for 5 minutes before serving so the sauce settles and the bake holds together."
+      ]
+    },
+    {
+      "meal_name": "Zucchini Cottage Cheese Pasta",
+      "steps": [
+        "Warm the oil in a skillet. Cook zucchini in the oil until tender and lightly browned.",
+        "Stir in fresh basil and a few spoonfuls of pasta water; simmer until glossy.",
+        "Add the cooked pasta and toss until evenly coated. Fold in cottage cheese over low heat until just warmed through.",
+        "Season with fresh basil and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Asparagus Egg Pasta",
+      "steps": [
+        "Warm oil in a skillet and cook asparagus until tender; keep the cooked pasta warm.",
+        "Beat the egg in a bowl. Stir in the listed cheese and a spoonful of warm pasta water if available.",
+        "Take the skillet off the heat, add the pasta and egg mixture, then stir continuously until the egg is fully set by the residual heat. Return to low heat briefly if needed.",
+        "Season with the listed salt or pepper and serve immediately."
+      ]
+    },
+    {
+      "meal_name": "Pumpkin Milk Rice Risotto",
+      "steps": [
+        "Warm the oil or butter in a saucepan. Stir in the cooked grain and toast it gently for 1 minute.",
+        "Add reduced-fat milk a little at a time, stirring until each addition is absorbed and the grain is creamy.",
+        "Fold in pumpkin and vegetarian-rennet cheddar cheese and cook gently until the vegetables are tender and everything is hot.",
+        "serve while creamy; loosen with a splash of water if it thickens while standing."
+      ]
+    },
+    {
+      "meal_name": "Mushroom Milk Barley Risotto",
+      "steps": [
+        "Warm the oil or butter in a saucepan. Stir in the cooked grain and toast it gently for 1 minute.",
+        "Add reduced-fat milk a little at a time, stirring until each addition is absorbed and the grain is creamy.",
+        "Fold in mushroom and vegetarian-rennet mozzarella cheese and cook gently until the vegetables are tender and everything is hot.",
+        "serve while creamy; loosen with a splash of water if it thickens while standing."
+      ]
+    },
+    {
+      "meal_name": "Lentil Mozzarella Pasta",
+      "steps": [
+        "Warm the tomato sauce in a skillet and stir in the cooked lentils. Simmer gently for 4–5 minutes.",
+        "Add the cooked pasta and a spoonful of pasta water; toss until the sauce coats it evenly.",
+        "Tear the mozzarella into small pieces and scatter it over the pasta. Cover for 1–2 minutes until softened.",
+        "Drizzle with olive oil and serve hot."
+      ]
+    },
+    {
+      "meal_name": "Black Bean Cheddar Tacos",
+      "steps": [
+        "Warm the tortillas in a dry skillet for about 30 seconds per side, then wrap in a clean towel.",
+        "Warm black beans with the listed spices in a skillet. Fold in vegetarian-rennet cheddar cheese off the heat.",
+        "Prepare tomato.",
+        "Fill the tortillas with the warm beans and vegetables, fold, and serve at once."
+      ]
+    },
+    {
+      "meal_name": "Pinto Bean Egg Breakfast-Style Rice",
+      "steps": [
+        "Cook red bell pepper in a lightly oiled skillet until tender.",
+        "Stir in pinto beans and heat through.",
+        "Beat the eggs in a small bowl, pour them into the pan, and stir gently until fully set.",
+        "Serve hot with white rice and the listed herbs."
+      ]
+    },
+    {
+      "meal_name": "Corn Mozzarella Tortilla Bake",
+      "steps": [
+        "Heat the oven to 190°C (375°F) and lightly oil a small baking dish.",
+        "Arrange sweet corn, vegetarian-rennet mozzarella cheese, black beans, unsalted canned tomato sauce, and vegetarian-rennet mozzarella cheese in the dish; spread into an even layer.",
+        "Cover with foil and bake for 20 minutes. Uncover and bake another 10–15 minutes until the vegetables are tender and the top is bubbling and lightly browned.",
+        "Rest for 5 minutes before serving so the sauce settles and the bake holds together."
+      ]
+    },
+    {
+      "meal_name": "Sweet Potato Cheddar Bean Bowl",
+      "steps": [
+        "Warm the cooked rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Heat oil in a skillet and add sweet potato, tomato, and red kidney beans; cook until the vegetables are tender and the protein is hot.",
+        "Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm rice. Add vegetarian-rennet cheddar cheese and plain low-fat yogurt and serve."
+      ]
+    },
+    {
+      "meal_name": "Chickpea Yogurt Rice Bowl",
+      "steps": [
+        "Warm the cooked white rice and fluff it with a fork; keep it covered while preparing the toppings.",
+        "Warm chickpeas in a lightly oiled skillet until heated through.",
+        "Stir in cumin seed and cook for another 1–2 minutes; season with cumin seed; Add a spoonful of water if the pan becomes dry.",
+        "Spoon the cooked toppings over the warm white rice. Add cucumber with peel and plain low-fat yogurt and serve."
+      ]
+    },
+    {
+      "meal_name": "Spinach Cottage Cheese Curry Rice",
+      "steps": [
+        "Warm the listed oil in a saucepan. Stir the curry powder in the oil for 30 seconds until fragrant.",
+        "Pour in tomato and add a splash of water if needed.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender. Stir in spinach for the final 2 minutes.",
+        "Lower the heat and fold in cottage cheese. Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Egg Potato Tomato Curry Rice",
+      "steps": [
+        "Hard-boil the egg for 9–10 minutes, cool it, peel it, and set it aside.",
+        "Warm the listed oil in a saucepan. Stir the curry powder in the oil for 30 seconds until fragrant.",
+        "Add potato and stir to coat. Pour in tomato and add a splash of water if needed.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender. Add the peeled egg now.",
+        "Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Cauliflower Yogurt Chickpea Curry",
+      "steps": [
+        "Warm the listed oil in a saucepan. Stir the curry powder in the oil for 30 seconds until fragrant.",
+        "Add cauliflower and chickpeas and stir to coat. Add enough water to make a light sauce.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender.",
+        "Lower the heat and fold in plain low-fat yogurt. Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Lentil Milk Pumpkin Curry Rice",
+      "steps": [
+        "Warm the listed oil in a saucepan. Stir the curry powder in the oil for 30 seconds until fragrant.",
+        "Add pumpkin and lentils and stir to coat. Pour in reduced-fat milk and add a splash of water if needed.",
+        "Cover and simmer gently for 12–18 minutes, stirring occasionally, until the root vegetables are tender.",
+        "Taste, season with the listed salt or pepper, and serve over the cooked grain."
+      ]
+    },
+    {
+      "meal_name": "Tomato Pepper Egg Skillet",
+      "steps": [
+        "Warm oil in a skillet. Cook tomato, red bell pepper, and onion until softened.",
+        "Let the vegetables soften and cook off any excess liquid.",
+        "Make a small space in the pan, add the eggs, and stir gently until fully set.",
+        "Serve straight from the skillet with the bread or cooked grain listed."
+      ]
+    },
+    {
+      "meal_name": "Spinach Egg Chickpea Skillet",
+      "steps": [
+        "Warm oil in a skillet. Cook spinach and tomato until softened.",
+        "Stir in chickpeas and the listed seasonings; warm until hot.",
+        "Make a small space in the pan, add the eggs, and stir gently until fully set.",
+        "Serve straight from the skillet with the bread or cooked grain listed."
+      ]
+    },
+    {
+      "meal_name": "Quinoa Egg Avocado Salad",
+      "steps": [
+        "Lower the egg into boiling water and cook for 9–10 minutes until hard-boiled; cool, peel, and quarter it.",
+        "Whisk lemon juice and olive oil with a teaspoon of water, then gently toss with avocado and cucumber with peel.",
+        "Arrange the egg over the salad and fold once more gently so the pieces stay intact.",
+        "Taste, adjust using only the listed seasonings, and serve chilled or at room temperature."
+      ]
+    },
+    {
+      "meal_name": "Potato Egg Yogurt Salad",
+      "steps": [
+        "Simmer the potato in salted water for 12–15 minutes until a knife slides in easily; drain and cool before dicing.",
+        "Lower the egg into boiling water and cook for 9–10 minutes until hard-boiled; cool, peel, and quarter it.",
+        "Whisk olive oil with a teaspoon of water, then gently toss with potato, cucumber with peel, fresh parsley, and plain low-fat yogurt.",
+        "Arrange the egg over the salad and fold once more gently so the pieces stay intact.",
+        "Taste, adjust using only the listed seasonings, and serve chilled or at room temperature."
+      ]
+    },
+    {
+      "meal_name": "Broccoli Cheddar Potato Bake",
+      "steps": [
+        "Heat the oven to 190°C (375°F) and lightly oil a small baking dish.",
+        "Arrange potato, broccoli, unsalted butter, vegetarian-rennet cheddar cheese, vegetarian-rennet cheddar cheese, and reduced-fat milk in the dish; spread into an even layer.",
+        "Cover with foil and bake for 20 minutes. Uncover and bake another 10–15 minutes until the vegetables are tender and the top is bubbling and lightly browned.",
+        "Rest for 5 minutes before serving so the sauce settles and the bake holds together."
+      ]
+    },
+    {
+      "meal_name": "Mushroom Cottage Cheese Potato Bake",
+      "steps": [
+        "Heat the oven to 190°C (375°F) and lightly oil a small baking dish.",
+        "Arrange potato, mushroom, olive oil, cottage cheese, vegetarian-rennet mozzarella cheese, cottage cheese, and vegetarian-rennet mozzarella cheese in the dish; spread into an even layer.",
+        "Cover with foil and bake for 20 minutes. Uncover and bake another 10–15 minutes until the vegetables are tender and the top is bubbling and lightly browned.",
+        "Rest for 5 minutes before serving so the sauce settles and the bake holds together."
+      ]
+    },
+    {
+      "meal_name": "Corn Egg Vegetable Rice Bowl",
+      "steps": [
+        "Warm the cooked brown rice and keep it covered. Prepare the listed vegetables for the bowl.",
+        "Cook sweet corn and bok choy in a lightly oiled skillet until hot; leave any cucumber or avocado raw for freshness.",
+        "Fry the egg until its white is fully set.",
+        "Build the bowl with the warm grain, cooked toppings, and sweet corn and bok choy. Finish with the listed sesame, soy sauce, or citrus."
+      ]
+    },
+    {
+      "meal_name": "Sesame Egg Tofu Rice Bowl",
+      "steps": [
+        "Warm the cooked white rice and keep it covered. Prepare the listed vegetables for the bowl.",
+        "Cook firm calcium-set tofu in a lightly oiled skillet until hot; leave any cucumber or avocado raw for freshness.",
+        "Fry the egg until its white is fully set.",
+        "Build the bowl with the warm grain, cooked toppings, and cucumber with peel. Finish with the listed sesame, soy sauce, or citrus."
+      ]
+    },
+    {
+      "meal_name": "Sweet Potato Egg Spinach Skillet",
+      "steps": [
+        "Warm oil in a skillet. Add diced sweet potato with a spoonful of water, cover, and cook until tender, about 12 minutes.",
+        "Stir in cottage cheese and the listed seasonings; warm until hot.",
+        "Make a small space in the pan, add the eggs, and stir gently until fully set.",
+        "Serve straight from the skillet with the bread or cooked grain listed."
+      ]
+    },
+    {
+      "meal_name": "Milk Lentil Potato Soup",
+      "steps": [
+        "Warm the unsalted butter in a heavy pot.",
+        "Add potato, carrot, and lentils. Add reduced-fat milk; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 12–18 minutes until the raw root vegetables are fork-tender.",
+        "Serve hot with the bread if listed."
+      ]
+    },
+    {
+      "meal_name": "White Bean Mozzarella Tomato Stew",
+      "steps": [
+        "Warm the olive oil in a heavy pot.",
+        "Add navy beans and tomato. Add enough water to make a light broth; bring to a gentle boil, then lower the heat.",
+        "Simmer gently for 6–10 minutes until the vegetables are tender and the flavors come together.",
+        "Stir in vegetarian-rennet mozzarella cheese off the heat. Serve hot with the bread if listed."
+      ]
+    }
+  ]
+}

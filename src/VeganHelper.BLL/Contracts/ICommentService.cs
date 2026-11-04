@@ -1,6 +1,6 @@
 using VeganHelper.BLL.DTOs.Comments;
 
-namespace VeganHelper.BLL.Services;
+namespace VeganHelper.BLL.Contracts;
 
 public interface ICommentService
 {

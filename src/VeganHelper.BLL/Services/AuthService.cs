@@ -71,9 +71,13 @@ public sealed class AuthService(
             }
 
             await userRepository.SaveChangesAsync(cancellationToken);
-            return await ResendVerificationAsync(
+            await ResendVerificationAsync(
                 new ResendVerificationRequestDto { Email = email },
                 cancellationToken);
+
+            return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto(
+                "This email has already been registered but is not yet verified. A fresh verification code has been sent.",
+                IsExistingUnverified: true));
         }
 
         if (await repository.FindUserByUsernameAsync(username, cancellationToken) is not null)
@@ -119,7 +123,9 @@ public sealed class AuthService(
         if (!emailSent)
             return ServiceResult<MessageResponseDto>.Fail("Registration was created, but the verification email could not be sent. Please request another code.", 503);
 
-        return ServiceResult<MessageResponseDto>.Created(new MessageResponseDto("Registration successful. Verify your email before logging in."));
+        return ServiceResult<MessageResponseDto>.Created(new MessageResponseDto(
+            "Registration successful. Verify your email before logging in.",
+            IsExistingUnverified: false));
     }
 
     public async Task<ServiceResult<MessageResponseDto>> ResendVerificationAsync(ResendVerificationRequestDto request, CancellationToken cancellationToken)

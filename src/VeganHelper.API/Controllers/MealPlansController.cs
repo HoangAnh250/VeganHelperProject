@@ -53,11 +53,33 @@ public sealed class MealPlansController(IMealPlanningService service,MealRoutine
         return CreatedAtAction(nameof(Get),new { id=result.Id },result);
     }
 
+    [HttpPost("{id:long:min(1)}/regenerate")]
+    public async Task<IActionResult> Regenerate(long id,CancellationToken ct)
+    {
+        if(UserId is not long userId) return Unauthorized();
+        return Ok(await service.RegenerateAsync(userId,id,ct));
+    }
+
+    [HttpDelete("{id:long:min(1)}")]
+    public async Task<IActionResult> Delete(long id,CancellationToken ct)
+    {
+        if(UserId is not long userId) return Unauthorized();
+        await service.ArchiveAsync(userId,id,ct);
+        return NoContent();
+    }
+
     [HttpGet("{id:long:min(1)}")]
     public async Task<IActionResult> Get(long id,CancellationToken ct)
     {
         if(UserId is not long userId) return Unauthorized();
         return Ok(await service.GetAsync(userId,id,ct));
+    }
+
+    [HttpPatch("{id:long:min(1)}/name")]
+    public async Task<IActionResult> Rename(long id,[FromBody] UpdateMealPlanNameRequest request,CancellationToken ct)
+    {
+        if(UserId is not long userId) return Unauthorized();
+        return Ok(await service.RenameAsync(userId,id,request,ct));
     }
 
     [HttpGet]

@@ -9,7 +9,7 @@ public sealed class CreatePostReportRequest
     [Required, MaxLength(1000)] public string Reason { get; set; } = "";
     [Range(1, int.MaxValue)] public int ExpectedRevision { get; set; }
 }
-public sealed record PostReportReceipt(long Id, string Status);
+public sealed record PostReportReceipt(long Id, string Status, bool AlreadyReported = false);
 public sealed class PostReportListRequest
 {
     public int PageIndex { get; set; } = 1;
@@ -21,6 +21,12 @@ public sealed class AdminPostReportDto
 {
     public long Id { get; set; }
     public long? PostId { get; set; }
+    public int ReportCount { get; set; }
+    public string PostTitle { get; set; } = "";
+    public long AuthorId { get; set; }
+    public string AuthorName { get; set; } = "";
+    public long? ReporterId { get; set; }
+    public string ReporterName { get; set; } = "";
     public int? PostRevision { get; set; }
     public string Reason { get; set; } = "";
     public string? ReasonCategory { get; set; }
@@ -30,7 +36,10 @@ public sealed class AdminPostReportDto
     public string? ReportedSnapshotJson { get; set; }
 }
 public sealed record AdminPostReportDetailDto(AdminPostReportDto Report, ModerationPostDetailDto CurrentContent,
-    IReadOnlyList<ModerationAssessmentDto> AssessmentHistory);
+    IReadOnlyList<ModerationAssessmentDto> AssessmentHistory)
+{
+    public IReadOnlyList<AdminPostReportDto> Reports { get; init; } = [];
+}
 
 public sealed class ModerationAssessmentDto
 {

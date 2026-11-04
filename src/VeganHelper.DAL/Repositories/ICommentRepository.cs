@@ -6,6 +6,7 @@ namespace VeganHelper.DAL.Repositories;
 public interface ICommentRepository
 {
     Task<bool> IsPublishedPostAsync(long postId, CancellationToken cancellationToken = default);
+    Task<long?> GetPostAuthorIdAsync(long postId, CancellationToken cancellationToken = default);
     Task<Comment?> GetCommentAsync(long commentId, CancellationToken cancellationToken = default);
     Task<Comment?> GetCommentForReportAsync(long commentId, CancellationToken cancellationToken = default);
     Task<Comment?> GetCommentForUpdateAsync(long commentId, CancellationToken cancellationToken = default);
@@ -16,6 +17,7 @@ public interface ICommentRepository
     Task<bool> HasPendingUserReportAsync(long commentId, long reporterId, CancellationToken cancellationToken = default);
     Task<int> CountPendingUserReportsAsync(long commentId, CancellationToken cancellationToken = default);
     Task AddCommentReportAsync(Flag report, CancellationToken cancellationToken = default);
+    Task EnsureKeywordReviewAsync(long commentId, string reason, CancellationToken cancellationToken = default);
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

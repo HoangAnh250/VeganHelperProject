@@ -41,6 +41,7 @@ public class ModerationPostDto
 {
     public long Id { get; set; }
     public long AuthorId { get; set; }
+    public string AuthorName { get; set; } = "";
     public string Title { get; set; } = "";
     public string Status { get; set; } = "";
     public int ContentRevision { get; set; }
@@ -67,6 +68,8 @@ public sealed class ModerationFlagDto
     public string? ReportedSnapshotJson { get; set; }
     public long Id { get; set; }
     public long PostId { get; set; }
+    public long AuthorId { get; set; }
+    public string AuthorName { get; set; } = "";
     public string Title { get; set; } = "";
     public int ContentRevision { get; set; }
     public string Reason { get; set; } = "";

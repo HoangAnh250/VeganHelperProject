@@ -67,15 +67,65 @@ public sealed class MealPlanPaymentService(
     {
         var order = await repository.GetOrderForUserAsync(orderId, userId, ct)
             ?? throw new NotFoundException("Payment order was not found.");
-        return new MealPlanPaymentOrderDto(
-            order.Id,
-            order.PackageCodeSnapshot,
-            order.PackageNameSnapshot,
-            order.DurationMonthsSnapshot,
-            order.AmountVnd,
-            order.Status,
-            order.CreatedAt,
-            order.PaidAt);
+        return ToDto(order);
+    }
+
+    public async Task<MealPlanPaymentOrderDto> VerifyOrderAsync(long userId, long orderId, CancellationToken ct)
+    {
+        var order = await repository.GetOrderForUserAsync(orderId, userId, ct)
+            ?? throw new NotFoundException("Payment order was not found.");
+
+        if (!string.Equals(order.Status, "pending", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(order.PaymentLinkId))
+            return ToDto(order);
+
+        var providerStatus = await payOS.GetPaymentStatusAsync(order.OrderCode, ct);
+        var paymentLinkMatches = string.Equals(order.PaymentLinkId, providerStatus.PaymentLinkId, StringComparison.Ordinal);
+        var orderMatches = providerStatus.OrderCode == order.OrderCode;
+        var amountMatches = providerStatus.AmountVnd == order.AmountVnd;
+
+        if (!paymentLinkMatches || !orderMatches || !amountMatches)
+        {
+            logger.LogWarning(
+                "PayOS status check did not match local payment order {OrderId} (link={LinkMatches}, order={OrderMatches}, amount={AmountMatches}).",
+                order.Id,
+                paymentLinkMatches,
+                orderMatches,
+                amountMatches);
+            return ToDto(order);
+        }
+
+        var status = providerStatus.Status;
+        var isPaid = string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase);
+        var isFullyPaid = isPaid && providerStatus.AmountPaidVnd == order.AmountVnd && providerStatus.AmountRemainingVnd == 0;
+        var isTerminalFailure = string.Equals(status, "Cancelled", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "Expired", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "Failed", StringComparison.OrdinalIgnoreCase);
+
+        if (isFullyPaid || isTerminalFailure)
+        {
+            var applyResult = await repository.ApplyWebhookAsync(
+                order.OrderCode,
+                order.AmountVnd,
+                isFullyPaid,
+                "VND",
+                providerStatus.PaymentLinkId,
+                providerStatus.ProviderReference,
+                clock.GetUtcNow().UtcDateTime,
+                ct);
+
+            if (applyResult is PaymentWebhookApplyResult.UnknownOrder or PaymentWebhookApplyResult.AmountMismatch or PaymentWebhookApplyResult.PaymentLinkMismatch)
+                logger.LogWarning("PayOS status was ignored ({Result}) for local payment order {OrderId}.", applyResult, order.Id);
+
+            order = await repository.GetOrderForUserAsync(orderId, userId, ct)
+                ?? throw new NotFoundException("Payment order was not found.");
+        }
+        else if (isPaid)
+        {
+            logger.LogWarning("PayOS reports payment link {OrderId} as paid but its paid amount is incomplete.", order.Id);
+        }
+
+        return ToDto(order);
     }
 
     public async Task<MealPlanAccessDto> GetAccessAsync(long userId, CancellationToken ct)
@@ -116,4 +166,14 @@ public sealed class MealPlanPaymentService(
 
         return uri.ToString();
     }
+
+    private static MealPlanPaymentOrderDto ToDto(VeganHelper.DAL.Entities.MealPlanPaymentOrder order) => new(
+        order.Id,
+        order.PackageCodeSnapshot,
+        order.PackageNameSnapshot,
+        order.DurationMonthsSnapshot,
+        order.AmountVnd,
+        order.Status,
+        order.CreatedAt,
+        order.PaidAt);
 }

@@ -40,6 +40,17 @@ public sealed class MealPlanPaymentsController(IMealPlanPaymentService service) 
     }
 
     [Authorize]
+    [HttpPost("orders/{orderId:long:min(1)}/verify")]
+    [ProducesResponseType(typeof(MealPlanPaymentOrderDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> VerifyOrder(long orderId, CancellationToken ct)
+    {
+        if (GetUserId() is not { } userId) return Unauthorized();
+        return Ok(await service.VerifyOrderAsync(userId, orderId, ct));
+    }
+
+    [Authorize]
     [HttpGet("access")]
     [ProducesResponseType(typeof(MealPlanAccessDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAccess(CancellationToken ct)

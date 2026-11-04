@@ -1,4 +1,4 @@
-namespace VeganHelper.BLL.Services;
+namespace VeganHelper.BLL.Contracts;
 
 public interface ICommentKeywordFilter
 {

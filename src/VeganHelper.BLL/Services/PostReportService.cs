@@ -27,7 +27,7 @@ public sealed class PostReportService(IPostReportRepository reports, IModeration
         if (post.AuthorId == userId) throw new UnauthorizedAccessException("You cannot report your own post.");
         if (post.ContentRevision != request.ExpectedRevision) throw new ConflictException("Post changed. Reload before reporting.");
         var existing = await reports.PendingAsync(userId, postId, post.ContentRevision, ct);
-        if (existing is not null) return new(existing.Id, existing.Status);
+        if (existing is not null) return new(existing.Id, existing.Status, AlreadyReported: true);
         var now = clock.GetUtcNow().UtcDateTime;
         if (await reports.RecentCountAsync(userId, now.AddHours(-1), ct) >= 10) throw new ReportRateLimitException();
         var content = await moderation.DetailAsync(postId, ct) ?? throw new NotFoundException("Post not found.");
@@ -46,19 +46,23 @@ public sealed class PostReportService(IPostReportRepository reports, IModeration
         if (status is not ("pending" or "resolved" or "dismissed" or "all") || request.PostId is <= 0)
             throw new ArgumentException("Invalid report filter.");
         return audit.ExecuteAsync(actor, "report.list", "flag", null, async token =>
-            Pagination.Map<Flag, AdminPostReportDto>(await reports.ListAsync(status == "all" ? null : status, request.PostId,
+            Pagination.Map<AdminPostReportProjection, AdminPostReportDto>(await reports.ListAsync(status == "all" ? null : status, request.PostId,
                 request.PageIndex, request.PageSize, token), request.PageIndex, request.PageSize, mapper), null, ct);
     }
     public Task<AdminPostReportDetailDto> GetAsync(AdminActor actor, long id, CancellationToken ct) =>
         audit.ExecuteAsync(actor, "report.view", "flag", id.ToString(), async token =>
         {
-            var report = await reports.FindAsync(id, false, token);
-            if (report?.SourceType != "user" || report.PostId is null) throw new NotFoundException("Report not found.");
+            var report = await reports.GetReportProjectionAsync(id, token);
+            if (report is null || report.PostId is null) throw new NotFoundException("Report not found.");
             var post = await reports.PostAsync(report.PostId.Value, token) ?? throw new NotFoundException("Post not found.");
             var current = mapper.Map<ModerationPostDetailDto>(post);
+            current.AuthorName = report.AuthorName;
             current.Flags = mapper.Map<List<ModerationFlagDto>>(await moderation.CurrentFlagsAsync(post.Id, token));
             return new AdminPostReportDetailDto(mapper.Map<AdminPostReportDto>(report), current,
-                mapper.Map<List<ModerationAssessmentDto>>(await reports.HistoryAsync(post.Id, token)));
+                mapper.Map<List<ModerationAssessmentDto>>(await reports.HistoryAsync(post.Id, token)))
+            {
+                Reports = mapper.Map<List<AdminPostReportDto>>(await reports.ListRevisionAsync(post.Id, report.PostRevision, report.Status, token))
+            };
         }, null, ct);
     public Task<AdminPostReportDto> DecideAsync(AdminActor actor, long id, ModerationDecisionRequest request, CancellationToken ct)
     {
@@ -84,13 +88,17 @@ public sealed class PostReportService(IPostReportRepository reports, IModeration
             else
             {
                 var keep = action == "keep";
+                var wasPublic = post.Status == "published" && !post.ModerationHold;
                 post.Status = keep ? "published" : "hidden"; post.ModerationHold = !keep; post.UpdatedAt = now;
                 await moderation.ResolveFlagsAsync(post.Id, post.ContentRevision, actor.UserId, reason, keep, now, token);
                 await moderation.ObsoleteScansAsync(post.Id, post.ContentRevision, now, token);
                 var decision = new PostModerationDecision { PostId = post.Id, Revision = post.ContentRevision, Action = action!,
                     ActorType = "admin", AdminId = actor.UserId, FlagId = id, Reason = reason, CreatedAt = now };
                 moderation.AddDecision(decision); await moderation.SaveAsync(token);
-                await notifications.NotifyModerationDecisionAsync(decision.Id, token);
+                // Dismissing a report on an already public post must not notify its author.
+                // Restoration of a previous hold and Admin removal still notify atomically.
+                if (!keep || !wasPublic)
+                    await notifications.NotifyModerationDecisionAsync(decision.Id, token);
                 // ExecuteUpdate does not refresh the tracked report.
                 report.Status = keep ? "dismissed" : "resolved"; report.ResolvedByAdminId = actor.UserId;
                 report.ResolvedAt = now; report.ResolutionNote = reason;

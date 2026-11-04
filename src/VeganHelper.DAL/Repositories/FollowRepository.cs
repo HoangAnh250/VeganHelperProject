@@ -30,7 +30,7 @@ public sealed class FollowRepository(AppDbContext context) : IFollowRepository
         context.Users.AnyAsync(
             user => user.Id == userId
                 && user.IsActive
-                && user.DeletedAt == null
+                && user.DeletedAt == null && !context.UserBans.Any(b => b.UserId == user.Id && b.UnbannedAt == null && (b.ExpiresAt == null || b.ExpiresAt > DateTime.UtcNow))
                 && user.EmailVerifiedAt != null,
             cancellationToken);
 
@@ -51,7 +51,7 @@ public sealed class FollowRepository(AppDbContext context) : IFollowRepository
         context.UserFollows
             .Where(follow => follow.FollowingId == userId)
             .Join(
-                context.Users.Where(user => user.IsActive && user.DeletedAt == null && user.EmailVerifiedAt != null),
+                context.Users.Where(user => user.IsActive && user.DeletedAt == null && !context.UserBans.Any(b => b.UserId == user.Id && b.UnbannedAt == null && (b.ExpiresAt == null || b.ExpiresAt > DateTime.UtcNow)) && user.EmailVerifiedAt != null && !context.Roles.Any(r => r.Id == user.RoleId && r.RoleName == "admin")),
                 follow => follow.FollowerId,
                 user => user.Id,
                 (_, _) => 1)
@@ -61,7 +61,7 @@ public sealed class FollowRepository(AppDbContext context) : IFollowRepository
         context.UserFollows
             .Where(follow => follow.FollowerId == userId)
             .Join(
-                context.Users.Where(user => user.IsActive && user.DeletedAt == null && user.EmailVerifiedAt != null),
+                context.Users.Where(user => user.IsActive && user.DeletedAt == null && !context.UserBans.Any(b => b.UserId == user.Id && b.UnbannedAt == null && (b.ExpiresAt == null || b.ExpiresAt > DateTime.UtcNow)) && user.EmailVerifiedAt != null && !context.Roles.Any(r => r.Id == user.RoleId && r.RoleName == "admin")),
                 follow => follow.FollowingId,
                 user => user.Id,
                 (_, _) => 1)
@@ -77,7 +77,7 @@ public sealed class FollowRepository(AppDbContext context) : IFollowRepository
             .AsNoTracking()
             .Where(follow => follow.FollowingId == userId)
             .Join(
-                context.Users.AsNoTracking().Where(user => user.IsActive && user.DeletedAt == null && user.EmailVerifiedAt != null),
+                context.Users.AsNoTracking().Where(user => user.IsActive && user.DeletedAt == null && !context.UserBans.Any(b => b.UserId == user.Id && b.UnbannedAt == null && (b.ExpiresAt == null || b.ExpiresAt > DateTime.UtcNow)) && user.EmailVerifiedAt != null && !context.Roles.Any(r => r.Id == user.RoleId && r.RoleName == "admin")),
                 follow => follow.FollowerId,
                 user => user.Id,
                 (follow, user) => new { follow, user });
@@ -117,7 +117,7 @@ public sealed class FollowRepository(AppDbContext context) : IFollowRepository
             .AsNoTracking()
             .Where(follow => follow.FollowerId == userId)
             .Join(
-                context.Users.AsNoTracking().Where(user => user.IsActive && user.DeletedAt == null && user.EmailVerifiedAt != null),
+                context.Users.AsNoTracking().Where(user => user.IsActive && user.DeletedAt == null && !context.UserBans.Any(b => b.UserId == user.Id && b.UnbannedAt == null && (b.ExpiresAt == null || b.ExpiresAt > DateTime.UtcNow)) && user.EmailVerifiedAt != null && !context.Roles.Any(r => r.Id == user.RoleId && r.RoleName == "admin")),
                 follow => follow.FollowingId,
                 user => user.Id,
                 (follow, user) => new { follow, user });

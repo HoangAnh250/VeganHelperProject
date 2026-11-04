@@ -82,6 +82,10 @@ public sealed class CommentService(
         await repository.AddCommentAsync(comment, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
+        if (moderation.Action == CommentModerationAction.HidePendingReview)
+            await repository.EnsureKeywordReviewAsync(comment.Id,
+                $"Keyword filter matched: {moderation.MatchedKeyword}.", cancellationToken);
+
         var projection = await repository.GetCommentProjectionAsync(comment.Id, cancellationToken);
         if (projection is null)
         {
@@ -124,6 +128,7 @@ public sealed class CommentService(
             throw new ArgumentException("Comment contains blocked language and was not updated.");
         }
 
+        await using var transaction = await repository.BeginTransactionAsync(cancellationToken);
         comment!.Content = content;
         comment.Status = moderation.Action == CommentModerationAction.HidePendingReview
             ? "hidden"
@@ -131,6 +136,9 @@ public sealed class CommentService(
         comment.UpdatedAt = DateTime.UtcNow;
 
         await repository.SaveChangesAsync(cancellationToken);
+        if (moderation.Action == CommentModerationAction.HidePendingReview)
+            await repository.EnsureKeywordReviewAsync(comment.Id,
+                $"Keyword filter matched: {moderation.MatchedKeyword}.", cancellationToken);
 
         var projection = await repository.GetCommentProjectionAsync(comment.Id, cancellationToken);
         if (projection is null)
@@ -139,6 +147,7 @@ public sealed class CommentService(
         }
 
         var depth = await GetDepthAsync(comment, cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return ToDto(projection, userId, depth);
     }
 
@@ -158,7 +167,10 @@ public sealed class CommentService(
         var comment = await repository.GetCommentForUpdateAsync(commentId, cancellationToken);
         EnsureCommentBelongsToPost(comment, postId);
         var targetComment = comment!;
-        EnsureCanDeleteComment(targetComment, userId, isAdministrator);
+        var postAuthorId = await repository.GetPostAuthorIdAsync(postId, cancellationToken);
+        var isCommentOwner = targetComment.UserId == userId;
+        var isPostAuthor = postAuthorId == userId;
+        EnsureCanDeleteComment(targetComment, isCommentOwner, isPostAuthor, isAdministrator);
 
         var rawReason = request?.Reason;
         if (rawReason is { Length: > DeleteCommentRequest.MaxReasonLength })
@@ -168,9 +180,9 @@ public sealed class CommentService(
         }
 
         var reason = rawReason?.Trim();
-        if (isAdministrator && string.IsNullOrWhiteSpace(reason))
+        if (isAdministrator && !isCommentOwner && !isPostAuthor && string.IsNullOrWhiteSpace(reason))
         {
-            throw new ArgumentException("A deletion reason is required when an administrator removes a comment.");
+            throw new ArgumentException("A deletion reason is required when an administrator removes another user's comment.");
         }
 
         var transaction = await repository.BeginTransactionAsync(cancellationToken);
@@ -197,7 +209,10 @@ public sealed class CommentService(
 
             // The notification is intentionally sent only for the comment selected by
             // the administrator. Replies hidden by a root deletion are not notified.
-            if (isAdministrator)
+            // A post author can moderate comments on their own post without sending
+            // a moderation notice. An admin acting on another user's post is a
+            // moderation action and notifies only the selected comment's owner.
+            if (isAdministrator && !isCommentOwner && !isPostAuthor)
             {
                 await notifications.NotifyCommentDeletionAsync(
                     targetComment.UserId,
@@ -396,11 +411,15 @@ public sealed class CommentService(
         }
     }
 
-    private static void EnsureCanDeleteComment(Comment comment, long userId, bool isAdministrator)
+    private static void EnsureCanDeleteComment(
+        Comment comment,
+        bool isCommentOwner,
+        bool isPostAuthor,
+        bool isAdministrator)
     {
-        if (!isAdministrator && comment.UserId != userId)
+        if (!isCommentOwner && !isPostAuthor && !isAdministrator)
         {
-            throw new UnauthorizedAccessException("Only the comment owner or an administrator can delete this comment.");
+            throw new UnauthorizedAccessException("Only the comment owner, post author, or an administrator can delete this comment.");
         }
     }
 

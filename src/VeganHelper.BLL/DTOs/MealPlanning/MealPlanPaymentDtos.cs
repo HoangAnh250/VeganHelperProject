@@ -58,3 +58,12 @@ public sealed record VerifiedPayOSPayment(
     string Currency,
     string? PaymentLinkId,
     string? ProviderReference);
+
+public sealed record PayOSPaymentStatus(
+    long OrderCode,
+    long AmountVnd,
+    long AmountPaidVnd,
+    long AmountRemainingVnd,
+    string Status,
+    string? PaymentLinkId,
+    string? ProviderReference);
