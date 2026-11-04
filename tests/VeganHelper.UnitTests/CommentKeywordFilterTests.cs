@@ -1,4 +1,5 @@
 using System.Text;
+using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.Services;
 
 namespace VeganHelper.UnitTests;
