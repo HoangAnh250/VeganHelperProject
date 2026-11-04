@@ -109,8 +109,15 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
                 using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
                 if (response.StatusCode == HttpStatusCode.BadRequest && providerAttempt < MaxProviderAttempts)
                 {
-                    await Task.Delay(BadRequestRetryDelay, token);
-                    continue;
+                    try
+                    {
+                        await Task.Delay(BadRequestRetryDelay, token);
+                        continue;
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        // The retry delay exhausted the budget. Keep the HTTP status already received.
+                    }
                 }
                 if (!response.IsSuccessStatusCode)
                 {

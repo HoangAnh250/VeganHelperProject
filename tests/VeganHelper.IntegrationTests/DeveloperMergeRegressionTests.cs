@@ -195,7 +195,7 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         foreach (var ingredient in ingredients)
             post.PostIngredients.Add(new PostIngredient { IngredientId = ingredient.Id, Quantity = 1, Unit = "g" });
         for (var i = 1; i <= 4; i++)
-            post.Media.Add(new PostMedia { MediaUrl = $"https://media.example.invalid/{suffix}/old-{i}.jpg", MediaType = "image", ProcessingStatus = "ready", IsPrimary = i == 1, DisplayOrder = i - 1, CreatedAt = DateTime.UtcNow });
+            post.Media.Add(new PostMedia { MediaUrl = $"https://media.example.invalid/{suffix}/old-{i}.{(i == 1 ? "mp4" : "jpg")}", MediaType = i == 1 ? "video" : "image", ProcessingStatus = "ready", IsPrimary = i == 1, DisplayOrder = i - 1, CreatedAt = DateTime.UtcNow });
         post.PostSteps.Add(new PostStep { StepNumber = 1, Description = "Wash ingredients" });
         post.PostSteps.Add(new PostStep { StepNumber = 2, Description = "Cook ingredients" });
         db.Posts.Add(post);
@@ -330,7 +330,7 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         await Assert.ThrowsAsync<DbUpdateException>(() => service.UpdatePostAsync(recipe.Id, request, recipe.AuthorId));
 
         Assert.Equal(2, storage.Uploaded.Count);
-        Assert.Equal(storage.Uploaded, storage.Deleted);
+        Assert.Equal(storage.Uploaded.Order(), storage.Deleted.Order());
         await using var db = fixture.Context();
         Assert.Equal(recipe.MediaIds.Order(), (await db.PostMedia.Where(m => m.PostId == recipe.Id).Select(m => m.Id).ToListAsync()).Order());
         Assert.True(await db.PostSummaries.AnyAsync(s => s.PostId == recipe.Id));

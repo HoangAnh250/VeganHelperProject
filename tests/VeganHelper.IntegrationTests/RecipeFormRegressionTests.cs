@@ -122,7 +122,7 @@ public partial class PostRepositoryTests
         var category = await _context.Categories.FirstAsync(c => c.CategoryType == "post" && c.PostCategoryKind == "recipe");
         var ingredientName = "Đậu hũ " + Guid.NewGuid().ToString("N");
         var service = RecipeService();
-        using var image = new MemoryStream([1, 2, 3]);
+        using var image = new MemoryStream([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]);
         var request = new CreatePostRequest
         {
             Title = "Recipe form regression", CategoryId = category.Id, Content = "Nấu món chay",

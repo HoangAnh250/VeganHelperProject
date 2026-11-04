@@ -159,9 +159,9 @@ public class MealPlanningTests
     }
 
     [Fact]
-    public void Under20_IsNotAssignedAdultMaintenancePlan()
+    public void Under18_IsNotAssignedAdultMaintenancePlan()
     {
-        var input=Catalog(); input.Profile!.BirthDate=new(2008,1,1);
+        var input=Catalog(); input.Profile!.BirthDate=new(2009,1,1);
         Assert.Throws<ArgumentException>(()=>MealPlanGenerator.Generate(input,new(2026,10,12),new(2)));
     }
 

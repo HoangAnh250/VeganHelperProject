@@ -1,6 +1,7 @@
 namespace VeganHelper.DAL.Repositories;
 
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using VeganHelper.DAL.Persistence;
@@ -471,7 +472,8 @@ public sealed class PostRepository : IPostRepository
             var summaries = await _context.PostSummaries
                 .Where(s => s.PostId == post.Id)
                 .ToListAsync(cancellationToken);
-            _context.PostSummaries.RemoveRange(summaries);
+            _context.PostSummaries.RemoveRange(summaries.Where(summary =>
+                JsonSerializer.Deserialize<long[]>(summary.SourceMediaIdsJson)?.Any(ids.Contains) == true));
             _context.PostMedia.RemoveRange(media);
         }
         // Preserve joins retained by the Supabase update path; delete only removed entities.

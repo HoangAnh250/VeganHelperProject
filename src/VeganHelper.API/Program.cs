@@ -49,11 +49,12 @@ if (args.Contains("--generate-vapid-keys"))
 
 var builder = WebApplication.CreateBuilder(args);
 
-var supabaseConfigPath = DatabaseConnection.FindLocalConfiguration(builder.Environment.ContentRootPath);
+var loadLocalConfiguration = Environment.GetEnvironmentVariable("VEGANHELPER_SKIP_LOCAL_CONFIG") != "1";
+var supabaseConfigPath = loadLocalConfiguration ? DatabaseConnection.FindLocalConfiguration(builder.Environment.ContentRootPath) : null;
 if (supabaseConfigPath is not null)
     builder.Configuration.AddJsonFile(supabaseConfigPath, optional: false, reloadOnChange: false);
 builder.Configuration.AddEnvironmentVariables();
-var envFilePath = FindEnvironmentFile(builder.Environment.ContentRootPath);
+var envFilePath = loadLocalConfiguration ? FindEnvironmentFile(builder.Environment.ContentRootPath) : null;
 if (envFilePath is not null)
 {
     DotNetEnv.Env.Load(envFilePath);
