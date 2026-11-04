@@ -88,7 +88,7 @@ public partial class GeminiModerationClientTests
         else Assert.Equal(errorCode, (await Assert.ThrowsAsync<VeganHelper.DAL.Integrations.Moderation.ModerationAiException>(() => Client(http).ReviewAsync(input, default))).Code);
         Assert.Equal(1, polls);
         Assert.Equal(1, deletes);
-        Assert.Equal(fileState == "FAILED" ? 0 : 1, reviews);
+        Assert.Equal(fileState == "FAILED" ? 0 : reviewStatus == 400 ? 2 : 1, reviews);
     }
 
     [Fact]

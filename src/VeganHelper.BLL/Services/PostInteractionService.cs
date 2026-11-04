@@ -1,3 +1,4 @@
+using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.Posts;
 using VeganHelper.DAL.Entities;

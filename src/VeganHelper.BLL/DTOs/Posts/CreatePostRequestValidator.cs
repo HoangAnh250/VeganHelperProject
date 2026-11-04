@@ -32,6 +32,7 @@ public class CreatePostRequestValidator : AbstractValidator<CreatePostRequest>
 
         RuleFor(x => x.MediaFiles)
             .NotNull().WithMessage("At least 1 media file is required for thumbnail.")
-            .Must(x => x != null && x.Count > 0).WithMessage("At least 1 media file is required.");
+            .Must(x => x != null && x.Count > 0).WithMessage("At least 1 media file is required.")
+            .Must(x => x == null || x.Count <= 10).WithMessage("A post can contain at most 10 media files.");
     }
 }

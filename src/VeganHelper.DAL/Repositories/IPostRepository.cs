@@ -23,6 +23,9 @@ public interface IPostRepository
         string? dietType = null,
         int? prepTimeMax = null,
         CancellationToken cancellationToken = default);
+    Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> GetTrendingFeedAsync(
+        int pageIndex, int pageSize, int? categoryId, string? difficultyLevel,
+        string? dietType, int? prepTimeMax, CancellationToken cancellationToken = default);
     Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> SearchPostsAsync(
         string keyword,
         int pageIndex,

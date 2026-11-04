@@ -253,6 +253,21 @@ public class PostServiceTests
     }
 
     [Fact]
+    public async Task GetFeedAsync_WhenTrending_UsesLikeSortedFeed()
+    {
+        var request = new GetFeedRequest { SortBy = "trending", CategoryId = 4 };
+        _mockPostRepository.Setup(r => r.GetTrendingFeedAsync(1, 10, 4, null, null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((1, new List<PostFeedProjection> { new() { Id = 8, LikeCount = 12 } }));
+
+        var result = await _postService.GetFeedAsync(request);
+
+        Assert.Equal(12, Assert.Single(result.Items).LikeCount);
+        _mockPostRepository.Verify(r => r.GetTrendingFeedAsync(1, 10, 4, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPostRepository.Verify(r => r.GetFeedAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int?>(),
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetPostDetailAsync_WhenPostExists_ReturnsDtoAndIncrementsViewCount()
     {
         // Arrange

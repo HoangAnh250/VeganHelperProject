@@ -1,6 +1,7 @@
 namespace VeganHelper.BLL.Services;
 
 using FluentValidation;
+using System.Collections.Concurrent;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -69,40 +70,39 @@ public sealed class PostService : IPostService
         var steps = ParseSteps(request.StepsJson);
         ApplySteps(post, steps);
 
-        // Process Media Files
-        var uploadedFileUrls = new List<string>();
-        if (request.MediaFiles != null && request.MediaFiles.Count > 0)
-        {
-            if (request.MediaFiles.Count > 10)
-                throw new ArgumentException("A post can contain at most 10 media files.");
-            var mediaDurations = new List<int?>(request.MediaFiles.Count);
-            foreach (var file in request.MediaFiles)
-                mediaDurations.Add(await PostMediaUploadValidation.ValidateAsync(file, cancellationToken));
-
-            int order = 0;
-            for (var index = 0; index < request.MediaFiles.Count; index++)
-            {
-                var file = request.MediaFiles[index];
-                var uploadedUrl = await _mediaStorageService.UploadFileAsync(file, "posts");
-                uploadedFileUrls.Add(uploadedUrl);
-                
-                post.Media.Add(new PostMedia
-                {
-                    MediaUrl = uploadedUrl,
-                    MediaType = file.ContentType.StartsWith("video") ? "video" : "image",
-                    DurationSeconds = mediaDurations[index],
-                    IsPrimary = order == 0,
-                    DisplayOrder = order++,
-                    ProcessingStatus = "ready",
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
-        }
-
-        // Save to Database inside a Transaction
-        await _postRepository.BeginTransactionAsync(cancellationToken);
+        var uploadedFileUrls = new ConcurrentBag<string>();
+        var transactionStarted = false;
         try
         {
+            // Upload independent media files concurrently; Task.WhenAll preserves input order.
+            if (request.MediaFiles is { Count: > 0 })
+            {
+                var mediaDurations = await PostMediaUploadValidation.ValidateBatchAsync(request.MediaFiles, cancellationToken);
+                var uploads = await Task.WhenAll(request.MediaFiles.Select(async file =>
+                {
+                    var url = await _mediaStorageService.UploadFileAsync(file, "posts");
+                    uploadedFileUrls.Add(url);
+                    return (File: file, Url: url);
+                }));
+
+                for (var order = 0; order < uploads.Length; order++)
+                {
+                    var (file, uploadedUrl) = uploads[order];
+                    post.Media.Add(new PostMedia
+                    {
+                        MediaUrl = uploadedUrl,
+                        MediaType = file.ContentType.StartsWith("video") ? "video" : "image",
+                        DurationSeconds = mediaDurations[order],
+                        IsPrimary = order == 0,
+                        DisplayOrder = order,
+                        ProcessingStatus = "ready",
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            await _postRepository.BeginTransactionAsync(cancellationToken);
+            transactionStarted = true;
             await ApplyIngredientsAsync(post, ingredients, cancellationToken);
             var createdPost = await _postRepository.CreatePostAsync(post, cancellationToken);
             await _postRepository.CommitTransactionAsync(cancellationToken);
@@ -110,12 +110,12 @@ public sealed class PostService : IPostService
         }
         catch
         {
-            await _postRepository.RollbackTransactionAsync(cancellationToken);
-            // Cleanup uploaded files
-            foreach (var url in uploadedFileUrls)
+            if (transactionStarted)
             {
-                await _mediaStorageService.DeleteFileAsync(url);
+                try { await _postRepository.RollbackTransactionAsync(CancellationToken.None); }
+                catch (Exception rollbackError) { _logger.LogError(rollbackError, "Failed to roll back new post for user {AuthorId}.", authorId); }
             }
+            await CleanupMediaAsync(uploadedFileUrls, post.Id);
             throw;
         }
     }
@@ -125,14 +125,17 @@ public sealed class PostService : IPostService
         if (request.PageSize < 1) request.PageSize = 10;
         if (request.PageSize > 50) request.PageSize = 50;
 
-        var (totalCount, items) = await _postRepository.GetFeedAsync(
+        var trending = string.Equals(request.SortBy, "trending", StringComparison.OrdinalIgnoreCase);
+        var (totalCount, items) = await (trending ? _postRepository.GetTrendingFeedAsync(
+            request.PageIndex, request.PageSize, request.CategoryId, request.DifficultyLevel,
+            request.DietType, request.PrepTimeMax, cancellationToken) : _postRepository.GetFeedAsync(
             request.PageIndex,
             request.PageSize,
             request.CategoryId,
             request.DifficultyLevel,
             request.DietType,
             request.PrepTimeMax,
-            cancellationToken);
+            cancellationToken));
 
         var dtoItems = items.Select(p => new PostFeedItemDto
         {
@@ -307,7 +310,8 @@ public sealed class PostService : IPostService
             Title = p.Title,
             Status = p.Status,
             CreatedAt = p.CreatedAt,
-            ThumbnailUrl = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).Select(m => m.MediaUrl).FirstOrDefault(),
+            ThumbnailUrl = p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id)
+                .Select(m => m.ThumbnailUrl ?? m.MediaUrl).FirstOrDefault(),
             Content = p.Content,
             CategoryName = null,
             CategoryId = p.PostCategories.OrderBy(c => c.CategoryId).Select(c => c.CategoryId).FirstOrDefault(),
@@ -331,7 +335,7 @@ public sealed class PostService : IPostService
     public async Task DeletePostAsync(long postId, long authorId, CancellationToken cancellationToken = default)
     {
         // Owner operations must also work for pending/rejected posts.
-        // Use the owner/update query for authorization and soft deletion.
+        // Keep the post and its related data for recovery and moderation history.
         var post = await _postRepository.GetPostForUpdateAsync(postId, cancellationToken);
         if (post == null)
         {
@@ -347,16 +351,6 @@ public sealed class PostService : IPostService
         if (!deleted)
         {
             throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} could not be deleted.");
-        }
-
-        // Clean up media files from cloud storage
-        if (post.Media != null && post.Media.Any())
-        {
-            foreach (var media in post.Media)
-            {
-                if (!await _postRepository.IsEvidenceMediaAsync(media.MediaUrl, cancellationToken))
-                    await _mediaStorageService.DeleteFileAsync(media.MediaUrl);
-            }
         }
     }
 
@@ -385,9 +379,7 @@ public sealed class PostService : IPostService
         var finalCount = post.Media.Count - removeIds.Count + files.Count;
         if (finalCount < 1) throw new ArgumentException("At least 1 media file is required for thumbnail.");
         if (finalCount > 10) throw new ArgumentException("A post can contain at most 10 media files.");
-        var mediaDurations = new List<int?>(files.Count);
-        foreach (var file in files)
-            mediaDurations.Add(await PostMediaUploadValidation.ValidateAsync(file, cancellationToken));
+        var mediaDurations = await PostMediaUploadValidation.ValidateBatchAsync(files, cancellationToken);
 
         var removed = post.Media.Where(m => removeIds.Contains(m.Id)).ToList();
         var originalCategories = post.PostCategories.ToArray();
@@ -412,26 +404,24 @@ public sealed class PostService : IPostService
         if (!post.PostCategories.Any(c => c.CategoryId == request.CategoryId))
             post.PostCategories.Add(new PostCategory { CategoryId = request.CategoryId });
 
-        var uploadedFileUrls = new List<string>();
+        var uploadedFileUrls = new ConcurrentBag<string>();
         var transactionStarted = false;
         try
         {
             // Complete uploads before DB writes, and compensate partial batches on failure.
-            var additions = new List<PostMedia>();
-            for (var index = 0; index < files.Count; index++)
+            var additions = await Task.WhenAll(files.Select(async (file, index) =>
             {
-                var file = files[index];
                 var url = await _mediaStorageService.UploadFileAsync(file, "posts");
                 uploadedFileUrls.Add(url);
-                additions.Add(new PostMedia
+                return new PostMedia
                 {
                     MediaUrl = url,
                     MediaType = file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ? "video" : "image",
                     DurationSeconds = mediaDurations[index],
                     ProcessingStatus = "ready",
                     CreatedAt = DateTime.UtcNow
-                });
-            }
+                };
+            }));
             foreach (var media in removed) post.Media.Remove(media);
             var ordered = post.Media.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Id).ToList();
             var primary = ordered.FirstOrDefault(m => m.IsPrimary);

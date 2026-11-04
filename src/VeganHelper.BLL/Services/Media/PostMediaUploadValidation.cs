@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using System.Linq;
 using System.Text;
 using VeganHelper.DAL.Media;
 
@@ -7,6 +8,29 @@ namespace VeganHelper.BLL.Services.Media;
 internal static class PostMediaUploadValidation
 {
     public const double MaximumVideoDurationSeconds = 60;
+    public const int MaximumMediaCount = 10;
+    public const long MaximumPostMediaBytes = 200L * 1024 * 1024;
+
+    public static async Task<int?[]> ValidateBatchAsync(IEnumerable<IFormFile> files, CancellationToken ct)
+    {
+        var batch = files.ToList();
+        if (batch.Count > MaximumMediaCount)
+            throw new ArgumentException($"A post can contain at most {MaximumMediaCount} media files.");
+
+        long totalBytes = 0;
+        foreach (var file in batch)
+        {
+            if (file is null) throw new ArgumentException("Media file must not be empty.");
+            if (file.Length > MaximumPostMediaBytes - totalBytes)
+                throw new ArgumentException("Media files in one upload must total no more than 200 MB.");
+            totalBytes += file.Length;
+        }
+
+        var durations = new int?[batch.Count];
+        for (var index = 0; index < batch.Count; index++)
+            durations[index] = await ValidateAsync(batch[index], ct);
+        return durations;
+    }
 
     public static async Task<int?> ValidateAsync(IFormFile? file, CancellationToken ct)
     {
@@ -24,7 +48,7 @@ internal static class PostMediaUploadValidation
             _ => false
         };
         if (!validType) throw new ArgumentException("Unsupported media extension or content type.");
-        var maximum = mime.StartsWith("image/") ? 5L * 1024 * 1024 : 200L * 1024 * 1024;
+        var maximum = mime.StartsWith("image/") ? 5L * 1024 * 1024 : MaximumPostMediaBytes;
         if (file.Length > maximum) throw new ArgumentException("Images must be at most 5 MB; videos at most 200 MB.");
         await using var stream = file.OpenReadStream();
         var header = new byte[12];

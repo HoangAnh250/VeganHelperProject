@@ -190,7 +190,7 @@ public sealed class PostRepository : IPostRepository
         return inserted.Single();
     }
 
-    public async Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> GetFeedAsync(
+    public Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> GetFeedAsync(
         int pageIndex,
         int pageSize,
         int? categoryId = null,
@@ -198,6 +198,16 @@ public sealed class PostRepository : IPostRepository
         string? dietType = null,
         int? prepTimeMax = null,
         CancellationToken cancellationToken = default)
+        => GetFeedCoreAsync(pageIndex, pageSize, categoryId, difficultyLevel, dietType, prepTimeMax, false, cancellationToken);
+
+    public Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> GetTrendingFeedAsync(
+        int pageIndex, int pageSize, int? categoryId, string? difficultyLevel,
+        string? dietType, int? prepTimeMax, CancellationToken cancellationToken = default)
+        => GetFeedCoreAsync(pageIndex, pageSize, categoryId, difficultyLevel, dietType, prepTimeMax, true, cancellationToken);
+
+    private async Task<(long TotalCount, System.Collections.Generic.IEnumerable<PostFeedProjection> Items)> GetFeedCoreAsync(
+        int pageIndex, int pageSize, int? categoryId, string? difficultyLevel,
+        string? dietType, int? prepTimeMax, bool trending, CancellationToken cancellationToken)
     {
         var query = _context.Posts.AsQueryable();
 
@@ -228,9 +238,15 @@ public sealed class PostRepository : IPostRepository
 
         long totalCount = await query.LongCountAsync(cancellationToken);
 
-        var projectedQuery = query
-            .OrderByDescending(p => p.CreatedAt)
-            .ThenByDescending(p => p.Id)
+        // A rolling 72-hour window measures recent engagement, not lifetime popularity.
+        var trendingSince = DateTime.UtcNow.AddDays(-3);
+        var orderedQuery = trending
+            ? query.OrderByDescending(p => _context.PostLikes.LongCount(l => l.PostId == p.Id && l.CreatedAt >= trendingSince))
+                .ThenByDescending(p => p.CreatedAt)
+                .ThenByDescending(p => p.Id)
+            : query.OrderByDescending(p => p.CreatedAt).ThenByDescending(p => p.Id);
+
+        var projectedQuery = orderedQuery
             .Skip((pageIndex - 1) * pageSize)
             .Take(pageSize)
             .Select(p => new PostFeedProjection

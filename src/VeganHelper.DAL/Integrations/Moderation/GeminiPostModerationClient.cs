@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
 using VeganHelper.DAL.Media;
@@ -21,6 +22,8 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
     private const int MaxRequestBytes = 20_000_000;
     private const int MaxResponseBytes = 256 * 1024;
     private const int MaxTextChars = 100_000;
+    private const int MaxProviderAttempts = 2;
+    private static readonly TimeSpan BadRequestRetryDelay = TimeSpan.FromSeconds(1);
     private static readonly Uri Endpoint = new("https://generativelanguage.googleapis.com/v1beta/interactions");
     private static readonly Uri FilesUploadEndpoint = new("https://generativelanguage.googleapis.com/upload/v1beta/files");
     private static readonly Uri FilesApiEndpoint = new("https://generativelanguage.googleapis.com/v1beta/");
@@ -53,6 +56,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
                     text = JsonSerializer.Serialize(new
                     {
                         input.PostId, input.Revision, input.Title, input.Content, input.Ingredients, input.Steps,
+                        reviewTargets = ExpectedChecks(input),
                         media = input.Media.Select(m => new { m.Id, m.MediaType, m.DurationSeconds }).ToArray()
                     }, JsonOptions)
                 }
@@ -90,30 +94,39 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
                 store = false,
                 system_instruction = prompt.SystemInstruction,
                 input = parts,
-                response_format = new { type = "text", mime_type = "application/json", schema = prompt.ResponseSchema },
+                response_format = new { type = "text", mime_type = "application/json", schema = BuildResponseSchema(input) },
                 // This cap includes thinking tokens; reserve room for analysis, constrain final JSON separately.
                 generation_config = new { max_output_tokens = 2048, thinking_level = "low", thinking_summaries = "none" }
             }, JsonOptions);
             if (body.Length > MaxRequestBytes)
                 throw new ModerationAiException("input_too_large", false);
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint) { Content = new ByteArrayContent(body) };
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-            request.Headers.Add("x-goog-api-key", settings.ApiKey);
-            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
-            if (!response.IsSuccessStatusCode)
+            for (var providerAttempt = 1; providerAttempt <= MaxProviderAttempts; providerAttempt++)
             {
-                await LogProviderFailureAsync(response, settings.Model, token, ct);
-                if (response.StatusCode == HttpStatusCode.TooManyRequests)
-                    throw new ModerationAiException("provider_quota", true,
-                        response.Headers.RetryAfter?.Delta?.TotalSeconds ??
-                        (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds);
-                throw new ModerationAiException("provider_error", IsTransient(response.StatusCode));
+                using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint) { Content = new ByteArrayContent(body) };
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                request.Headers.Add("x-goog-api-key", settings.ApiKey);
+                using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+                if (response.StatusCode == HttpStatusCode.BadRequest && providerAttempt < MaxProviderAttempts)
+                {
+                    await Task.Delay(BadRequestRetryDelay, token);
+                    continue;
+                }
+                if (!response.IsSuccessStatusCode)
+                {
+                    await LogProviderFailureAsync(response, settings.Model, token, ct);
+                    if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                        throw new ModerationAiException("provider_quota", true,
+                            response.Headers.RetryAfter?.Delta?.TotalSeconds ??
+                            (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds);
+                    throw new ModerationAiException("provider_error", IsTransient(response.StatusCode));
+                }
+                var bytes = await ReadBoundedAsync(response.Content, MaxResponseBytes, "invalid_response", token);
+                using var envelope = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 32 });
+                var result = ParseResponse(envelope.RootElement, settings.Model, input);
+                return result with { LatencyMs = (int)Math.Min(stopwatch.ElapsedMilliseconds, int.MaxValue) };
             }
-            var bytes = await ReadBoundedAsync(response.Content, MaxResponseBytes, "invalid_response", token);
-            using var envelope = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 32 });
-            var result = ParseResponse(envelope.RootElement, settings.Model);
-            return result with { LatencyMs = (int)Math.Min(stopwatch.ElapsedMilliseconds, int.MaxValue) };
+            throw new ModerationAiException("provider_error", false);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -503,7 +516,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         }
     }
 
-    private ModerationAiResult ParseResponse(JsonElement root, string requestedModel)
+    private ModerationAiResult ParseResponse(JsonElement root, string requestedModel, ModerationAiInput input)
     {
         if (root.ValueKind != JsonValueKind.Object)
             throw InvalidResponse();
@@ -546,15 +559,34 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             throw InvalidResponse();
         using var document = JsonDocument.Parse(text.ToString(), new JsonDocumentOptions { MaxDepth = 8 });
         var result = document.RootElement;
-        RequireProperties(result, "result", "reason");
+        if (UsesCoverageChecks) RequireProperties(result, "result", "reason", "checks");
+        else RequireProperties(result, "result", "reason");
         var decision = RequiredString(result, "result", 4);
         if (decision is not ("PASS" or "FAIL"))
             throw InvalidResponse();
         var summary = RequiredString(result, "reason", 200);
+        string? failedTarget = null;
+        if (UsesCoverageChecks)
+        {
+            var checks = result.GetProperty("checks");
+            var expected = ExpectedChecks(input);
+            RequireProperties(checks, expected);
+            foreach (var target in expected)
+            {
+                var check = RequiredString(checks, target, 4);
+                if (check is not ("PASS" or "FAIL")) throw InvalidResponse();
+                if (check == "FAIL") failedTarget ??= target;
+            }
+            if (failedTarget is not null && decision == "PASS")
+            {
+                decision = "FAIL";
+                summary = $"The {failedTarget} content did not pass the policy check and requires Admin review.";
+            }
+        }
         var verdict = decision == "PASS" ? "safe" : "flagged";
         // Keep existing Admin DTO/history shapes without inventing confidence, quotes or media attribution.
         IReadOnlyList<ModerationAiFinding> findings = decision == "PASS" ? [] :
-            [new("policy_review", "post", "", null, summary)];
+            [new("policy_review", failedTarget ?? "post", "", null, summary)];
         var model = requestedModel;
         if (root.TryGetProperty("model", out var modelJson))
         {
@@ -572,6 +604,35 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             outputTokens = TokenCount(usage, "total_output_tokens");
         }
         return new ModerationAiResult(verdict, null, summary, findings, model, prompt.Version, inputTokens, outputTokens, 0);
+    }
+
+    private bool UsesCoverageChecks => prompt.ResponseSchema.TryGetProperty("properties", out var properties) &&
+        properties.TryGetProperty("checks", out _);
+
+    private static string[] ExpectedChecks(ModerationAiInput input) =>
+        ["title", "description", "ingredients", "steps", .. input.Media.Select(m => $"media_{m.Id}")];
+
+    private JsonNode BuildResponseSchema(ModerationAiInput input)
+    {
+        var schema = JsonNode.Parse(prompt.ResponseSchema.GetRawText())!;
+        if (!UsesCoverageChecks) return schema;
+        var properties = new JsonObject();
+        var required = new JsonArray();
+        foreach (var target in ExpectedChecks(input))
+        {
+            properties[target] = new JsonObject
+            {
+                ["type"] = "string",
+                ["enum"] = new JsonArray("PASS", "FAIL")
+            };
+            required.Add(target);
+        }
+        schema["properties"]!["checks"] = new JsonObject
+        {
+            ["type"] = "object", ["additionalProperties"] = false,
+            ["properties"] = properties, ["required"] = required
+        };
+        return schema;
     }
 
     private static int? TokenCount(JsonElement usage, string property)

@@ -299,6 +299,41 @@ public partial class GeminiModerationClientTests
     }
 
     [Fact]
+    public async Task Review_TransientBadRequest_RetriesOnceAndReturnsSuccess()
+    {
+        var providerCalls = 0;
+        using var http = new HttpClient(new FakeHandler((_, _) =>
+        {
+            providerCalls++;
+            return Task.FromResult(providerCalls == 1
+                ? new HttpResponseMessage(HttpStatusCode.BadRequest)
+                : Reply(Safe));
+        }));
+
+        var result = await Client(http).ReviewAsync(Input(), default);
+
+        Assert.Equal("safe", result.Verdict);
+        Assert.Equal(2, providerCalls);
+    }
+
+    [Fact]
+    public async Task Review_PersistentBadRequest_StopsAfterOneRetry()
+    {
+        var providerCalls = 0;
+        using var http = new HttpClient(new FakeHandler((_, _) =>
+        {
+            providerCalls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest));
+        }));
+
+        var error = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
+
+        Assert.Equal("provider_error", error.Code);
+        Assert.False(error.Retryable);
+        Assert.Equal(2, providerCalls);
+    }
+
+    [Fact]
     public async Task Review_ValidFailReason_IsPreserved()
     {
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(Flagged))));

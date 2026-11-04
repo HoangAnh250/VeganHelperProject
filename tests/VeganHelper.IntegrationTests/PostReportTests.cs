@@ -71,6 +71,37 @@ public sealed class PostReportTests(Member2ApiFixture fixture)
         Assert.Equal(action != "dismiss", await verify.Set<Notification>().AnyAsync(n => n.UserId == post.AuthorId));
     }
 
+    [Theory]
+    [InlineData("dismiss", "published", false)]
+    [InlineData("keep", "published", false)]
+    [InlineData("remove", "hidden", true)]
+    public async Task PublicReportedPost_OnlyAdminRemovalNotifiesAuthor(string action, string status, bool notify)
+    {
+        var post = await PostAsync(await UserAsync());
+        using var reporter = fixture.Factory.Client(await UserAsync());
+        var receipt = await (await reporter.PostAsJsonAsync($"/api/posts/{post.Id}/reports",
+            new { reasonCategory = "spam", reason = "Needs Admin review", expectedRevision = 1 }))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        var reportId = receipt.GetProperty("id").GetInt64();
+        using var admin = AdminClient(await UserAsync(2));
+        var reports = await admin.GetFromJsonAsync<JsonElement>($"/api/admin/moderation/reports?PostId={post.Id}");
+        Assert.Equal(reportId, Assert.Single(reports.GetProperty("items").EnumerateArray()).GetProperty("id").GetInt64());
+        var aiFlags = await admin.GetFromJsonAsync<JsonElement>($"/api/admin/moderation/ai-flags?PostId={post.Id}");
+        Assert.Empty(aiFlags.GetProperty("items").EnumerateArray());
+        await using (var before = fixture.Context())
+        {
+            Assert.Equal("published", (await before.Posts.SingleAsync(p => p.Id == post.Id)).Status);
+            Assert.False(await before.Set<Notification>().AnyAsync(n => n.UserId == post.AuthorId));
+        }
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync($"/api/admin/moderation/reports/{reportId}/decision",
+            new { action, reason = "Admin reviewed the evidence", expectedRevision = 1 })).StatusCode);
+        await using var verify = fixture.Context();
+        Assert.Equal(status, (await verify.Posts.SingleAsync(p => p.Id == post.Id)).Status);
+        var notices = await verify.Set<Notification>().Where(n => n.UserId == post.AuthorId).ToListAsync();
+        Assert.Equal(notify ? 1 : 0, notices.Count);
+        Assert.Equal(action == "remove" ? "resolved" : "dismissed", (await verify.Flags.SingleAsync(f => f.Id == reportId)).Status);
+    }
+
     [Fact]
     public async Task DeletedReportedPost_CanBeViewedAndDismissedButNeverRestored()
     {
