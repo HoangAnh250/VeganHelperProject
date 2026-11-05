@@ -31,10 +31,10 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
 
     public static TimeZoneInfo Zone(string id)
     {
-        if(string.IsNullOrWhiteSpace(id) || id.Length>100) throw new ArgumentException("Choose a valid timezone.");
+        if(string.IsNullOrWhiteSpace(id) || id.Length>100) throw new ArgumentException("Choose a time zone from the list so reminders arrive at your local meal times.");
         try { return TimeZoneInfo.FindSystemTimeZoneById(CanonicalZone(id)); }
-        catch(TimeZoneNotFoundException) { throw new ArgumentException("Choose a valid timezone."); }
-        catch(InvalidTimeZoneException) { throw new ArgumentException("Choose a valid timezone."); }
+        catch(TimeZoneNotFoundException) { throw new ArgumentException("Choose a time zone from the list so reminders arrive at your local meal times."); }
+        catch(InvalidTimeZoneException) { throw new ArgumentException("Choose a time zone from the list so reminders arrive at your local meal times."); }
     }
     public static DateOnly LocalToday(TimeProvider clock,string zone)=>DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(),Zone(zone)).DateTime);
     public static DateTime Due(DateOnly date,TimeOnly time,string zone)
@@ -80,7 +80,7 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
         if(request.Mode=="maintenance" && (request.TargetWeightKg is not null || request.TargetDate is not null || request.RemindersEnabled))
             throw new ArgumentException("Weight targets and reminders require a weight goal plan.");
         if(!(request.BreakfastTime<request.LunchTime && request.LunchTime<request.DinnerTime))
-            throw new ArgumentException("Meal times must be ordered breakfast, lunch, dinner.");
+            throw new ArgumentException("Set breakfast before lunch and lunch before dinner so reminders follow your day.");
     }
 
     public async Task SaveRoutineAsync(MealPlan plan,WeeklyMenuDto menu,GenerateMealPlanRequest request,CancellationToken ct,
@@ -148,7 +148,7 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
         var entries=await routines.EntriesAsync(id,ct);
         var entry=entries.SingleOrDefault(e=>e.Date==request.Date && e.MealTime==request.MealTime)
             ?? throw new NotFoundException("Scheduled meal not found.");
-        if(entry.DueAt>clock.GetUtcNow().UtcDateTime) throw new ArgumentException("Future meals cannot be recorded yet.");
+        if(entry.DueAt>clock.GetUtcNow().UtcDateTime) throw new ArgumentException("Come back at the scheduled meal time to record it.");
         entry.Status=request.Status; entry.Note=request.Note?.Trim();
         entry.LoggedAt=request.Status=="unlogged"?null:clock.GetUtcNow().UtcDateTime;
         routine.Version++;
@@ -182,7 +182,7 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
         await Find(userId,id,locked,ct) ?? throw new NotFoundException("Meal plan routine not found.");
     private static void RequireActive(MealPlanRoutine r,int version,bool allowContinued=false)
     {
-        if((r.State!="active" && !(allowContinued && r.State=="continued")) || r.Version!=version) throw new ConflictException("This plan changed. Reload it before continuing.");
+        if((r.State!="active" && !(allowContinued && r.State=="continued")) || r.Version!=version) throw new ConflictException("This plan has changed since you opened it. Reload to see the latest version before continuing.");
     }
 
     public async Task<RevisionPreview> PreviewRevisionAsync(long userId,long id,bool nextWeek,CancellationToken ct,
@@ -206,8 +206,8 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
             targetDate ?? r.TargetDate!.Value,confirmed ?? r.EligibilityConfirmed);
         var reasons=new List<string>(safety.Reasons);
         if(!nextWeek && effective>plan.EndDate) reasons.Add("This week has finished. Continue with a new week instead.");
-        if(nextWeek && effective<today) reasons.Add("This next week is already in the past. Create a new plan from today.");
-        if((targetDate ?? r.TargetDate)<effective.AddDays(6) && nextWeek) reasons.Add("Less than a full week remains before the goal date. Choose a new safe timeline.");
+        if(nextWeek && effective<today) reasons.Add("That week has already passed. Start a new menu from today to plan the days ahead.");
+        if((targetDate ?? r.TargetDate)<effective.AddDays(6) && nextWeek) reasons.Add("There is less than a full week left before your goal date. Choose a later target date if you would like to plan another full week.");
         var old=JsonSerializer.Deserialize<WeeklyMenuDto>(plan.GenerationSnapshot!,Json)!;
         return new(reasons.Count==0,reasons,r.Version,Fingerprint(input),old.TargetDailyCalories,safety.TargetCalories,
             safety.Tdee,safety.DailyAdjustment,effective,Math.Abs(old.TargetDailyCalories-safety.TargetCalories)>=100m,
