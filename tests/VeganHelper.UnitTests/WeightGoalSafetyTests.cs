@@ -45,4 +45,59 @@ public sealed class WeightGoalSafetyTests
         Assert.True(WeightGoalSafety.Evaluate(Profile(),Today,71,Today.AddDays(70),true).Allowed);
         Assert.False(WeightGoalSafety.Evaluate(Profile(),Today,71,Today.AddDays(7),true).Allowed);
     }
+
+    [Fact]
+    public void CurrentBmi_Exactly40_PassesInitialBoundaryCheck_AndEvaluatesGoal()
+    {
+        // Height 150 cm, Weight 90 kg -> exactly BMI 40.0 (90 / 1.5^2 = 90 / 2.25 = 40.0)
+        var profile = new UserProfile
+        {
+            HeightCm = 150,
+            WeightKg = 90,
+            BirthDate = new(1996, 1, 1),
+            BiologicalSex = "male",
+            ActivityLevel = "moderate",
+            DietType = "vegan"
+        };
+        // Staged weight loss: target 88 kg in 70 days (deficit ~220 kcal/day, rate 0.2 kg/week)
+        var result = WeightGoalSafety.Evaluate(profile, Today, 88, Today.AddDays(70), true);
+        Assert.True(result.Allowed);
+        Assert.Empty(result.Reasons);
+    }
+
+    [Fact]
+    public void CurrentBmi_Above40_IsRejectedWithClinicalGuidance()
+    {
+        // Height 150 cm, Weight 90.1 kg -> BMI 40.044... (> 40.0)
+        var profile = new UserProfile
+        {
+            HeightCm = 150,
+            WeightKg = 90.1m,
+            BirthDate = new(1996, 1, 1),
+            BiologicalSex = "male",
+            ActivityLevel = "moderate",
+            DietType = "vegan"
+        };
+        var result = WeightGoalSafety.Evaluate(profile, Today, 88, Today.AddDays(70), true);
+        Assert.False(result.Allowed);
+        Assert.Contains(result.Reasons, r => r.Contains("Weekly Menu cannot assess those needs closely enough"));
+    }
+
+    [Fact]
+    public void CurrentBmi_Below18_5_IsRejectedWithClinicalGuidance()
+    {
+        // Height 170 cm, Weight 50 kg -> BMI ~17.3 (< 18.5)
+        var profile = new UserProfile
+        {
+            HeightCm = 170,
+            WeightKg = 50,
+            BirthDate = new(1996, 1, 1),
+            BiologicalSex = "male",
+            ActivityLevel = "moderate",
+            DietType = "vegan"
+        };
+        var result = WeightGoalSafety.Evaluate(profile, Today, 48, Today.AddDays(70), true);
+        Assert.False(result.Allowed);
+        Assert.Contains(result.Reasons, r => r.Contains("Given your current measurements"));
+    }
 }

@@ -16,7 +16,7 @@ public static class WeightGoalSafety
         if(profile?.HeightCm is >=100m and <=250m && profile.WeightKg is decimal measuredWeight)
         {
             var heightMetres=profile.HeightCm.Value/100m;
-            if(measuredWeight/(heightMetres*heightMetres)>=40m)
+            if(measuredWeight/(heightMetres*heightMetres)>40m)
                 return new(false,0,0,0,0,PolicyVersion,
                     ["A doctor or registered dietitian can help you find an approach that supports your health and fits your needs. Weekly Menu cannot assess those needs closely enough to create a weight loss plan for you."]);
         }
