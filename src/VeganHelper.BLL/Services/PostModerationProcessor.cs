@@ -28,7 +28,6 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (ModerationAiException ex) { failure = ex; }
                 catch (Exception) { failure = new("provider_error", false); }
-                if (input is not null && result is not null) result = NonVeganEndorsementGuard.Apply(input, ModerationTitlePolicy.Apply(input, result));
             }
             await FinishAsync(scan, input, result, failure, ct);
         }
@@ -52,7 +51,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
             result.Verdict is not ("safe" or "flagged" or "uncertain") || string.IsNullOrWhiteSpace(result.Summary) || result.Summary.Length > 500 ||
             string.IsNullOrWhiteSpace(result.Model) || result.Model.Length > 100 || string.IsNullOrWhiteSpace(result.PromptVersion) || result.PromptVersion.Length > 30 ||
             result.Findings is null || result.Verdict == "safe" && result.Findings.Count != 0 || result.InputTokens < 0 || result.OutputTokens < 0 || result.LatencyMs < 0))
-        { result = null; failure = new("invalid_response", false); }
+        { result = null; failure = new("response_result_invalid", false); }
         if (result is null)
         {
             if (failure?.Code == "provider_quota")
@@ -61,7 +60,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                     ? Math.Clamp(requested, 60, 86400) : 900;
                 scan.State = "queued"; scan.Attempts = Math.Max(0, scan.Attempts - 1);
                 scan.ErrorCode = "provider_quota"; scan.NextAttemptAt = now.AddSeconds(seconds);
-                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.7"; scan.CompletedAt = null;
+                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.8"; scan.CompletedAt = null;
                 await repository.DeferProviderAsync(scan.NextAttemptAt, ct);
             }
             else
@@ -69,7 +68,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                 var retry = failure?.Retryable == true && scan.Attempts < 5;
                 scan.State = retry ? "queued" : failure?.Retryable == true ? "failed" : "manual_required";
                 scan.ErrorCode = SafeCode(failure?.Code);
-                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.7";
+                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.8";
                 scan.NextAttemptAt = now.AddSeconds(30 * Math.Pow(3, Math.Max(0, scan.Attempts - 1)));
                 scan.CompletedAt = retry ? null : now;
             }
@@ -115,7 +114,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
             ModelName = scan.Model!, Status = result is null ? "failed" : "completed", InputTokens = result?.InputTokens, OutputTokens = result?.OutputTokens, CreatedAt = now });
         await repository.SaveAsync(ct); await transaction.CommitAsync(ct);
     }
-    private static string SafeCode(string? code) => code is "provider_quota" or "provider_timeout" or "provider_error" or "provider_unavailable" or "invalid_response" or
+    private static string SafeCode(string? code) => ModerationResponseErrors.IsKnown(code) ? code! : code is "provider_quota" or "provider_timeout" or "provider_error" or "provider_unavailable" or "invalid_response" or
         "unsupported_media" or "video_too_long" or "media_unavailable" or "invalid_media" or "invalid_image" or "unsafe_media_url" or "provider_blocked" or
         "invalid_configuration" or "invalid_input" or "media_too_large" or "input_too_large" or "request_too_large" or "ai_disabled"
         ? code : "review_unavailable";

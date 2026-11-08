@@ -18,8 +18,10 @@ public interface IPostModerationAiClient
     Task<ModerationAiResult> ReviewAsync(ModerationAiInput input, CancellationToken ct);
 }
 
-public sealed class ModerationAiException(string code, bool retryable, double? retryAfterSeconds = null) : Exception(code)
+public sealed class ModerationAiException(string code, bool retryable, double? retryAfterSeconds = null,
+    string? responseField = null) : Exception(code)
 {
+    public string? ResponseField { get; } = responseField;
     public double? RetryAfterSeconds { get; } = retryAfterSeconds;
     public string Code { get; } = code;
     public bool Retryable { get; } = retryable;

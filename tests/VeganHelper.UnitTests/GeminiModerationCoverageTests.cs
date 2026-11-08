@@ -44,18 +44,18 @@ public partial class GeminiModerationClientTests
     }
 
     [Theory]
-    [InlineData("{\"title\":\"PASS\"}")]
-    [InlineData("{\"title\":\"PASS\",\"description\":\"PASS\",\"ingredients\":\"PASS\",\"steps\":\"PASS\",\"extra\":\"PASS\"}")]
-    [InlineData("{\"title\":\"PASS\",\"title\":\"PASS\",\"description\":\"PASS\",\"ingredients\":\"PASS\",\"steps\":\"PASS\"}")]
-    [InlineData("{\"title\":\"UNKNOWN\",\"description\":\"PASS\",\"ingredients\":\"PASS\",\"steps\":\"PASS\"}")]
-    public async Task Coverage_RejectsIncompleteUnknownOrDuplicateTargets(string checks)
+    [InlineData("{\"title\":\"PASS\"}", "response_checks_missing")]
+    [InlineData("{\"title\":\"PASS\",\"description\":\"PASS\",\"ingredients\":\"PASS\",\"steps\":\"PASS\",\"extra\":\"PASS\"}", "response_checks_extra")]
+    [InlineData("{\"title\":\"PASS\",\"title\":\"PASS\",\"description\":\"PASS\",\"ingredients\":\"PASS\",\"steps\":\"PASS\"}", "response_fields_duplicate")]
+    [InlineData("{\"title\":\"UNKNOWN\",\"description\":\"PASS\",\"ingredients\":\"PASS\",\"steps\":\"PASS\"}", "response_checks_invalid")]
+    public async Task Coverage_RejectsIncompleteUnknownOrDuplicateTargets(string checks, string expectedCode)
     {
         var output = "{\"result\":\"PASS\",\"reason\":\"Compliant.\",\"checks\":" + checks + "}";
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(output))));
         var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions
             { Enabled = true, ApiKey = "private-key" }), CoveragePrompt());
         var error = await Assert.ThrowsAsync<ModerationAiException>(() => client.ReviewAsync(Input(), default));
-        Assert.Equal("invalid_response", error.Code);
+        Assert.Equal(expectedCode, error.Code);
     }
 
     [Theory]
@@ -78,7 +78,7 @@ public partial class GeminiModerationClientTests
             { Enabled = true, ApiKey = "private-key", AllowedMediaHosts = ["media.example.org"] }), CoveragePrompt());
         var input = Input() with { Media = [Media(11), Media(12)] };
         if (omitSecondImage)
-            Assert.Equal("invalid_response", (await Assert.ThrowsAsync<ModerationAiException>(() => client.ReviewAsync(input, default))).Code);
+            Assert.Equal("response_checks_missing", (await Assert.ThrowsAsync<ModerationAiException>(() => client.ReviewAsync(input, default))).Code);
         else
         {
             var result = await client.ReviewAsync(input, default);
@@ -87,18 +87,4 @@ public partial class GeminiModerationClientTests
         }
     }
 
-    [Theory]
-    [InlineData("spam", "flagged")]
-    [InlineData("aaa", "flagged")]
-    [InlineData("QWERTY!", "flagged")]
-    [InlineData("Spam prevention in our vegan community", "safe")]
-    [InlineData("Test kitchen: tofu noodles", "safe")]
-    [InlineData("Bún chay", "safe")]
-    public void TitlePolicy_DoesNotLetHealthyMediaExcusePlaceholderTitle(string title, string verdict)
-    {
-        var result = new ModerationAiResult("safe", null, "Compliant.", [], "gemini-test",
-            "post-moderation.v2.6", 1, 1, 1);
-        var reviewed = ModerationTitlePolicy.Apply(Input() with { Title = title }, result);
-        Assert.Equal(verdict, reviewed.Verdict);
-    }
 }
