@@ -134,7 +134,7 @@ public partial class GeminiModerationClientTests
         }));
         var error = await Assert.ThrowsAsync<VeganHelper.DAL.Integrations.Moderation.ModerationAiException>(() => Client(http).ReviewAsync(
             Input() with { Media = [new(1, "https://media.example.org/video.mp4", "video")] }, default));
-        Assert.Equal("invalid_response", error.Code);
+        Assert.Equal("response_upload_url_invalid", error.Code);
     }
 
     private static HttpResponseMessage StartVideoUpload(string uploadUrl = "https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=test")

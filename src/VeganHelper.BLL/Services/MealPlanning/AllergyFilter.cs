@@ -50,7 +50,7 @@ public static class AllergyFilter
             // Global ingredients include arbitrary user-created aliases. Submission method and
             // another unused alias row cannot establish that recipes are being filtered.
             if (families.Length==0 && !matches.Any(i=>recipeIngredientIds.Contains(i.Id)))
-                throw new ConflictException($"Cannot reliably match allergy '{allergy.Name}'. Select a recipe ingredient or a supported allergy family before generating.");
+                throw new ConflictException($"We could not reliably identify the allergy '{allergy.Name}' in our ingredient list. To keep that protection in place, choose its matching ingredient or allergy group before continuing.");
             excluded.UnionWith(matches.Select(i=>i.Id));
         }
         return excluded;

@@ -44,18 +44,17 @@ internal static class PostModerationModelConfiguration
         {
             e.ToTable("post_moderation_decisions", t =>
             {
-                t.HasCheckConstraint("CK_moderation_decision_actor", "(actor_type = 'admin' AND admin_id IS NOT NULL) OR (actor_type = 'ai' AND admin_id IS NULL AND scan_id IS NOT NULL)");
+                t.HasCheckConstraint("CK_moderation_decision_actor", "(actor_type = 'admin' AND admin_id IS NOT NULL) OR (actor_type = 'ai' AND admin_id IS NULL)");
                 t.HasCheckConstraint("CK_moderation_decision_action", "action IN ('approve','reject','keep','remove') AND revision > 0 AND length(trim(reason)) > 0");
             });
             e.HasKey(x => x.Id); e.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
             e.Property(x => x.PostId).HasColumnName("post_id"); e.Property(x => x.Revision).HasColumnName("revision");
             e.Property(x => x.Action).HasColumnName("action").HasMaxLength(20); e.Property(x => x.ActorType).HasColumnName("actor_type").HasMaxLength(10);
-            e.Property(x => x.AdminId).HasColumnName("admin_id"); e.Property(x => x.FlagId).HasColumnName("flag_id"); e.Property(x => x.ScanId).HasColumnName("scan_id");
+            e.Property(x => x.AdminId).HasColumnName("admin_id"); e.Property(x => x.FlagId).HasColumnName("flag_id");
             e.Property(x => x.Reason).HasColumnName("reason").HasMaxLength(1000); e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.HasOne<Post>().WithMany().HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.AdminId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne<Flag>().WithMany().HasForeignKey(x => x.FlagId).OnDelete(DeleteBehavior.NoAction);
-            e.HasOne<PostModerationScan>().WithMany().HasForeignKey(x => x.ScanId).OnDelete(DeleteBehavior.NoAction);
             e.HasIndex(x => new { x.PostId, x.Revision, x.CreatedAt });
         });
         b.Entity<PostModerationSettings>(e =>

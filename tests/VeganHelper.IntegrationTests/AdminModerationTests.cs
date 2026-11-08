@@ -64,6 +64,7 @@ public sealed class AdminModerationTests(Member2ApiFixture fixture)
     [Theory]
     [InlineData("approve", "published")]
     [InlineData("reject", "rejected")]
+    [InlineData("remove", "hidden")]
     public async Task DecidePost_WhenPending_CommitsStatusAuditAndAuthorNotification(string action, string status)
     {
         var admin = await UserAsync(); var post = await PostAsync(); using var client = Client(admin);
@@ -77,6 +78,29 @@ public sealed class AdminModerationTests(Member2ApiFixture fixture)
         var notification = await db.Set<Notification>().SingleAsync(n => n.UserId == post.AuthorId);
         Assert.Equal("post_review", notification.Type);
         Assert.Contains("Review completed", notification.Message);
+    }
+
+    [Fact]
+    public async Task HiddenPostRevision_GoesToAdminQueueWithoutCreatingAnAiScan()
+    {
+        var admin = await UserAsync(); var post = await PostAsync(); using var client = Client(admin);
+        var decision = await client.PostAsJsonAsync($"/api/admin/moderation/posts/{post.Id}/decision",
+            new { action = "remove", reason = "Hidden by Admin", expectedRevision = 1 });
+        Assert.Equal(HttpStatusCode.OK, decision.StatusCode);
+
+        await using var db = fixture.Context();
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        var updated = await db.Posts.SingleAsync(p => p.Id == post.Id);
+        updated.ContentRevision++;
+        updated.Status = "pending_review";
+        var repository = new PostRepository(db);
+        await repository.StagePostUpdateRemovalsAsync(updated, [], [], [], []);
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        Assert.False(await db.Set<PostModerationScan>().AnyAsync(s => s.PostId == post.Id && s.Revision == 2));
+        Assert.Equal("pending_review", updated.Status);
+        Assert.True(updated.ModerationHold);
     }
     [Theory]
     [InlineData("keep", "published", "dismissed")]

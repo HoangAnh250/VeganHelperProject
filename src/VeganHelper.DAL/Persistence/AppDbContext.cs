@@ -22,7 +22,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<PostIngredient> PostIngredients => Set<PostIngredient>();
     public DbSet<UserAllergy> UserAllergies => Set<UserAllergy>();
     public DbSet<BmiHistory> BmiHistories => Set<BmiHistory>();
-    public DbSet<UserAvailableIngredient> UserAvailableIngredients => Set<UserAvailableIngredient>();
     public DbSet<PostLike> PostLikes => Set<PostLike>();
     public DbSet<SavedPost> SavedPosts => Set<SavedPost>();
     public DbSet<Comment> Comments => Set<Comment>();
@@ -38,7 +37,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<AiUsage> AiUsage => Set<AiUsage>();
-    public DbSet<PostEmbedding> PostEmbeddings => Set<PostEmbedding>();
     public DbSet<Shop> Shops => Set<Shop>();
     public DbSet<ShopOpeningPeriod> ShopOpeningPeriods => Set<ShopOpeningPeriod>();
     public DbSet<ShopMedia> ShopMedia => Set<ShopMedia>();
@@ -246,7 +244,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.PostId).HasColumnName("post_id").HasColumnType("bigint").IsRequired(true);
             entity.Property(x => x.MediaUrl).HasColumnName("media_url").HasColumnType("character varying(1000)").IsRequired(true);
             entity.Property(x => x.MediaType).HasColumnName("media_type").HasColumnType("character varying(20)").IsRequired(true);
-            entity.Property(x => x.CloudPublicId).HasColumnName("cloud_public_id").HasColumnType("character varying(255)").IsRequired(false);
             entity.Property(x => x.ThumbnailUrl).HasColumnName("thumbnail_url").HasColumnType("character varying(1000)").IsRequired(false);
             entity.Property(x => x.DurationSeconds).HasColumnName("duration_seconds").HasColumnType("integer").IsRequired(false);
             entity.Property(x => x.IsPrimary).HasColumnName("is_primary").HasColumnType("boolean").IsRequired(true).HasDefaultValueSql("0");
@@ -376,21 +373,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.RecordedAt).HasColumnName("recorded_at").HasColumnType("timestamp with time zone").IsRequired(true).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasOne(x => x.User).WithMany().HasForeignKey(x => new { x.UserId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_bmi_history_1");
             entity.HasIndex(x => new { x.UserId, x.RecordedAt }).HasDatabaseName("IX_bmi_history_1");
-        });
-        modelBuilder.Entity<UserAvailableIngredient>(entity =>
-        {
-            entity.ToTable("user_available_ingredients", table =>
-            {
-                table.HasCheckConstraint("CK_user_available_ingredients_1", "quantity >= 0");
-            });
-            entity.HasKey(x => new { x.UserId, x.IngredientId }).HasName("PK_user_available_ingredients");
-            entity.Property(x => x.UserId).HasColumnName("user_id").HasColumnType("bigint").IsRequired(true).ValueGeneratedNever();
-            entity.Property(x => x.IngredientId).HasColumnName("ingredient_id").HasColumnType("bigint").IsRequired(true).ValueGeneratedNever();
-            entity.Property(x => x.Quantity).HasColumnName("quantity").HasColumnType("numeric(12,3)").IsRequired(false);
-            entity.Property(x => x.Unit).HasColumnName("unit").HasColumnType("character varying(20)").IsRequired(true);
-            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasColumnType("timestamp with time zone").IsRequired(true).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            entity.HasOne<User>().WithMany().HasForeignKey(x => new { x.UserId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_available_ingredients_1");
-            entity.HasOne<Ingredient>().WithMany().HasForeignKey(x => new { x.IngredientId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_user_available_ingredients_2");
         });
         modelBuilder.Entity<PostLike>(entity =>
         {
@@ -678,27 +660,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasOne<User>().WithMany().HasForeignKey(x => new { x.UserId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_ai_usage_1");
             entity.HasIndex(x => new { x.UserId, x.FeatureType, x.CreatedAt }).HasDatabaseName("IX_ai_usage_1");
             entity.HasIndex(x => new { x.GuestSessionId, x.FeatureType, x.CreatedAt }).HasDatabaseName("IX_ai_usage_2");
-        });
-        modelBuilder.Entity<PostEmbedding>(entity =>
-        {
-            entity.ToTable("post_embeddings", table =>
-            {
-                table.HasCheckConstraint("CK_post_embeddings_1", "chunk_index >= 0");
-                table.HasCheckConstraint("CK_post_embeddings_2", "status IN ('pending','processing','completed','failed','stale')");
-                table.HasCheckConstraint("CK_post_embeddings_3", "status <> 'completed' OR (vector_id IS NOT NULL AND embedded_at IS NOT NULL)");
-            });
-            entity.HasKey(x => new { x.Id }).HasName("PK_post_embeddings");
-            entity.Property(x => x.Id).HasColumnName("id").HasColumnType("bigint").IsRequired(true).UseIdentityByDefaultColumn();
-            entity.Property(x => x.PostId).HasColumnName("post_id").HasColumnType("bigint").IsRequired(true);
-            entity.Property(x => x.ChunkIndex).HasColumnName("chunk_index").HasColumnType("integer").IsRequired(true);
-            entity.Property(x => x.VectorId).HasColumnName("vector_id").HasColumnType("character varying(255)").IsRequired(false);
-            entity.Property(x => x.ContentHash).HasColumnName("content_hash").HasColumnType("character varying(64)").IsRequired(true);
-            entity.Property(x => x.EmbeddingModel).HasColumnName("embedding_model").HasColumnType("character varying(100)").IsRequired(true);
-            entity.Property(x => x.Status).HasColumnName("status").HasColumnType("character varying(20)").IsRequired(true).HasDefaultValueSql("'pending'");
-            entity.Property(x => x.EmbeddedAt).HasColumnName("embedded_at").HasColumnType("timestamp with time zone").IsRequired(false);
-            entity.HasAlternateKey(x => new { x.PostId, x.ChunkIndex }).HasName("UQ_post_embeddings_1");
-            entity.HasOne<Post>().WithMany().HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_embeddings_1");
-            entity.HasIndex(x => new { x.Status, x.PostId }).HasDatabaseName("IX_post_embeddings_1");
         });
         modelBuilder.Entity<Shop>(entity =>
         {

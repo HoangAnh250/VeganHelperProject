@@ -95,6 +95,8 @@ public sealed class Member2ApiFactory(string connection) : WebApplicationFactory
         builder.UseEnvironment("Testing");
         builder.ConfigureServices(services =>
         {
+            // Never inherit real browser-push credentials or enable delivery from local .env.
+            services.PostConfigure<VeganHelper.DAL.Integrations.WebPushSettings>(options => options.Enabled = false);
             // Read-only post tests must not require cloud credentials or accidentally call R2.
             services.RemoveAll<IMediaStorageService>();
             services.AddSingleton<IMediaStorageService, NoCloudMediaStorage>();

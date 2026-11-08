@@ -1,0 +1,88 @@
+{
+  "tables": 53,
+  "columns": 424,
+  "runtime_files": 461,
+  "table_candidates": [
+    {
+      "table": "post_embeddings",
+      "entity": "PostEmbedding",
+      "runtime_reference_files": "0",
+      "evidence": "",
+      "assessment": "Candidate: mapped, no direct runtime symbol reference found"
+    },
+    {
+      "table": "user_available_ingredients",
+      "entity": "UserAvailableIngredient",
+      "runtime_reference_files": "0",
+      "evidence": "",
+      "assessment": "Candidate: mapped, no direct runtime symbol reference found"
+    }
+  ],
+  "column_candidates": [
+    {
+      "table": "ingredients",
+      "column": "calories_per_100g",
+      "property": "CaloriesPer100g"
+    },
+    {
+      "table": "meal_plans",
+      "column": "template_name",
+      "property": "TemplateName"
+    },
+    {
+      "table": "posts",
+      "column": "calories_per_serving",
+      "property": "CaloriesPerServing"
+    },
+    {
+      "table": "post_embeddings",
+      "column": "chunk_index",
+      "property": "ChunkIndex"
+    },
+    {
+      "table": "post_embeddings",
+      "column": "content_hash",
+      "property": "ContentHash"
+    },
+    {
+      "table": "post_embeddings",
+      "column": "embedded_at",
+      "property": "EmbeddedAt"
+    },
+    {
+      "table": "post_embeddings",
+      "column": "embedding_model",
+      "property": "EmbeddingModel"
+    },
+    {
+      "table": "post_embeddings",
+      "column": "vector_id",
+      "property": "VectorId"
+    },
+    {
+      "table": "post_media",
+      "column": "cloud_public_id",
+      "property": "CloudPublicId"
+    },
+    {
+      "table": "post_moderation_decisions",
+      "column": "scan_id",
+      "property": "ScanId"
+    }
+  ],
+  "verified_navigation_usage": {
+    "shop_media": "ShopRepository.Query includes Shop.Media",
+    "shop_menu_items": "ShopRepository.Query includes Shop.MenuItems and SearchAsync filters MenuItems"
+  },
+  "live_missing_columns": [],
+  "live_extra_columns": [],
+  "live_aggregate_counts": {
+    "post_embeddings": 0,
+    "user_available_ingredients": 0,
+    "cloud_public_id_populated": 0,
+    "template_name_populated": 30,
+    "ingredient_calories_populated": 107,
+    "post_calories_populated": 20,
+    "decision_scan_id_populated": 0
+  }
+}

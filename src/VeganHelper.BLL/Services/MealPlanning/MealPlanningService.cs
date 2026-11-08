@@ -41,7 +41,7 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         await routineRepository.LockProfileAsync(userId,ct);
         var endDate=request.StartDate.AddDays(6);
         if(await repository.HasOverlappingPlanAsync(userId,request.StartDate,endDate,null,ct))
-            throw new ConflictException("You already have a weekly menu covering some of these dates. Delete or regenerate that menu before creating another.");
+            throw new ConflictException("You already have a menu for some of these days. Open it from Plan history or choose a start date after it ends.");
         var input=await repository.LoadAsync(userId,ct);
         GoalSafetyResult? safety=null;
         if(request.Mode=="weight_goal")
@@ -101,16 +101,16 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         var routine=await routineRepository.GetAsync(userId,id,true,ct)
             ?? throw new ConflictException("This menu has no saved regeneration settings. Create a new weekly menu instead.");
         if(routine.State=="superseded")
-            throw new ConflictException("This menu has already been replaced by a later plan.");
+            throw new ConflictException("A later version of this menu is available. Open it from Plan history to continue.");
         var today=MealRoutineService.LocalToday(clock,routine.TimeZoneId);
         if(startDate<today)
-            throw new ConflictException("A weekly menu can only be regenerated before its start date.");
+            throw new ConflictException("This menu has already started. You can keep using it or choose a later week for a new menu.");
         var oldEntries=await routineRepository.EntriesAsync(id,ct);
         if(oldEntries.Any(entry=>entry.Status!="unlogged"))
-            throw new ConflictException("This menu already has tracking activity and can no longer be regenerated.");
+            throw new ConflictException("This menu has recorded meals. Keep it to preserve your progress and choose a future week for a new menu.");
 
         var previousMenu=plan.GenerationSnapshot is null ? null : JsonSerializer.Deserialize<WeeklyMenuDto>(plan.GenerationSnapshot,JsonOptions);
-        if(previousMenu is null) throw new ConflictException("This menu has no saved meal snapshot to regenerate.");
+        if(previousMenu is null) throw new ConflictException("This menu has no saved meal details for regeneration. You can create a new weekly menu for another date.");
         var request=new GenerateMealPlanRequest
         {
             Name=plan.Name, StartDate=startDate, Mode=routine.Mode, TargetWeightKg=routine.TargetWeightKg,
@@ -128,7 +128,7 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         {
             safety=WeightGoalSafety.Evaluate(input.Profile,startDate,request.TargetWeightKg ?? 0,
                 request.TargetDate ?? default,request.EligibilityConfirmed);
-            if(!safety.Allowed) throw new ConflictException("This weight goal is no longer safe with your current health profile. Update your goal or health profile before regenerating the menu. " + string.Join(" ",safety.Reasons));
+            if(!safety.Allowed) throw new ConflictException("We recommend reviewing this plan before creating a new version. " + string.Join(" ",safety.Reasons));
         }
         var menu=MealPlanGenerator.Generate(input,today,new Random(Random.Shared.Next()),ct,
             safety?.TargetCalories,request.MealCalorieSplit);

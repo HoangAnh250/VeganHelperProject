@@ -59,7 +59,7 @@ public sealed class AdminModerationService(IModerationRepository repository, IAd
     private Task<ModerationDecisionDto> DecideCoreAsync(AdminActor actor, long postId, long? flagId, ModerationDecisionRequest request, CancellationToken ct)
     {
         var action = request.Action?.Trim().ToLowerInvariant();
-        if (flagId.HasValue ? action is not ("keep" or "remove") : action is not ("approve" or "reject")) throw new ArgumentException("Invalid moderation action.");
+        if (flagId.HasValue ? action is not ("keep" or "remove") : action is not ("approve" or "reject" or "remove")) throw new ArgumentException("Invalid moderation action.");
         if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > 1000 || request.ExpectedRevision < 1)
             throw new ArgumentException("Reason and a positive expected revision are required.");
         var reason = request.Reason.Trim();

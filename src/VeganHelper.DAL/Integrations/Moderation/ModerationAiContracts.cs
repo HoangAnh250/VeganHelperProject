@@ -18,8 +18,10 @@ public interface IPostModerationAiClient
     Task<ModerationAiResult> ReviewAsync(ModerationAiInput input, CancellationToken ct);
 }
 
-public sealed class ModerationAiException(string code, bool retryable, double? retryAfterSeconds = null) : Exception(code)
+public sealed class ModerationAiException(string code, bool retryable, double? retryAfterSeconds = null,
+    string? responseField = null) : Exception(code)
 {
+    public string? ResponseField { get; } = responseField;
     public double? RetryAfterSeconds { get; } = retryAfterSeconds;
     public string Code { get; } = code;
     public bool Retryable { get; } = retryable;
@@ -29,6 +31,7 @@ public sealed class ModerationAiOptions
 {
     public bool Enabled { get; set; }
     public string ApiKey { get; set; } = "";
+    public string TwelveLabsApiKey { get; set; } = "";
     public string Model { get; set; } = "gemini-3.5-flash-lite";
     // Legacy scored results only; the PASS/FAIL Gemini contract does not supply confidence.
     public double MinAutoPublishConfidence { get; set; } = .9;

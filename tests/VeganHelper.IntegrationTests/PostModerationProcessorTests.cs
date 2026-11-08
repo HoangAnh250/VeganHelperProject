@@ -419,6 +419,10 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     [Theory]
     [InlineData("unsupported_media")]
     [InlineData("invalid_response")]
+    [InlineData("response_reason_too_long")]
+    [InlineData("response_checks_missing")]
+    [InlineData("response_verdict_json_invalid")]
+    [InlineData("response_file_invalid")]
     [InlineData("unsafe_media_url")]
     public async Task NonRetryableBoundaryFailure_RequiresManualReview(string code)
     {
@@ -721,6 +725,23 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         }
         else Assert.Empty(client.Inputs);
         await AssertNoDecisionOrNotificationAsync(verify, job);
+    }
+
+    [Theory]
+    [InlineData("spam", "Vegan content")]
+    [InlineData("aaa", "Vegan content")]
+    [InlineData("Pork is good for health", "Animal-derived food discussion")]
+    public async Task SemanticVerdict_IsOwnedByAi_NotLocalKeywordOverrides(string title, string content)
+    {
+        var job = await SeedAsync();
+        await using (var db = fixture.Context())
+            await db.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(p =>
+                p.SetProperty(x => x.Title, title).SetProperty(x => x.Content, content).SetProperty(x => x.Status, "published"));
+        await RunAsync(new FakeClient((_, _) => Task.FromResult(Result())));
+        await using var verify = fixture.Context();
+        Assert.Equal("safe", (await verify.Set<PostModerationScan>().SingleAsync(s => s.Id == job.ScanId)).State);
+        Assert.Equal("published", (await verify.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
+        Assert.False(await verify.Flags.AnyAsync(f => f.PostId == job.PostId));
     }
 
     private async Task<Job> SeedAsync(string state = "queued", int attempts = 0, DateTime? leaseUntil = null)

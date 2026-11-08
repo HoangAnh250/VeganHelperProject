@@ -51,7 +51,7 @@ public partial class GeminiModerationClientTests
         var output = JsonSerializer.Serialize(new { result = "FAIL", reason = new string('x', 201) });
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(output))));
         var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
-        Assert.Equal("invalid_response", ex.Code);
+        Assert.Equal("response_reason_too_long", ex.Code);
     }
 
     [Fact]
@@ -240,19 +240,19 @@ public partial class GeminiModerationClientTests
     }
 
     [Theory]
-    [InlineData("not json")]
-    [InlineData("{\"result\":\"PASS\"}")]
-    [InlineData("{\"result\":\"safe\",\"reason\":\"Wrong enum\"}")]
-    [InlineData("{\"result\":\"pass\",\"reason\":\"Wrong casing\"}")]
-    [InlineData("{\"result\":\"FAIL\",\"reason\":\"\"}")]
-    [InlineData("{\"result\":\"PASS\",\"reason\":null}")]
-    [InlineData("{\"result\":\"PASS\",\"result\":\"FAIL\",\"reason\":\"Duplicate key\"}")]
-    [InlineData("{\"result\":\"PASS\",\"reason\":\"Extra field\",\"confidence\":1}")]
-    public async Task Review_MalformedStructuredOutput_FailsClosed(string output)
+    [InlineData("not json", "response_verdict_json_invalid")]
+    [InlineData("{\"result\":\"PASS\"}", "response_fields_missing")]
+    [InlineData("{\"result\":\"safe\",\"reason\":\"Wrong enum\"}", "response_verdict_invalid")]
+    [InlineData("{\"result\":\"pass\",\"reason\":\"Wrong casing\"}", "response_verdict_invalid")]
+    [InlineData("{\"result\":\"FAIL\",\"reason\":\"\"}", "response_field_empty")]
+    [InlineData("{\"result\":\"PASS\",\"reason\":null}", "response_field_type")]
+    [InlineData("{\"result\":\"PASS\",\"result\":\"FAIL\",\"reason\":\"Duplicate key\"}", "response_fields_duplicate")]
+    [InlineData("{\"result\":\"PASS\",\"reason\":\"Extra field\",\"confidence\":1}", "response_fields_extra")]
+    public async Task Review_MalformedStructuredOutput_FailsClosed(string output, string expectedCode)
     {
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(output))));
         var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
-        Assert.Equal("invalid_response", ex.Code);
+        Assert.Equal(expectedCode, ex.Code);
         Assert.False(ex.Retryable);
     }
 
@@ -267,7 +267,7 @@ public partial class GeminiModerationClientTests
         var output = JsonSerializer.Serialize(new { verdict, confidence = .99, summary = "Finding", findings = new[] { new { code = "raw_meat", field, excerpt = "", mediaId, reason = "Image content" } } });
         using var http = new HttpClient(new FakeHandler((request, _) => Task.FromResult(request.Method == HttpMethod.Get ? Image() : Reply(output))));
         var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input() with { Media = [Media(1)] }, default));
-        Assert.Equal("invalid_response", ex.Code);
+        Assert.Equal("response_fields_missing", ex.Code);
     }
 
     [Theory]
@@ -359,7 +359,7 @@ public partial class GeminiModerationClientTests
     {
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(new string('x', 256 * 1024 + 1)) })));
         var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
-        Assert.Equal("invalid_response", ex.Code);
+        Assert.Equal("response_too_large", ex.Code);
     }
 
     [Fact]
@@ -443,7 +443,7 @@ public partial class GeminiModerationClientTests
         }
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(result.ToJsonString()))));
         var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
-        Assert.Equal("invalid_response", ex.Code);
+        Assert.Equal(field == "reason" ? "response_reason_too_long" : "response_verdict_invalid", ex.Code);
     }
 
     [Theory]

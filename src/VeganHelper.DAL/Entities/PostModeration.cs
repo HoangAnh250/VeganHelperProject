@@ -34,7 +34,6 @@ public sealed class PostModerationDecision
     public string ActorType { get; set; } = "";
     public long? AdminId { get; set; }
     public long? FlagId { get; set; }
-    public long? ScanId { get; set; }
     public string Reason { get; set; } = "";
     public DateTime CreatedAt { get; set; }
 }
