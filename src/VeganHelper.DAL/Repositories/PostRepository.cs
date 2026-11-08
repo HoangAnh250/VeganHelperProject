@@ -464,7 +464,15 @@ public sealed class PostRepository : IPostRepository
     {
         if (_context.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Post update removals require an active transaction.");
-        _context.Set<PostModerationScan>().Add(new PostModerationScan { PostId = post.Id, Revision = post.ContentRevision });
+        // A post hidden by Admin stays on hold after every author revision until Admin decides again.
+        var lastAdminAction = post.ModerationHold
+            ? await _context.Set<PostModerationDecision>().AsNoTracking()
+                .Where(decision => decision.PostId == post.Id && decision.ActorType == "admin")
+                .OrderByDescending(decision => decision.Id).Select(decision => decision.Action)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
+        if (lastAdminAction != "remove")
+            _context.Set<PostModerationScan>().Add(new PostModerationScan { PostId = post.Id, Revision = post.ContentRevision });
         // Required NoAction relationships must be deleted explicitly before collections are replaced.
         if (media.Count > 0)
         {
