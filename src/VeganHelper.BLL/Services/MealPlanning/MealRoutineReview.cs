@@ -7,8 +7,8 @@ public sealed class MealRoutineReview(IMealRoutineRepository routines,INotificat
 {
     public static bool NeedsProfileReview(IEnumerable<MealPlanEntry> entries)
     {
-        var logged=entries.Where(e=>e.Status!="unlogged").ToList();
-        return logged.Count>=6 && logged.Count(e=>e.Status=="followed")/(decimal)logged.Count<.7m;
+        var scheduled=entries.ToList();
+        return scheduled.Count>0 && scheduled.Count(e=>e.Status=="followed")/(decimal)scheduled.Count<.7m;
     }
     public async Task RunAsync(CancellationToken ct)
     {
@@ -33,10 +33,12 @@ public sealed class MealRoutineReview(IMealRoutineRepository routines,INotificat
                 for(var start=history.Start;start.AddDays(2)<today && start.AddDays(2)<=plan.EndDate;start=start.AddDays(3))
                 {
                     var end=start.AddDays(2);
-                    if(NeedsProfileReview(history.Entries.Where(e=>e.Date>=start && e.Date<=end)))
+                    var window=history.Entries.Where(e=>e.Date>=start && e.Date<=end).ToList();
+                    // A late continuation may leave calendar gaps; review complete scheduled blocks only.
+                    if(window.Select(e=>e.Date).Distinct().Count()==3 && NeedsProfileReview(window))
                         await Publish(routine.UserId,$"meal-review:{routine.RootPlanId}:{start:yyyyMMdd}",
                             "Time for a health profile check-in",
-                            "Several logged meals differed from your plan. Review your current measurements and preferences. Any adjustment will be safety-checked and needs your confirmation.",now,ct);
+                            "Some meals have not been marked as followed over the past three days. Please review and update your health profile so we can check whether your current plan still suits your needs. Any adjustment needs a fresh safety check and your confirmation.",now,ct);
                 }
                 await tx.CommitAsync(ct);
             }

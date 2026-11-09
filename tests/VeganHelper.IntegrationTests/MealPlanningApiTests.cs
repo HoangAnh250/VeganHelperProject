@@ -65,19 +65,37 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         return (await response.Content.ReadFromJsonAsync<MealPlanDto>())!;
     }
 
+    private async Task<MealPlanDto> CompleteWeekAsync(long owner,MealPlanDto plan,int daysAgo=7)
+    {
+        await using(var db=fixture.Context())
+        {
+            var row=await db.MealPlans.SingleAsync(p=>p.Id==plan.Id);
+            row.StartDate=row.StartDate!.Value.AddDays(-daysAgo);row.EndDate=row.EndDate!.Value.AddDays(-daysAgo);
+            var options=new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            var menu=JsonSerializer.Deserialize<WeeklyMenuDto>(row.GenerationSnapshot!,options)!;
+            foreach(var day in menu.Days) {day.Date=day.Date.AddDays(-daysAgo);day.DayOfWeek=(byte)(((int)day.Date.DayOfWeek+6)%7+1);}
+            row.GenerationSnapshot=JsonSerializer.Serialize(menu,options);
+            foreach(var entry in await db.Set<MealPlanEntry>().Where(e=>e.MealPlanId==plan.Id).ToListAsync())
+            {entry.Date=entry.Date.AddDays(-daysAgo);entry.DueAt=entry.DueAt.AddDays(-daysAgo);}
+            await db.SaveChangesAsync();
+        }
+        using var client=fixture.Factory.Client(owner);
+        return (await client.GetFromJsonAsync<MealPlanDto>($"/api/MealPlans/{plan.Id}"))!;
+    }
+
     [Fact]
     public async Task Trial_GoalRevisionsSaveTrackingAndRespectSharedGenerationLimit()
     {
         var owner=await SeedAsync(grantAccess:false);
-        var initial=await GoalAsync(owner);
+        var initial=await CompleteWeekAsync(owner,await GoalAsync(owner));
         using var client=fixture.Factory.Client(owner);
         var previewResponse=await client.PostAsJsonAsync($"/api/MealPlans/{initial.Id}/revision-preview",
-            new {expectedVersion=0,profileFingerprint="",eligibilityConfirmed=true,nextWeek=true});
+            new {expectedVersion=0,profileFingerprint="",eligibilityConfirmed=true,nextWeek=true,currentWeightKg=60});
         Assert.Equal(HttpStatusCode.OK,previewResponse.StatusCode);
         var preview=(await previewResponse.Content.ReadFromJsonAsync<RevisionPreview>())!;
-        Assert.True(preview.Allowed);
+        Assert.True(preview.Allowed,string.Join(" | ",preview.Reasons ?? []));
         var response=await client.PostAsJsonAsync($"/api/MealPlans/{initial.Id}/revisions",
-            new RevisionRequest(preview.Version,preview.ProfileFingerprint,true,NextWeek:true));
+            new RevisionRequest(preview.Version,preview.ProfileFingerprint,true,NextWeek:true,CurrentWeightKg:60));
         Assert.Equal(HttpStatusCode.Created,response.StatusCode);
         var revision=(await response.Content.ReadFromJsonAsync<MealPlanDto>())!;
         Assert.Equal(21,revision.Routine!.Entries.Count);
@@ -86,10 +104,10 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
             Assert.Equal(2,await db.MealPlans.CountAsync(p=>p.UserId==owner && p.IsTrialGeneration));
         await GoalAsync(owner, startOffsetDays: 14);
         var blocked=await client.PostAsJsonAsync($"/api/MealPlans/{revision.Id}/revision-preview",
-            new {expectedVersion=0,profileFingerprint="",eligibilityConfirmed=true,nextWeek=true});
+            new {expectedVersion=0,profileFingerprint="",eligibilityConfirmed=true,nextWeek=true,currentWeightKg=60});
         Assert.Equal(HttpStatusCode.PaymentRequired,blocked.StatusCode);
         var bypass=await client.PostAsJsonAsync($"/api/MealPlans/{revision.Id}/revisions",
-            new RevisionRequest(0,"",true,NextWeek:true));
+            new RevisionRequest(0,"",true,NextWeek:true,CurrentWeightKg:60));
         Assert.Equal(HttpStatusCode.PaymentRequired,bypass.StatusCode);
         var access=await client.GetFromJsonAsync<MealPlanAccessDto>("/api/meal-plan-payments/access");
         Assert.False(access!.CanGenerate);
@@ -108,7 +126,10 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         using var client=fixture.Factory.Client(owner);using var stranger=fixture.Factory.Client(other);
         var log=new {date=entry.Date,mealTime=entry.MealTime,status="changed",expectedVersion=0};
         Assert.Equal(HttpStatusCode.NotFound,(await stranger.PutAsJsonAsync($"/api/MealPlans/{plan.Id}/tracking",log)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK,(await client.PutAsJsonAsync($"/api/MealPlans/{plan.Id}/tracking",log)).StatusCode);
+        var logged=await client.PutAsJsonAsync($"/api/MealPlans/{plan.Id}/tracking",log);
+        Assert.Equal(HttpStatusCode.OK,logged.StatusCode);
+        var loggedRoutine=(await logged.Content.ReadFromJsonAsync<MealRoutineDto>())!;
+        Assert.Equal("unlogged",loggedRoutine.Entries.Single(e=>e.Date==entry.Date && e.MealTime==entry.MealTime).Status);
         Assert.Equal(HttpStatusCode.Conflict,(await client.PutAsJsonAsync($"/api/MealPlans/{plan.Id}/tracking",log)).StatusCode);
         var future=plan.Menu.Days[6];
         Assert.Equal(HttpStatusCode.BadRequest,(await client.PutAsJsonAsync($"/api/MealPlans/{plan.Id}/tracking",new
@@ -137,7 +158,7 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         using var client=fixture.Factory.Client(owner);
         async Task<RevisionPreview> Preview()=> (await (await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview",
             new {expectedVersion=0,profileFingerprint="",eligibilityConfirmed=true})).Content.ReadFromJsonAsync<RevisionPreview>())!;
-        var preview=await Preview();Assert.True(preview.Allowed);
+        var preview=await Preview();Assert.True(preview.Allowed,string.Join(" | ",preview.Reasons ?? []));
         await using(var db=fixture.Context())
             await db.UserProfiles.Where(p=>p.UserId==owner).ExecuteUpdateAsync(s=>s.SetProperty(p=>p.WeightKg,61));
         Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revisions",
@@ -145,7 +166,7 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         var unsafeResponse=await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview",new
         {expectedVersion=0,profileFingerprint="",eligibilityConfirmed=true,targetDate=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(8)});
         Assert.False((await unsafeResponse.Content.ReadFromJsonAsync<RevisionPreview>())!.Allowed);
-        preview=await Preview();Assert.True(preview.Allowed);
+        preview=await Preview();Assert.True(preview.Allowed,string.Join(" | ",preview.Reasons ?? []));
         var request=new RevisionRequest(preview.Version,preview.ProfileFingerprint,true);
         using var second=fixture.Factory.Client(owner);
         var results=await Task.WhenAll(client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revisions",request),
@@ -158,7 +179,7 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
         Assert.Equal(plan.Menu!.Days[0].Meals.Select(m=>m.MealId),revision.Menu!.Days[0].Meals.Select(m=>m.MealId));
         Assert.Equal(plan.Id,revision.Routine!.PreviousPlanId);
         var copied=revision.Routine.Entries.Single(e=>e.Date==plan.StartDate && e.MealTime=="breakfast");
-        Assert.Equal("changed",copied.Status);Assert.Equal("Recorded before revision",copied.Note);
+        Assert.Equal("unlogged",copied.Status);Assert.Equal("Recorded before revision",copied.Note);
         var old=await client.GetFromJsonAsync<MealPlanDto>($"/api/MealPlans/{plan.Id}");
         Assert.Equal("superseded",old!.Routine!.State);
         Assert.Equal(plan.Menu.Days[0].TotalCalories,old.Menu!.Days[0].TotalCalories);
@@ -182,8 +203,8 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
             {
                 var date=plan.StartDate!.Value.AddDays(i);
                 var changed=date>=today.AddDays(-4) && date<=today.AddDays(-3);
-                db.Add(new MealPlanEntry {MealPlanId=plan.Id,Date=date,MealTime=slot,Status=changed?"changed":"unlogged",
-                    LoggedAt=changed?DateTime.UtcNow:null,DueAt=DateTime.SpecifyKind(date.ToDateTime(new(12,0)),DateTimeKind.Utc)});
+                db.Add(new MealPlanEntry {MealPlanId=plan.Id,Date=date,MealTime=slot,Status=changed?"changed":"followed",
+                    LoggedAt=DateTime.UtcNow,DueAt=DateTime.SpecifyKind(date.ToDateTime(new(12,0)),DateTimeKind.Utc)});
             }
             await db.SaveChangesAsync();
         }
@@ -210,7 +231,7 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
     }
 
     [Fact]
-    public async Task ReminderSweep_IsIdempotentAndUnloggedMealsNeverTriggerReview()
+    public async Task ReminderSweep_IsIdempotentAndDoesNotReviewIncompletePeriods()
     {
         var owner=await SeedAsync();var plan=await GoalAsync(owner);
         await using(var db=fixture.Context())
@@ -231,18 +252,127 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
     }
 
     [Fact]
-    public async Task Goal_NextWeekUsesFreshSafetyAndCanDisableReminders()
+    public async Task CompletedReview_AllUnrecordedMealsRecommendOnce_WhileMaintenanceIsExcluded()
+    {
+        var owner=await SeedAsync();var plan=await CompleteWeekAsync(owner,await GoalAsync(owner),3);
+        var balancedOwner=await SeedAsync(false);
+        await using(var db=fixture.Context())
+        {
+            var p=new MealPlan {UserId=balancedOwner,StartDate=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-3),
+                EndDate=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(3),DietType="vegan",GenerationSource="manual",Status="completed",AllergiesSnapshot="[]",AvailableIngredientsSnapshot="[]",CreatedAt=DateTime.UtcNow};
+            db.MealPlans.Add(p);await db.SaveChangesAsync();
+            db.Add(new MealPlanRoutine {MealPlanId=p.Id,UserId=balancedOwner,RootPlanId=p.Id,Mode="maintenance"});
+            for(var day=0;day<3;day++) db.Add(new MealPlanEntry {MealPlanId=p.Id,Date=p.StartDate!.Value.AddDays(day),MealTime="breakfast",DueAt=DateTime.UtcNow.AddDays(-3+day)});
+            await db.SaveChangesAsync();
+        }
+        for(var attempt=0;attempt<2;attempt++)
+        {
+            using var scope=fixture.Factory.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<VeganHelper.BLL.Services.MealPlanning.MealRoutineReview>().RunAsync(default);
+        }
+        await using var check=fixture.Context();
+        var notice=await check.Set<Notification>().SingleAsync(n=>n.UserId==owner && n.EventKey.StartsWith("meal-review:"));
+        Assert.Contains("not been marked as followed",notice.Message);
+        Assert.Equal(0,await check.Set<Notification>().CountAsync(n=>n.UserId==balancedOwner && n.EventKey.StartsWith("meal-review:")));
+    }
+
+    [Fact]
+    public async Task Continuation_RequiresCompletionAndCurrentWeight_AndPreviewNeverChangesProfile()
     {
         var owner=await SeedAsync();var plan=await GoalAsync(owner);using var client=fixture.Factory.Client(owner);
+        var missing=await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview",new {expectedVersion=0,profileFingerprint="",nextWeek=true,eligibilityConfirmed=true});
+        Assert.Equal(HttpStatusCode.BadRequest,missing.StatusCode);
+        var early=await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview",new {expectedVersion=0,profileFingerprint="",nextWeek=true,currentWeightKg=59.8m,eligibilityConfirmed=true});
+        Assert.False((await early.Content.ReadFromJsonAsync<RevisionPreview>())!.Allowed);
+        plan=await CompleteWeekAsync(owner,plan);
+        var response=await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview",new {expectedVersion=0,profileFingerprint="",nextWeek=true,currentWeightKg=59.8m,eligibilityConfirmed=true});
+        var preview=(await response.Content.ReadFromJsonAsync<RevisionPreview>())!;Assert.True(preview.Allowed,string.Join(" | ",preview.Reasons ?? []));
+        await using var db=fixture.Context();
+        Assert.Equal(60,(await db.UserProfiles.SingleAsync(p=>p.UserId==owner)).WeightKg);
+        Assert.Equal(0,await db.BmiHistories.CountAsync(p=>p.UserId==owner));
+    }
+
+    [Fact]
+    public async Task Continuation_LateReturnUsesTodayAndNewWeight_AndPreservesOriginalGoalAndHistory()
+    {
+        var owner=await SeedAsync();var original=await CompleteWeekAsync(owner,await GoalAsync(owner),10);
+        using var client=fixture.Factory.Client(owner);
+        var preview=(await (await client.PostAsJsonAsync($"/api/MealPlans/{original.Id}/revision-preview",new
+            {expectedVersion=0,profileFingerprint="",nextWeek=true,currentWeightKg=59.8m,eligibilityConfirmed=true})).Content.ReadFromJsonAsync<RevisionPreview>())!;
+        Assert.True(preview.Allowed,string.Join(" | ",preview.Reasons ?? []));Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow),preview.EffectiveFrom);
+        var request=new RevisionRequest(preview.Version,preview.ProfileFingerprint,true,NextWeek:true,CurrentWeightKg:59.8m);
+        using var second=fixture.Factory.Client(owner);
+        var responses=await Task.WhenAll(client.PostAsJsonAsync($"/api/MealPlans/{original.Id}/revisions",request),
+            second.PostAsJsonAsync($"/api/MealPlans/{original.Id}/revisions",request));
+        Assert.Single(responses,r=>r.StatusCode==HttpStatusCode.Created);Assert.Single(responses,r=>r.StatusCode==HttpStatusCode.Conflict);
+        var next=(await responses.Single(r=>r.StatusCode==HttpStatusCode.Created).Content.ReadFromJsonAsync<MealPlanDto>())!;
+        Assert.Equal(preview.EffectiveFrom,next.StartDate);Assert.Equal(59.8m,next.Menu!.EnergyProfile!.WeightKg);
+        Assert.Equal(original.Routine!.TargetDate,next.Routine!.TargetDate);Assert.Equal(original.Routine.TargetWeightKg,next.Routine.TargetWeightKg);
+        Assert.All(next.Routine.Entries,e=>Assert.Equal("unlogged",e.Status));
+        var old=(await client.GetFromJsonAsync<MealPlanDto>($"/api/MealPlans/{original.Id}"))!;
+        Assert.Equal(next.Id,old.Routine!.NextPlanId);Assert.Equal("continued",old.Routine.State);
+        Assert.Equal(original.StartDate,old.StartDate);Assert.Equal(original.Menu!.TargetDailyCalories,old.Menu!.TargetDailyCalories);
+        await using var db=fixture.Context();
+        Assert.Equal(59.8m,(await db.UserProfiles.SingleAsync(p=>p.UserId==owner)).WeightKg);
+        Assert.Equal(59.8m,(await db.BmiHistories.SingleAsync(p=>p.UserId==owner)).WeightKg);
+    }
+
+    [Fact]
+    public async Task Continuation_RejectsChangedPreviewWeightAndOverlappingWeekWithoutUpdatingProfile()
+    {
+        var owner=await SeedAsync();var plan=await CompleteWeekAsync(owner,await GoalAsync(owner));using var client=fixture.Factory.Client(owner);
+        var preview=(await (await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview",new
+            {expectedVersion=0,profileFingerprint="",nextWeek=true,currentWeightKg=59.8m,eligibilityConfirmed=true})).Content.ReadFromJsonAsync<RevisionPreview>())!;
+        Assert.True(preview.Allowed,string.Join(" | ",preview.Reasons ?? []));
+        var tamper=await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revisions",
+            new RevisionRequest(preview.Version,preview.ProfileFingerprint,true,NextWeek:true,CurrentWeightKg:59.5m));
+        Assert.Equal(HttpStatusCode.Conflict,tamper.StatusCode);
+        await GoalAsync(owner);
+        var overlap=await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revisions",
+            new RevisionRequest(preview.Version,preview.ProfileFingerprint,true,NextWeek:true,CurrentWeightKg:59.8m));
+        Assert.Equal(HttpStatusCode.Conflict,overlap.StatusCode);
+        await using var db=fixture.Context();Assert.Equal(60,(await db.UserProfiles.SingleAsync(p=>p.UserId==owner)).WeightKg);
+        Assert.Equal(0,await db.BmiHistories.CountAsync(p=>p.UserId==owner));
+    }
+
+    [Fact]
+    public async Task Continuation_RejectsOtherUsersPlanWithoutChangingTheirProfile()
+    {
+        var owner=await SeedAsync();var plan=await CompleteWeekAsync(owner,await GoalAsync(owner));
+        var other=await SeedAsync(false);using var stranger=fixture.Factory.Client(other);
+        var request=new RevisionRequest(0,"",true,NextWeek:true,CurrentWeightKg:59.8m);
+        Assert.Equal(HttpStatusCode.NotFound,(await stranger.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview",request)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,(await stranger.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revisions",request)).StatusCode);
+        await using var db=fixture.Context();
+        Assert.Equal(60,(await db.UserProfiles.SingleAsync(p=>p.UserId==other)).WeightKg);
+        Assert.Equal(0,await db.BmiHistories.CountAsync(p=>p.UserId==other));
+    }
+
+    [Fact]
+    public async Task Continuation_ProvidesGuidanceForReachedGoalOrExpiredTarget()
+    {
+        var owner=await SeedAsync();var plan=await CompleteWeekAsync(owner,await GoalAsync(owner));using var client=fixture.Factory.Client(owner);
+        var reached=(await (await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview",new
+            {expectedVersion=0,profileFingerprint="",nextWeek=true,currentWeightKg=58m,targetWeightKg=58m,eligibilityConfirmed=true})).Content.ReadFromJsonAsync<RevisionPreview>())!;
+        Assert.False(reached.Allowed);Assert.Contains(reached.Reasons,r=>r.Contains("reached or passed"));
+        var expired=(await (await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview",new
+            {expectedVersion=0,profileFingerprint="",nextWeek=true,currentWeightKg=59.8m,targetDate=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1),eligibilityConfirmed=true})).Content.ReadFromJsonAsync<RevisionPreview>())!;
+        Assert.False(expired.Allowed);Assert.NotEmpty(expired.Reasons);
+    }
+
+    [Fact]
+    public async Task Goal_NextWeekUsesFreshSafetyAndCanDisableReminders()
+    {
+        var owner=await SeedAsync();var plan=await CompleteWeekAsync(owner,await GoalAsync(owner));using var client=fixture.Factory.Client(owner);
         var response=await client.PutAsJsonAsync($"/api/MealPlans/{plan.Id}/reminders",new
         {enabled=false,timeZoneId="UTC",breakfastTime="08:00:00",lunchTime="12:30:00",dinnerTime="19:00:00",expectedVersion=0});
         Assert.Equal(HttpStatusCode.OK,response.StatusCode);
         var routine=(await response.Content.ReadFromJsonAsync<MealRoutineDto>())!;Assert.False(routine.RemindersEnabled);
         var preview=(await (await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview",new
-        {expectedVersion=routine.Version,profileFingerprint="",eligibilityConfirmed=true,nextWeek=true})).Content.ReadFromJsonAsync<RevisionPreview>())!;
-        Assert.True(preview.Allowed);
+        {expectedVersion=routine.Version,profileFingerprint="",eligibilityConfirmed=true,nextWeek=true,currentWeightKg=60})).Content.ReadFromJsonAsync<RevisionPreview>())!;
+        Assert.True(preview.Allowed,string.Join(" | ",preview.Reasons ?? []));
         var nextResponse=await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revisions",
-            new RevisionRequest(preview.Version,preview.ProfileFingerprint,true,NextWeek:true));
+            new RevisionRequest(preview.Version,preview.ProfileFingerprint,true,NextWeek:true,CurrentWeightKg:60));
         Assert.Equal(HttpStatusCode.Created,nextResponse.StatusCode);
         var next=(await nextResponse.Content.ReadFromJsonAsync<MealPlanDto>())!;
         Assert.Equal(plan.EndDate!.Value.AddDays(1),next.StartDate);

@@ -16,6 +16,8 @@ public interface IMealRoutineRepository
     Task AddAsync(MealPlanRoutine routine,IEnumerable<MealPlanEntry> entries,CancellationToken ct);
     Task ReplaceEntriesAsync(long planId,IEnumerable<MealPlanEntry> entries,CancellationToken ct);
     Task SaveAsync(CancellationToken ct);
+    Task<IReadOnlyDictionary<long,long>> NextPlanIdsAsync(long userId,IReadOnlyCollection<long> planIds,CancellationToken ct);
+    Task UpdateWeightAsync(long userId,decimal weight,DateTime now,CancellationToken ct);
     Task<List<(MealPlanRoutine Routine,MealPlan Plan)>> ActiveAsync(int offset,int limit,CancellationToken ct);
     Task<(DateOnly Start,List<MealPlanEntry> Entries)> ReviewHistoryAsync(long rootId,CancellationToken ct);
 }
@@ -59,6 +61,24 @@ public sealed class MealRoutineRepository(AppDbContext db) : IMealRoutineReposit
         db.AddRange(entries);
     }
     public Task SaveAsync(CancellationToken ct)=>db.SaveChangesAsync(ct);
+    public async Task<IReadOnlyDictionary<long,long>> NextPlanIdsAsync(long userId,IReadOnlyCollection<long> planIds,CancellationToken ct)
+    {
+        var rows=await (from r in db.Set<MealPlanRoutine>().AsNoTracking()
+            join p in db.MealPlans.AsNoTracking() on r.MealPlanId equals p.Id
+            where r.UserId==userId && r.PreviousPlanId!=null && planIds.Contains(r.PreviousPlanId.Value)
+                && r.State!="superseded" && p.Status!="archived"
+            select new {Previous=r.PreviousPlanId!.Value,Next=r.MealPlanId}).ToListAsync(ct);
+        return rows.GroupBy(r=>r.Previous).ToDictionary(g=>g.Key,g=>g.Max(r=>r.Next));
+    }
+    public async Task UpdateWeightAsync(long userId,decimal weight,DateTime now,CancellationToken ct)
+    {
+        // The caller holds the profile advisory lock and owns the surrounding transaction.
+        var profile=await db.UserProfiles.SingleAsync(p=>p.UserId==userId,ct);
+        var bmi=Math.Round(weight/((profile.HeightCm!.Value/100m)*(profile.HeightCm.Value/100m)),2);
+        profile.WeightKg=weight;profile.CurrentBmi=bmi;profile.UpdatedAt=now;
+        db.BmiHistories.Add(new BmiHistory {UserId=userId,HeightCm=profile.HeightCm.Value,
+            WeightKg=weight,BmiValue=bmi,RecordedAt=now});
+    }
     public async Task<List<(MealPlanRoutine Routine,MealPlan Plan)>> ActiveAsync(int offset,int limit,CancellationToken ct)
     {
         var rows=await (from r in db.Set<MealPlanRoutine>().AsNoTracking()
