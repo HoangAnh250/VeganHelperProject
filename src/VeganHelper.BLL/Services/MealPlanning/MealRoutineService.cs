@@ -17,8 +17,7 @@ public sealed class ExistingMealPlanAccessPolicy(IMealPlanPaymentService payment
     public async Task EnsureAsync(long userId,CancellationToken ct)
     {
         var access=await payments.GetAccessAsync(userId,ct);
-        if(!access.CanGenerate)
-            throw new MealPlanAccessRequiredException("Your three free meal-plan trials have been used. Purchase a package to generate more plans.","MEAL_PLAN_TRIAL_LIMIT_REACHED");
+        MealPlanAccessPolicy.RequireGeneration(access);
     }
 }
 
@@ -129,10 +128,12 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
         var entriesByPlan=(await routines.EntriesAsync(routineIds,ct)).GroupBy(entry=>entry.MealPlanId)
             .ToDictionary(group=>group.Key,group=>group.ToList());
         var routinesByPlan=routineRows.ToDictionary(routine=>routine.MealPlanId);
+        var nextPlanIds=await routines.NextPlanIdsAsync(userId,routineIds,ct);
         foreach(var dto in mealPlans)
         {
             if(!routinesByPlan.TryGetValue(dto.Id,out var routine)) continue;
             dto.Routine=mapper.Map<MealRoutineDto>(routine);
+            dto.Routine.NextPlanId=nextPlanIds is not null && nextPlanIds.TryGetValue(dto.Id,out var nextId)?nextId:null;
             dto.Routine.Entries=mapper.Map<List<MealEntryDto>>(entriesByPlan.GetValueOrDefault(dto.Id) ?? []);
         }
     }
@@ -149,8 +150,9 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
         var entry=entries.SingleOrDefault(e=>e.Date==request.Date && e.MealTime==request.MealTime)
             ?? throw new NotFoundException("Scheduled meal not found.");
         if(entry.DueAt>clock.GetUtcNow().UtcDateTime) throw new ArgumentException("Come back at the scheduled meal time to record it.");
-        entry.Status=request.Status; entry.Note=request.Note?.Trim();
-        entry.LoggedAt=request.Status=="unlogged"?null:clock.GetUtcNow().UtcDateTime;
+        // Older clients may still submit legacy states; expose and persist only two states.
+        entry.Status=request.Status=="followed"?"followed":"unlogged";entry.Note=null;
+        entry.LoggedAt=entry.Status=="unlogged"?null:clock.GetUtcNow().UtcDateTime;
         routine.Version++;
         await routines.SaveAsync(ct); await tx.CommitAsync(ct);
         var result=mapper.Map<MealRoutineDto>(routine); result.Entries=mapper.Map<List<MealEntryDto>>(entries); return result;
@@ -186,45 +188,88 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
     }
 
     public async Task<RevisionPreview> PreviewRevisionAsync(long userId,long id,bool nextWeek,CancellationToken ct,
-        decimal? targetWeight=null,DateOnly? targetDate=null,bool? confirmed=null)
+        decimal? targetWeight=null,DateOnly? targetDate=null,bool? confirmed=null,
+        decimal? currentWeight=null,DateOnly? startDate=null)
     {
         await access.EnsureAsync(userId,ct);
         var routine=await Required(userId,id,false,ct);
         var plan=await plans.GetAsync(userId,id,false,ct) ?? throw new NotFoundException("Meal plan not found.");
         var input=await plans.LoadAsync(userId,ct);
-        return BuildPreview(routine,plan,input,nextWeek,targetWeight,targetDate,confirmed);
+        var preview=BuildPreview(routine,plan,input,nextWeek,targetWeight,targetDate,confirmed,currentWeight,startDate);
+        if(nextWeek && preview.Allowed)
+        {
+            if(await plans.HasOverlappingPlanAsync(userId,preview.EffectiveFrom,preview.EffectiveFrom.AddDays(6),null,ct))
+                return preview with {Allowed=false,Reasons=["You already have a menu for these days. Open it from Plan history or choose a later start date."]};
+            try
+            {
+                var menu=MealPlanGenerator.Generate(input,LocalToday(clock,routine.TimeZoneId),new Random(0),ct,
+                    preview.TargetCalories,JsonSerializer.Deserialize<WeeklyMenuDto>(plan.GenerationSnapshot!,Json)!.MealCalorieSplit);
+                var safety=WeightGoalSafety.Evaluate(input.Profile,preview.EffectiveFrom,
+                    targetWeight ?? routine.TargetWeightKg!.Value,targetDate ?? routine.TargetDate!.Value,confirmed ?? routine.EligibilityConfirmed);
+                WeightGoalSafety.ValidateGeneratedDays(menu.Days,safety,input.Profile!.BiologicalSex!);
+            }
+            catch(ConflictException ex) { return preview with {Allowed=false,Reasons=[ex.Message]}; }
+        }
+        return preview;
     }
 
     private RevisionPreview BuildPreview(MealPlanRoutine r,MealPlan plan,MealPlanningInput input,bool nextWeek,
-        decimal? targetWeight,DateOnly? targetDate,bool? confirmed)
+        decimal? targetWeight,DateOnly? targetDate,bool? confirmed,decimal? currentWeight,DateOnly? startDate)
     {
         if(r.Mode!="weight_goal" || r.State!="active") throw new ConflictException("Choose an active weight goal plan.");
         var today=LocalToday(clock,r.TimeZoneId);
-        var effective=nextWeek ? plan.EndDate!.Value.AddDays(1) : (today>=plan.StartDate ? today.AddDays(1):plan.StartDate!.Value);
+        var fingerprint=RevisionFingerprint(input,currentWeight);
+        if(nextWeek)
+        {
+            if(currentWeight is null or <30 or >200)
+                throw new ArgumentException("Enter your current weight between 30 and 200 kg so we can reassess your next week safely.");
+            if(Math.Round(currentWeight.Value,2)!=currentWeight.Value)
+                throw new ArgumentException("Enter your current weight with no more than two decimal places.");
+            if(input.Profile is null) throw new ArgumentException("Please complete your health profile before planning another week.");
+            input.Profile.WeightKg=currentWeight;
+        }
+        else if(currentWeight is not null || startDate is not null)
+            throw new ArgumentException("Update your health profile before adjusting the current week.");
+        var nextStart=plan.EndDate!.Value.AddDays(1)>today?plan.EndDate.Value.AddDays(1):today;
+        var effective=nextWeek ? startDate ?? nextStart : (today>=plan.StartDate ? today.AddDays(1):plan.StartDate!.Value);
+        if(nextWeek && (effective<nextStart || effective>today.AddYears(1)))
+            throw new ArgumentException("Choose a start date from today, after your completed week, and within the next year.");
         var asOf=effective>today?effective:today;
         var safety=WeightGoalSafety.Evaluate(input.Profile,asOf,targetWeight ?? r.TargetWeightKg!.Value,
             targetDate ?? r.TargetDate!.Value,confirmed ?? r.EligibilityConfirmed);
         var reasons=new List<string>(safety.Reasons);
         if(!nextWeek && effective>plan.EndDate) reasons.Add("This week has finished. Continue with a new week instead.");
-        if(nextWeek && effective<today) reasons.Add("That week has already passed. Start a new menu from today to plan the days ahead.");
+        if(nextWeek && today<=plan.EndDate) reasons.Add("Finish this week before planning your next one. Your completed-week check-in will be available the day after it ends.");
+        if(nextWeek && (targetWeight is null || targetWeight==r.TargetWeightKg) && input.Profile?.WeightKg is decimal weight
+            && ((plan.WeightKg>r.TargetWeightKg && weight<=r.TargetWeightKg)
+                || (plan.WeightKg<r.TargetWeightKg && weight>=r.TargetWeightKg)))
+            reasons.Add("You have reached or passed your original weight goal. Consider a balanced menu, or choose a new goal before continuing.");
         if((targetDate ?? r.TargetDate)<effective.AddDays(6) && nextWeek) reasons.Add("There is less than a full week left before your goal date. Choose a later target date if you would like to plan another full week.");
         var old=JsonSerializer.Deserialize<WeeklyMenuDto>(plan.GenerationSnapshot!,Json)!;
-        return new(reasons.Count==0,reasons,r.Version,Fingerprint(input),old.TargetDailyCalories,safety.TargetCalories,
+        return new(reasons.Count==0,reasons,r.Version,fingerprint,old.TargetDailyCalories,safety.TargetCalories,
             safety.Tdee,safety.DailyAdjustment,effective,Math.Abs(old.TargetDailyCalories-safety.TargetCalories)>=100m,
-            nextWeek,safety.PolicyVersion);
+            nextWeek,safety.PolicyVersion,currentWeight);
     }
+
+    private static string RevisionFingerprint(MealPlanningInput input,decimal? currentWeight)=>currentWeight is null
+        ? Fingerprint(input)
+        : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(
+            new {StoredProfile=Fingerprint(input),CurrentWeightKg=currentWeight},Json))));
 
     public async Task<MealPlanDto> ConfirmRevisionAsync(long userId,long id,RevisionRequest request,CancellationToken ct)
     {
         await access.EnsureAsync(userId,ct);
         await using var tx=await routines.BeginAsync(ct);
-        var r=await Required(userId,id,true,ct); RequireActive(r,request.ExpectedVersion);
         await routines.LockProfileAsync(userId,ct);
+        var r=await Required(userId,id,true,ct); RequireActive(r,request.ExpectedVersion);
         var original=await plans.GetAsync(userId,id,false,ct) ?? throw new NotFoundException("Meal plan not found.");
         var input=await plans.LoadAsync(userId,ct);
-        if(Fingerprint(input)!=request.ProfileFingerprint) throw new ConflictException("Your health profile changed. Review a new proposal before confirming.");
-        var preview=BuildPreview(r,original,input,request.NextWeek,request.TargetWeightKg,request.TargetDate,request.EligibilityConfirmed);
+        if(RevisionFingerprint(input,request.CurrentWeightKg)!=request.ProfileFingerprint) throw new ConflictException("Your health profile changed. Review a new proposal before confirming.");
+        var preview=BuildPreview(r,original,input,request.NextWeek,request.TargetWeightKg,request.TargetDate,
+            request.EligibilityConfirmed,request.CurrentWeightKg,request.StartDate);
         if(!preview.Allowed) throw new ArgumentException(string.Join(" ",preview.Reasons));
+        if(request.NextWeek && await plans.HasOverlappingPlanAsync(userId,preview.EffectiveFrom,preview.EffectiveFrom.AddDays(6),null,ct))
+            throw new ConflictException("You already have a menu for these days. Open it from Plan history or choose a later start date.");
         var today=LocalToday(clock,r.TimeZoneId);
         var safety=WeightGoalSafety.Evaluate(input.Profile,preview.EffectiveFrom>today?preview.EffectiveFrom:today,
             request.TargetWeightKg ?? r.TargetWeightKg!.Value,request.TargetDate ?? r.TargetDate!.Value,request.EligibilityConfirmed);
@@ -243,6 +288,7 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
             AllergiesSnapshot=JsonSerializer.Serialize(input.Allergies,Json),AvailableIngredientsSnapshot="[]",
             GenerationSource="manual",GenerationSnapshot=JsonSerializer.Serialize(fresh,Json),Status="completed",CreatedAt=now,UpdatedAt=now};
         var entitlement=await payments.GetAccessAsync(userId,ct);
+        MealPlanAccessPolicy.RequireGeneration(entitlement);
         if(entitlement.Status=="active") await plans.SaveAsync(result,Slots(fresh),ct);
         else if(!await plans.TrySaveTrialAsync(result,Slots(fresh),VeganHelper.BLL.Services.MealPlanAccessPolicy.TrialGenerationLimit,ct))
             throw new MealPlanAccessRequiredException("Your three free meal-plan trials have been used. Purchase a package to generate more plans.","MEAL_PLAN_TRIAL_LIMIT_REACHED");
@@ -251,6 +297,7 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
             EligibilityConfirmed=request.EligibilityConfirmed,RemindersEnabled=r.RemindersEnabled,
             BreakfastTime=r.BreakfastTime,LunchTime=r.LunchTime,DinnerTime=r.DinnerTime},ct,id,
             await routines.EntriesAsync(id,ct),request.NextWeek?null:today);
+        if(request.NextWeek) await routines.UpdateWeightAsync(userId,request.CurrentWeightKg!.Value,now,ct);
         r.State=request.NextWeek?"continued":"superseded"; r.Version++;
         await routines.SaveAsync(ct); await tx.CommitAsync(ct);
         var dto=mapper.Map<MealPlanDto>(result); dto.Menu=fresh; await EnrichAsync(userId,dto,ct); return dto;

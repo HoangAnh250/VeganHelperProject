@@ -5,6 +5,7 @@ using Npgsql;
 using VeganHelper.BLL.DTOs;
 using VeganHelper.BLL.DTOs.MealPlanning;
 using VeganHelper.DAL.Entities;
+using VeganHelper.DAL.Repositories;
 
 namespace VeganHelper.IntegrationTests;
 
@@ -144,13 +145,12 @@ public sealed class MealPlanPaymentApiTests(Member2ApiFixture fixture)
         });
 
         Assert.Equal("grace_period", duringGrace!.Status);
-        Assert.True(duringGrace.CanGenerate);
+        Assert.False(duringGrace.CanGenerate);
         Assert.Equal(3, duringGrace.TrialGenerationsRemaining);
         Assert.True(duringGrace.CanViewExistingPlans);
         Assert.Equal(HttpStatusCode.OK, readablePlans.StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, generation.StatusCode);
-        // Unused trials remain available during grace; this user has no health profile.
-        Assert.Contains("health profile", await generation.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.PaymentRequired, generation.StatusCode);
+        Assert.Contains("MEAL_PLAN_PACKAGE_EXPIRED", await generation.Content.ReadAsStringAsync());
 
         await using (var db = fixture.Context())
         {
@@ -163,6 +163,75 @@ public sealed class MealPlanPaymentApiTests(Member2ApiFixture fixture)
         Assert.Equal("expired", afterGrace!.Status);
         Assert.False(afterGrace.CanViewExistingPlans);
         Assert.Equal(HttpStatusCode.PaymentRequired, blockedPlans.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExpiryReminder_SendsOnceWithinSevenDaysAndQueuesBrowserPush()
+    {
+        var user = await SeedUserAsync();
+        var now = DateTime.UtcNow;
+        var expiry = now.AddDays(7);
+        await SeedAccessAsync(user, now.AddDays(-20), expiry);
+        await using (var db = fixture.Context())
+        {
+            db.Add(new BrowserPushSubscription { UserId = user, Endpoint = "https://push.example.invalid/" + user,
+                EndpointHash = Guid.NewGuid().ToString("N"), P256dh = "test-key", Auth = "test-auth", IsActive = true, UpdatedAt = now });
+            await db.SaveChangesAsync();
+        }
+        await RunExpiryReminderAsync(now.AddSeconds(-1));
+        await using (var before = fixture.Context())
+            Assert.False(await before.Set<Notification>().AnyAsync(n => n.UserId == user));
+        await Task.WhenAll(RunExpiryReminderAsync(now), RunExpiryReminderAsync(now));
+        await RunExpiryReminderAsync(now.AddDays(2));
+        await using var check = fixture.Context();
+        var notice = await check.Set<Notification>().SingleAsync(n => n.UserId == user);
+        Assert.Equal("meal_reminder", notice.Type);
+        Assert.Equal("/weekly-menu", notice.TargetUrl);
+        Assert.Contains("expires soon", notice.Title);
+        Assert.Contains("renew", notice.Message);
+        Assert.Contains("UTC", notice.Message);
+        Assert.Equal(1, await check.Set<NotificationPushDelivery>().CountAsync(p => p.NotificationId == notice.Id));
+        // A later renewal receives its own reminder, without duplicating the old one.
+        await SeedAccessAsync(user, expiry, expiry.AddMonths(1));
+        await RunExpiryReminderAsync(expiry.AddMonths(1).AddDays(-6));
+        Assert.Equal(2, await check.Set<Notification>().CountAsync(n => n.UserId == user));
+    }
+
+    [Fact]
+    public async Task ExpiryReminder_CatchesUpLateRunsAndSkipsExpiredFutureRenewedAndInactiveUsers()
+    {
+        var now = DateTime.UtcNow;
+        var late = await SeedUserAsync();
+        var expired = await SeedUserAsync();
+        var future = await SeedUserAsync();
+        var renewed = await SeedUserAsync();
+        var inactive = await SeedUserAsync();
+        await SeedAccessAsync(late, now.AddDays(-25), now.AddDays(2));
+        await SeedAccessAsync(expired, now.AddDays(-30), now);
+        await SeedAccessAsync(future, now.AddDays(1), now.AddDays(5));
+        await SeedAccessAsync(renewed, now.AddDays(-25), now.AddDays(2));
+        await SeedAccessAsync(renewed, now.AddDays(2), now.AddDays(32));
+        await SeedAccessAsync(inactive, now.AddDays(-25), now.AddDays(2));
+        await using (var db = fixture.Context())
+            await db.Users.Where(u => u.Id == inactive).ExecuteUpdateAsync(s => s.SetProperty(u => u.IsActive, false));
+        await RunExpiryReminderAsync(now);
+        await using var check = fixture.Context();
+        var users = new[] { late, expired, future, renewed, inactive };
+        var notified = await check.Set<Notification>().Where(n => users.Contains(n.UserId)).Select(n => n.UserId).ToListAsync();
+        Assert.Equal(new[] { late }, notified);
+    }
+
+    private async Task RunExpiryReminderAsync(DateTime now)
+    {
+        await using var db = fixture.Context();
+        var service = new VeganHelper.BLL.Services.MealPlanExpiryReminder(new MealPlanPaymentRepository(db),
+            new NotificationRepository(db), new ReminderClock(now));
+        await service.RunAsync(default);
+    }
+
+    private sealed class ReminderClock(DateTime now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(now);
     }
 
     private async Task<long> SeedUserAsync()

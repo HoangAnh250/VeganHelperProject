@@ -35,7 +35,7 @@ public sealed class MealPlansController(IMealPlanningService service,MealRoutine
     public async Task<IActionResult> PreviewRevision(long id,RevisionRequest request,CancellationToken ct)
     {
         if(UserId is not long userId) return Unauthorized();
-        return Ok(await routines.PreviewRevisionAsync(userId,id,request.NextWeek,ct,request.TargetWeightKg,request.TargetDate,request.EligibilityConfirmed));
+        return Ok(await routines.PreviewRevisionAsync(userId,id,request.NextWeek,ct,request.TargetWeightKg,request.TargetDate,request.EligibilityConfirmed,request.CurrentWeightKg,request.StartDate));
     }
     [HttpPost("{id:long:min(1)}/revisions")]
     public async Task<IActionResult> Revise(long id,RevisionRequest request,CancellationToken ct)

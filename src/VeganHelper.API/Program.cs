@@ -282,6 +282,8 @@ builder.Services.AddScoped<IMealRoutineRepository, MealRoutineRepository>();
 builder.Services.AddScoped<VeganHelper.BLL.Services.MealPlanning.MealRoutineService>();
 builder.Services.AddScoped<VeganHelper.BLL.Services.MealPlanning.MealRoutineReview>();
 builder.Services.AddScoped<MealRoutineJob>();
+builder.Services.AddScoped<MealPlanExpiryReminder>();
+builder.Services.AddScoped<MealPlanExpiryReminderJob>();
 builder.Services.AddScoped<VeganHelper.BLL.Services.MealPlanning.IMealPlanAccessPolicy, VeganHelper.BLL.Services.MealPlanning.ExistingMealPlanAccessPolicy>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<NotificationService>();
@@ -393,8 +395,12 @@ if (pushWorkerConfigured &&
         "notifications-web-push", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
 }
 if (mealWorkerConfigured)
+{
     app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<MealRoutineJob>(
         "meal-routine-review", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
+    app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<MealPlanExpiryReminderJob>(
+        "meal-package-expiry-reminder", job => job.RunAsync(CancellationToken.None), Cron.Hourly());
+}
 if (moderationWorkerConfigured)
     app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<PostModerationJob>(
         "posts-ai-moderation", job => job.RunAsync(CancellationToken.None), Cron.Minutely());

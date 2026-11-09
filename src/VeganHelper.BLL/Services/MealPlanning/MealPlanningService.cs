@@ -31,8 +31,7 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
         await validator.ValidateAndThrowAsync(request,ct);
         var planName=MealPlanNaming.NormalizeOrDefault(request.Name,request.StartDate);
         var access=await payments.GetAccessAsync(userId,ct);
-        if(!access.CanGenerate)
-            throw new MealPlanAccessRequiredException("Your three free meal-plan trials have been used. Purchase a package to generate more plans.","MEAL_PLAN_TRIAL_LIMIT_REACHED");
+        MealPlanAccessPolicy.RequireGeneration(access);
         MealRoutineService.ValidateSettings(request);
         var today=MealRoutineService.LocalToday(clock,request.TimeZoneId);
         if(request.StartDate<today || request.StartDate>today.AddYears(1))
@@ -63,6 +62,9 @@ public sealed class MealPlanningService(IMealPlanningRepository repository,IMapp
             day.Date=request.StartDate.AddDays(day.DayIndex-1);
             day.DayOfWeek=(byte)(((int)day.Date.DayOfWeek+6)%7+1);
         }
+        // Recheck after generation in case the package expired while calculating the menu.
+        access=await payments.GetAccessAsync(userId,ct);
+        MealPlanAccessPolicy.RequireGeneration(access);
         var now=clock.GetUtcNow().UtcDateTime;
         var plan=new MealPlan
         {

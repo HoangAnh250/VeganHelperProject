@@ -72,6 +72,7 @@ public sealed class MealRoutineDto
     public decimal? TargetWeightKg { get; set; }
     public DateOnly? TargetDate { get; set; }
     public long? PreviousPlanId { get; set; }
+    public long? NextPlanId { get; set; }
     public string TimeZoneId { get; set; }="UTC";
     public bool RemindersEnabled { get; set; }
     public TimeOnly BreakfastTime { get; set; }
@@ -95,10 +96,11 @@ public sealed record LogMealRequest(DateOnly Date,string MealTime,string Status,
 public sealed record MealReminderSettingsRequest(bool Enabled,string TimeZoneId,TimeOnly BreakfastTime,
     TimeOnly LunchTime,TimeOnly DinnerTime,int ExpectedVersion);
 public sealed record RevisionRequest(int ExpectedVersion,string ProfileFingerprint,bool EligibilityConfirmed,
-    decimal? TargetWeightKg=null,DateOnly? TargetDate=null,bool NextWeek=false);
+    decimal? TargetWeightKg=null,DateOnly? TargetDate=null,bool NextWeek=false,
+    decimal? CurrentWeightKg=null,DateOnly? StartDate=null);
 public sealed record RevisionPreview(bool Allowed,List<string> Reasons,int Version,string ProfileFingerprint,
     decimal PreviousCalories,decimal TargetCalories,decimal Tdee,decimal DailyAdjustment,DateOnly EffectiveFrom,
-    bool SignificantChange,bool NextWeek,string PolicyVersion);
+    bool SignificantChange,bool NextWeek,string PolicyVersion,decimal? CurrentWeightKg=null);
 
 public sealed class WeeklyMenuDto
 {
