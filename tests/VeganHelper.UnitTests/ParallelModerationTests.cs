@@ -114,4 +114,63 @@ public partial class GeminiModerationClientTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => review);
         await bothCancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
+    [Theory]
+    [InlineData("PASS")]
+    [InlineData("FAIL")]
+    public async Task ParallelProviders_LongPegasusReasonDoesNotLoseTheVerdict(string decision)
+    {
+        var calls = 0;
+        using var http = new HttpClient(new FakeHandler((request, ct) =>
+        {
+            if (request.RequestUri!.Host == "media.example.org") return Task.FromResult(Image(VideoTestData.Mp4(10), "video/mp4"));
+            if (request.RequestUri.Host == "generativelanguage.googleapis.com") return Task.FromResult(Reply(Safe));
+            calls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) {Content = new StringContent(JsonSerializer.Serialize(new
+            {finish_reason="stop",data=JsonSerializer.Serialize(new {result=decision,reason="Video policy finding. " + new string('x',500)})}))});
+        }));
+        var result=await ParallelClient(http).ReviewAsync(VideoInput(),default);
+        Assert.Equal(decision=="FAIL" ? "flagged" : "safe",result.Verdict);
+        Assert.InRange(result.Summary.Length,1,200);
+        Assert.Equal(1,calls);
+    }
+
+    [Fact]
+    public async Task ParallelProviders_ExplicitlyDelegatesVideoAndBoundsPegasusReasonWithSupportedPattern()
+    {
+        using var http = new HttpClient(new FakeHandler(async(request,ct)=>
+        {
+            if(request.RequestUri!.Host=="media.example.org")return Image(VideoTestData.Mp4(10),"video/mp4");
+            using var json=JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
+            if(request.RequestUri.Host=="generativelanguage.googleapis.com")
+            {
+                Assert.Contains("delegated",json.RootElement.GetProperty("system_instruction").GetString(),StringComparison.OrdinalIgnoreCase);
+                var parts=json.RootElement.GetProperty("input");
+                using var payload=JsonDocument.Parse(parts[0].GetProperty("text").GetString()!);
+                Assert.Equal("text_and_images",payload.RootElement.GetProperty("reviewScope").GetString());
+                Assert.Equal(11,payload.RootElement.GetProperty("delegatedVideoIds")[0].GetInt64());
+                return Reply(Safe);
+            }
+            var reason=json.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("properties").GetProperty("reason");
+            Assert.True(reason.TryGetProperty("pattern",out var pattern));
+            Assert.Contains("200",pattern.GetString());
+            Assert.False(reason.TryGetProperty("maxLength",out _));
+            return PegasusReply("PASS");
+        }));
+        Assert.Equal("safe",(await ParallelClient(http).ReviewAsync(VideoInput(),default)).Verdict);
+    }
+
+    [Fact]
+    public async Task Pegasus_ErrorEnvelopeCannotBecomeSafeEvenWithPassData()
+    {
+        using var http=new HttpClient(new FakeHandler((request,ct)=>
+        {
+            if(request.RequestUri!.Host=="media.example.org")return Task.FromResult(Image(VideoTestData.Mp4(10),"video/mp4"));
+            if(request.RequestUri.Host=="generativelanguage.googleapis.com")return Task.FromResult(Reply(Safe));
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(JsonSerializer.Serialize(new
+            {finish_reason="stop",error=new {code="internal_error"},data=JsonSerializer.Serialize(new{result="PASS",reason="No issue."})}))});
+        }));
+        var error=await Assert.ThrowsAsync<ModerationAiException>(()=>ParallelClient(http).ReviewAsync(VideoInput(),default));
+        Assert.Equal("provider_blocked",error.Code);
+    }
+
 }

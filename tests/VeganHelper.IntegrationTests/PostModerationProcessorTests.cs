@@ -137,6 +137,26 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     }
 
     [Fact]
+    public async Task LongValidFail_HoldsPublishedPostAndNotifiesOnce()
+    {
+        var job = await SeedAsync();
+        await using (var setup = fixture.Context())
+            await setup.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, "published"));
+        using var http = new HttpClient(new CompactResponseHandler("FAIL", "Animal ingredient detected. " + new string('x', 500)));
+        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "fake-test-key" }),
+            new ModerationPromptDefinition { Version = "post-moderation.v2.1", SystemInstruction = "Test policy", ResponseSchema = JsonSerializer.SerializeToElement(new { type = "object" }) });
+        await RunAsync(client);
+        await RunAsync(client);
+        await using var db = fixture.Context();
+        var scan = await db.Set<PostModerationScan>().SingleAsync(s => s.Id == job.ScanId);
+        Assert.Equal("flagged", scan.State);
+        Assert.InRange(scan.Summary!.Length, 1, 200);
+        Assert.Equal("pending_review", (await db.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
+        Assert.Single(await db.Flags.Where(f => f.PostId == job.PostId).ToListAsync());
+        Assert.Single(await db.Set<Notification>().Where(n => n.UserId == job.AuthorId).ToListAsync());
+    }
+
+    [Fact]
     public async Task QuotaFailure_DefersAllScansWithoutSpendingRetryBudget()
     {
         var job = await SeedAsync();
@@ -742,6 +762,20 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         Assert.Equal("safe", (await verify.Set<PostModerationScan>().SingleAsync(s => s.Id == job.ScanId)).State);
         Assert.Equal("published", (await verify.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
         Assert.False(await verify.Flags.AnyAsync(f => f.PostId == job.PostId));
+    }
+
+    [Theory]
+    [InlineData("gemini_http_400")]
+    [InlineData("twelvelabs_http_401")]
+    public async Task ProviderHttpFailure_PreservesProviderAndStatusWithoutPublishing(string code)
+    {
+        var job=await SeedAsync();
+        await RunAsync(new FakeClient((_,_)=>throw new ModerationAiException(code,false)));
+        await using var db=fixture.Context();
+        var scan=await db.Set<PostModerationScan>().SingleAsync(s=>s.Id==job.ScanId);
+        Assert.Equal("manual_required",scan.State);
+        Assert.Equal(code,scan.ErrorCode);
+        await AssertNoDecisionOrNotificationAsync(db,job);
     }
 
     private async Task<Job> SeedAsync(string state = "queued", int attempts = 0, DateTime? leaseUntil = null)

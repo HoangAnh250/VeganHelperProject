@@ -69,7 +69,7 @@ public partial class GeminiModerationClientTests
     [InlineData("ACTIVE", 200, null)]
     [InlineData("FAILED", 200, "invalid_media")]
     [InlineData("ACTIVE", 429, "provider_quota")]
-    [InlineData("ACTIVE", 400, "provider_error")]
+    [InlineData("ACTIVE", 400, "gemini_http_400")]
     public async Task Review_PollsProcessingFileAndAlwaysCleansUpAfterResultOrProviderFailure(string fileState, int reviewStatus, string? errorCode)
     {
         var polls = 0; var deletes = 0; var reviews = 0;

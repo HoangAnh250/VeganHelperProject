@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using VeganHelper.BLL.Contracts;
@@ -8,7 +9,7 @@ using VeganHelper.DAL.Repositories;
 namespace VeganHelper.BLL.Services;
 
 public sealed class PostModerationProcessor(IModerationRepository repository, IPostModerationAiClient client,
-    INotificationPublisher notifications, IOptions<ModerationAiOptions> options, TimeProvider clock)
+    INotificationPublisher notifications, IOptions<ModerationAiOptions> options, TimeProvider clock, ILogger<PostModerationProcessor>? logger = null)
 {
     public async Task RunAsync(CancellationToken ct)
     {
@@ -19,6 +20,8 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
             ct.ThrowIfCancellationRequested();
             var scan = await repository.ClaimAsync(clock.GetUtcNow().UtcDateTime, Guid.NewGuid(), options.Value.Model, ct);
             if (scan is null) return;
+            logger?.LogInformation("Moderation scan {ScanId} claimed for post {PostId} revision {Revision}, attempt {Attempt}, worker {Worker}.",
+                scan.Id, scan.PostId, scan.Revision, scan.Attempts, Environment.MachineName);
             ModerationAiResult? result = null;
             ModerationAiException? failure = null;
             var input = await repository.InputAsync(scan.PostId, scan.Revision, ct);
@@ -26,8 +29,19 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
             {
                 try { result = await client.ReviewAsync(input, ct); }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-                catch (ModerationAiException ex) { failure = ex; }
-                catch (Exception) { failure = new("provider_error", false); }
+                catch (ModerationAiException ex)
+                {
+                    failure = ex;
+                    logger?.LogWarning("Moderation scan {ScanId}, post {PostId} revision {Revision}: {ErrorCode}; retryable={Retryable}; field={Field}.",
+                        scan.Id, scan.PostId, scan.Revision, SafeCode(ex.Code), ex.Retryable, ex.ResponseField);
+                }
+                catch (Exception ex)
+                {
+                    // Never log arbitrary exception messages: upstream errors may contain keys or media URLs.
+                    logger?.LogError("Moderation scan {ScanId}, post {PostId} revision {Revision}: unexpected exception type {ExceptionType}.",
+                        scan.Id, scan.PostId, scan.Revision, ex.GetType().Name);
+                    failure = new("provider_error", false);
+                }
             }
             await FinishAsync(scan, input, result, failure, ct);
         }
@@ -114,7 +128,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
             ModelName = scan.Model!, Status = result is null ? "failed" : "completed", InputTokens = result?.InputTokens, OutputTokens = result?.OutputTokens, CreatedAt = now });
         await repository.SaveAsync(ct); await transaction.CommitAsync(ct);
     }
-    private static string SafeCode(string? code) => ModerationResponseErrors.IsKnown(code) ? code! : code is "provider_quota" or "provider_timeout" or "provider_error" or "provider_unavailable" or "invalid_response" or
+    private static string SafeCode(string? code) => (ModerationResponseErrors.IsKnown(code) || ModerationProviderErrors.IsKnown(code)) ? code! : code is "provider_quota" or "provider_timeout" or "provider_error" or "provider_unavailable" or "invalid_response" or
         "unsupported_media" or "video_too_long" or "media_unavailable" or "invalid_media" or "invalid_image" or "unsafe_media_url" or "provider_blocked" or
         "invalid_configuration" or "invalid_input" or "media_too_large" or "input_too_large" or "request_too_large" or "ai_disabled"
         ? code : "review_unavailable";
