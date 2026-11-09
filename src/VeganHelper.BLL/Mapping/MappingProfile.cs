@@ -39,7 +39,8 @@ public sealed class MappingProfile : Profile
         CreateMap<UpdateHealthProfileRequest, UserProfile>(MemberList.None);
         CreateMap<UserProfile, HealthProfileDto>(MemberList.None);
         CreateMap<MealPlanRoutine, VeganHelper.BLL.DTOs.MealPlanning.MealRoutineDto>(MemberList.None);
-        CreateMap<MealPlanEntry, VeganHelper.BLL.DTOs.MealPlanning.MealEntryDto>();
+        CreateMap<MealPlanEntry, VeganHelper.BLL.DTOs.MealPlanning.MealEntryDto>()
+            .ForMember(d=>d.Status,o=>o.MapFrom(s=>s.Status=="followed"?"followed":"unlogged"));
         CreateMap<AllergyProjection, AllergyDto>();
         CreateMap<Ingredient, IngredientOptionDto>();
         CreateMap<BmiHistory, BmiHistoryDto>()
