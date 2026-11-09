@@ -46,12 +46,18 @@ public partial class GeminiModerationClientTests
     }
 
     [Fact]
-    public async Task Review_CompactResult_RejectsLongReason()
+    public async Task Review_CompactResult_PreservesFailAndBoundsLongReasonWithoutAnotherProviderCall()
     {
-        var output = JsonSerializer.Serialize(new { result = "FAIL", reason = new string('x', 201) });
-        using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(output))));
-        var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
-        Assert.Equal("response_reason_too_long", ex.Code);
+        var calls = 0;
+        var reason = "Animal ingredient detected. " + new string('x', 400);
+        var output = JsonSerializer.Serialize(new { result = "FAIL", reason });
+        using var http = new HttpClient(new FakeHandler((_, _) => { calls++; return Task.FromResult(Reply(output)); }));
+        var result = await Client(http).ReviewAsync(Input(), default);
+        Assert.Equal("flagged", result.Verdict);
+        Assert.InRange(result.Summary.Length, 1, 200);
+        Assert.StartsWith("Animal ingredient detected.", result.Summary);
+        Assert.Equal(result.Summary, Assert.Single(result.Findings).Reason);
+        Assert.Equal(1, calls);
     }
 
     [Fact]
@@ -292,7 +298,7 @@ public partial class GeminiModerationClientTests
     {
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent("secret raw provider message private-key") })));
         var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
-        Assert.Equal(status == 429 ? "provider_quota" : "provider_error", ex.Code);
+        Assert.Equal(status == 429 ? "provider_quota" : $"gemini_http_{status}", ex.Code);
         Assert.Equal(retryable, ex.Retryable);
         Assert.DoesNotContain("private-key", ex.ToString());
         Assert.Null(ex.InnerException);
@@ -328,7 +334,7 @@ public partial class GeminiModerationClientTests
 
         var error = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
 
-        Assert.Equal("provider_error", error.Code);
+        Assert.Equal("gemini_http_400", error.Code);
         Assert.False(error.Retryable);
         Assert.Equal(2, providerCalls);
     }
@@ -430,20 +436,14 @@ public partial class GeminiModerationClientTests
         Assert.Null(ex.InnerException);
     }
 
-    [Theory]
-    [InlineData("reason")]
-    [InlineData("result")]
-    public async Task Review_OverlongStructuredFields_AreRejected(string field)
+    [Fact]
+    public async Task Review_InvalidVerdict_IsRejectedEvenWhenReasonIsPresent()
     {
         var result = JsonNode.Parse(Flagged)!.AsObject();
-        switch (field)
-        {
-            case "reason": result["reason"] = new string('x', 201); break;
-            case "result": result["result"] = "PASS\n"; break;
-        }
+        result["result"] = "PASS\n";
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(result.ToJsonString()))));
         var ex = await Assert.ThrowsAsync<ModerationAiException>(() => Client(http).ReviewAsync(Input(), default));
-        Assert.Equal(field == "reason" ? "response_reason_too_long" : "response_verdict_invalid", ex.Code);
+        Assert.Equal("response_verdict_invalid", ex.Code);
     }
 
     [Theory]
@@ -496,7 +496,7 @@ public partial class GeminiModerationClientTests
         var client = ActivatorUtilities.CreateInstance<GeminiPostModerationClient>(services, http,
             Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "private-key" }), Prompt());
         var error = await Assert.ThrowsAsync<ModerationAiException>(() => client.ReviewAsync(Input(), default));
-        Assert.Equal("provider_error", error.Code); Assert.False(error.Retryable);
+        Assert.Equal("gemini_http_400", error.Code); Assert.False(error.Retryable);
         var log = Assert.Single(logger.Messages);
         Assert.Contains("400", log); Assert.Contains("gemini-3.5-flash-lite", log);
         Assert.DoesNotContain("private-key", log); Assert.DoesNotContain("confidential", log);
@@ -517,7 +517,7 @@ public partial class GeminiModerationClientTests
         var logger = new DiagnosticLogger();
         var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "private-key" }), Prompt(), logger);
         var error = await Assert.ThrowsAsync<ModerationAiException>(() => client.ReviewAsync(Input(), default));
-        Assert.Equal("provider_error", error.Code); Assert.False(error.Retryable);
+        Assert.Equal("gemini_http_400", error.Code); Assert.False(error.Retryable);
         Assert.Contains("400", Assert.Single(logger.Messages));
     }
 
@@ -528,7 +528,7 @@ public partial class GeminiModerationClientTests
         var logger = new DiagnosticLogger();
         var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "private-key", TimeoutSeconds = 1 }), Prompt(), logger);
         var error = await Assert.ThrowsAsync<ModerationAiException>(() => client.ReviewAsync(Input(), default));
-        Assert.Equal("provider_error", error.Code); Assert.False(error.Retryable);
+        Assert.Equal("gemini_http_400", error.Code); Assert.False(error.Retryable);
         Assert.Contains("400", Assert.Single(logger.Messages));
     }
 
@@ -590,4 +590,11 @@ public partial class GeminiModerationClientTests
     {
         public override bool CanSeek => false;
     }
+    [Fact]
+    public async Task Review_CompletedEnvelopeWithNullErrorIsValid()
+    {
+        using var http=new HttpClient(new FakeHandler((_,_)=>Task.FromResult(Reply(Safe,amend:json=>json["error"]=null))));
+        Assert.Equal("safe",(await Client(http).ReviewAsync(Input(),default)).Verdict);
+    }
+
 }

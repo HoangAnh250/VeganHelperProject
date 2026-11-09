@@ -49,7 +49,8 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         var clock = Stopwatch.StartNew();
         logger?.LogInformation("Post {PostId} revision {Revision}: running Gemini and TwelveLabs concurrently.", input.PostId, input.Revision);
         var geminiInput = input with { Media = input.Media.Where(m => !IsVideo(m.MediaType)).ToArray() };
-        var gemini = ReviewGeminiAsync(geminiInput, token);
+        var delegatedVideoIds = input.Media.Where(m => IsVideo(m.MediaType)).Select(m => m.Id).ToArray();
+        var gemini = ReviewGeminiAsync(geminiInput, token, delegatedVideoIds);
         var video = ReviewPegasusVideosAsync(input, uris, token);
         var pending = new List<Task<ModerationAiResult?>> { AsNullableAsync(gemini), video };
         Exception? failure = null;
@@ -117,7 +118,8 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         return null;
     }
 
-    private async Task<ModerationAiResult> ReviewGeminiAsync(ModerationAiInput input, CancellationToken ct)
+    private async Task<ModerationAiResult> ReviewGeminiAsync(ModerationAiInput input, CancellationToken ct,
+        IReadOnlyList<long>? delegatedVideoIds = null)
     {
         ct.ThrowIfCancellationRequested();
         var settings = options.Value;
@@ -145,6 +147,8 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
                     {
                         input.PostId, input.Revision, input.Title, input.Content, input.Ingredients, input.Steps,
                         reviewTargets = ExpectedChecks(geminiInput),
+                        reviewScope = delegatedVideoIds is { Count: > 0 } ? "text_and_images" : "complete_post",
+                        delegatedVideoIds = delegatedVideoIds ?? [],
                         media = geminiInput.Media.Select(m => new { m.Id, m.MediaType, m.DurationSeconds }).ToArray()
                     }, JsonOptions)
                 }
@@ -180,7 +184,13 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             {
                 model = settings.Model,
                 store = false,
-                system_instruction = prompt.SystemInstruction,
+                system_instruction = prompt.SystemInstruction + (delegatedVideoIds is { Count: > 0 }
+                    ? "\nTRUSTED REVIEW SCOPE: Videos are delegated to a separate TwelveLabs reviewer. " +
+                      "Assess ONLY the exact reviewTargets supplied here: title, description, ingredients, steps and attached images. " +
+                      "Do not assess delegated videos, invent video checks or FAIL because a delegated video is not attached to this request. " +
+                      "Mentioning a video in the post does not make that delegated asset missing. " +
+                      "Still check ALL supplied text and images for every community policy. The application requires a separate video PASS before treating the entire post as safe."
+                    : ""),
                 input = parts,
                 response_format = new { type = "text", mime_type = "application/json", schema = BuildResponseSchema(geminiInput) },
                 // This cap includes thinking tokens; reserve room for analysis, constrain final JSON separately.
@@ -214,7 +224,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
                         throw new ModerationAiException("provider_quota", true,
                             response.Headers.RetryAfter?.Delta?.TotalSeconds ??
                             (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds);
-                    throw new ModerationAiException("provider_error", IsTransient(response.StatusCode));
+                    throw new ModerationAiException($"gemini_http_{(int)response.StatusCode}", IsTransient(response.StatusCode));
                 }
                 ModerationAiResult result;
                 try
@@ -289,7 +299,8 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
                     properties = new
                     {
                         result = new { type = "string", pattern = "^(PASS|FAIL)$" },
-                        reason = new { type = "string" }
+                        // Pegasus does not support maxLength; a supported pattern constrains generation.
+                        reason = new { type = "string", pattern = "^[^\\r\\n]{1,200}$" }
                     },
                     required = new[] { "result", "reason" }
                 }
@@ -316,7 +327,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
                     throw new ModerationAiException("provider_quota", true,
                         response.Headers.RetryAfter?.Delta?.TotalSeconds ??
                         (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds);
-                throw new ModerationAiException("provider_error", IsTransient(response.StatusCode));
+                throw new ModerationAiException($"twelvelabs_http_{(int)response.StatusCode}", IsTransient(response.StatusCode));
             }
 
             try
@@ -337,6 +348,8 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             !root.TryGetProperty("finish_reason", out var finish) || finish.ValueKind != JsonValueKind.String)
             throw InvalidResponse("response_envelope_invalid");
         if (finish.GetString() != "stop") throw InvalidResponse("response_incomplete");
+        if (root.TryGetProperty("error", out var providerError) && providerError.ValueKind != JsonValueKind.Null)
+            throw new ModerationAiException("provider_blocked", false);
         if (!root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(data.GetString()))
             throw InvalidResponse("response_output_missing");
 
@@ -344,7 +357,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         var result = verdict.RootElement;
         RequireProperties(result, "result", "reason");
         var decision = RequiredString(result, "result", 100);
-        var reason = RequiredString(result, "reason", 200);
+        var reason = ModerationReason(result);
         return decision switch
         {
             "PASS" => null,
@@ -679,7 +692,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             throw new ModerationAiException("provider_quota", true,
                 response.Headers.RetryAfter?.Delta?.TotalSeconds ??
                 (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds);
-        throw new ModerationAiException("provider_error", IsTransient(response.StatusCode));
+        throw new ModerationAiException($"gemini_http_{(int)response.StatusCode}", IsTransient(response.StatusCode));
     }
 
     private static (string Name, string Uri, string MimeType, string State) ParseGeminiFile(byte[] bytes)
@@ -802,7 +815,8 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             throw InvalidResponse("response_envelope_invalid");
         if (!root.TryGetProperty("status", out var status) || status.ValueKind != JsonValueKind.String)
             throw InvalidResponse("response_status_missing");
-        if (status.GetString() != "completed" || root.TryGetProperty("error", out _))
+        if (status.GetString() != "completed" ||
+            root.TryGetProperty("error", out var providerError) && providerError.ValueKind != JsonValueKind.Null)
             throw new ModerationAiException("provider_blocked", false);
         if (root.TryGetProperty("errors", out var errors))
         {
@@ -845,7 +859,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         var decision = RequiredString(result, "result", 100);
         if (decision is not ("PASS" or "FAIL"))
             throw InvalidResponse("response_verdict_invalid");
-        var summary = RequiredString(result, "reason", 200);
+        var summary = ModerationReason(result);
         string? failedTarget = null;
         if (UsesCoverageChecks)
         {
@@ -923,6 +937,22 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var count) || count < 0)
             throw InvalidResponse("response_usage_invalid");
         return count;
+    }
+
+    private string ModerationReason(JsonElement result)
+    {
+        // A display-length violation must not erase a structurally valid FAIL verdict.
+        // The whole response remains bounded; empty, missing and non-string reasons still fail closed.
+        var reason = Regex.Replace(RequiredString(result, "reason", MaxResponseBytes), @"\s+", " ").Trim();
+        if (reason.Length <= 200) return reason;
+        var end = 199;
+        if (char.IsHighSurrogate(reason[end - 1])) end--;
+        var wordEnd = reason.LastIndexOf(' ', end - 1, end);
+        if (wordEnd >= 100) end = wordEnd;
+        var shortened = reason[..end].TrimEnd() + "…";
+        logger?.LogInformation("AI moderation reason shortened from {OriginalLength} to {FinalLength} characters; verdict preserved.",
+            reason.Length, shortened.Length);
+        return shortened;
     }
 
     private static string RequiredString(JsonElement element, string name, int maximum, bool allowEmpty = false)
