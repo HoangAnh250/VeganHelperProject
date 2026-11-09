@@ -20,6 +20,7 @@ public interface IMealPlanPaymentRepository
     Task MarkOrderFailedAsync(long orderId, DateTime now, CancellationToken ct);
     Task<MealPlanPaymentOrder?> GetOrderForUserAsync(long orderId, long userId, CancellationToken ct);
     Task<UserMealPlanAccess?> GetLatestAccessAsync(long userId, CancellationToken ct);
+    Task<IReadOnlyList<UserMealPlanAccess>> GetExpiringAccessAsync(DateTime now, DateTime before, long afterUserId, int limit, CancellationToken ct);
     Task<bool> HasActiveAccessAsync(long userId, DateTime now, CancellationToken ct);
     Task<PaymentWebhookApplyResult> ApplyWebhookAsync(
         long orderCode,

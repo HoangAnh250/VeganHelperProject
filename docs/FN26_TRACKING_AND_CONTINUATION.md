@@ -39,3 +39,13 @@ npm run build
 ```
 
 Frontend tests use a simulated date and mocked API responses. They verify the local day-seven/day-eight boundary, historical calendar access, fresh-weight entry, original-goal defaults, confirmation only after an allowed preview, invalidation after edits, and opening an existing next week.
+
+
+## Package expiry reminders and continued access
+
+- With `MealPlanning:WorkerEnabled=true`, `meal-package-expiry-reminder` runs hourly on the existing meal-planning queue.
+- It sends one English in-app notification (and enqueues browser push for active subscriptions) during the final seven days of the latest paid access period. A delayed run catches up while the package is still active.
+- A prepaid renewal suppresses reminders for the previous period. Expired, future-only and inactive accounts are excluded. The existing `meal_reminder` category and unique user/event key prevent duplicate inbox or push deliveries across retries and servers; no migration is required.
+- Expiry blocks generation, goal previews and next-week continuation even when free trials remain. Never-purchased users retain the original three-trial policy.
+- The existing seven-day viewing grace remains in place so an ongoing seven-day menu can finish after package expiry. Current-week tracking and meal reminders remain available. This does not create or automatically renew a new weekly menu.
+- After that viewing grace, the existing paid-plan viewing restriction applies. Browser push still requires a valid browser subscription, permission and an enabled WebPush worker.

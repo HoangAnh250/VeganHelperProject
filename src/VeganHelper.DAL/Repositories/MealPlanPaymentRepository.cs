@@ -66,6 +66,16 @@ public sealed class MealPlanPaymentRepository(AppDbContext db) : IMealPlanPaymen
         db.UserMealPlanAccesses.AsNoTracking().Where(a => a.UserId == userId)
             .OrderByDescending(a => a.ExpiresAt).ThenByDescending(a => a.Id).FirstOrDefaultAsync(ct);
 
+    public async Task<IReadOnlyList<UserMealPlanAccess>> GetExpiringAccessAsync(
+        DateTime now, DateTime before, long afterUserId, int limit, CancellationToken ct) =>
+        await db.UserMealPlanAccesses.AsNoTracking()
+            .Where(a => a.UserId > afterUserId && a.StartsAt <= now && a.ExpiresAt > now && a.ExpiresAt <= before
+                && db.Users.Any(u => u.Id == a.UserId && u.IsActive)
+                // A prepaid renewal extends the subscription; do not remind for the old period.
+                && !db.UserMealPlanAccesses.Any(other => other.UserId == a.UserId
+                    && (other.ExpiresAt > a.ExpiresAt || other.ExpiresAt == a.ExpiresAt && other.Id > a.Id)))
+            .OrderBy(a => a.UserId).Take(limit).ToListAsync(ct);
+
     public Task<bool> HasActiveAccessAsync(long userId, DateTime now, CancellationToken ct) =>
         db.UserMealPlanAccesses.AsNoTracking().AnyAsync(a => a.UserId == userId && a.StartsAt <= now && a.ExpiresAt > now, ct);
 

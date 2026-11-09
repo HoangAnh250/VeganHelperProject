@@ -84,6 +84,35 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
     }
 
     [Fact]
+    public async Task PackageExpiresDuringWeek_ExistingMenuAndTrackingRemainAvailableButNewWeekIsBlocked()
+    {
+        var owner = await SeedAsync();
+        var plan = await GoalAsync(owner);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        await using (var db = fixture.Context())
+        {
+            await db.UserMealPlanAccesses.Where(a => a.UserId == owner)
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.ExpiresAt, DateTime.UtcNow.AddMinutes(-1)));
+            await db.Set<MealPlanEntry>().Where(e => e.MealPlanId == plan.Id && e.Date == today && e.MealTime == "breakfast")
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.DueAt, DateTime.UtcNow.AddHours(-1)));
+        }
+        using var client = fixture.Factory.Client(owner);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/MealPlans/{plan.Id}")).StatusCode);
+        var log = await client.PutAsJsonAsync($"/api/MealPlans/{plan.Id}/tracking",
+            new { date = today, mealTime = "breakfast", status = "followed", expectedVersion = 0 });
+        Assert.Equal(HttpStatusCode.OK, log.StatusCode);
+        var generate = await client.PostAsJsonAsync("/api/MealPlans/generate", new { startDate = today.AddDays(7) });
+        Assert.Equal(HttpStatusCode.PaymentRequired, generate.StatusCode);
+        Assert.Contains("MEAL_PLAN_PACKAGE_EXPIRED", await generate.Content.ReadAsStringAsync());
+        plan = await CompleteWeekAsync(owner, plan);
+        var request = new { expectedVersion = 1, profileFingerprint = "", nextWeek = true, currentWeightKg = 60, eligibilityConfirmed = true };
+        Assert.Equal(HttpStatusCode.PaymentRequired, (await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revision-preview", request)).StatusCode);
+        Assert.Equal(HttpStatusCode.PaymentRequired, (await client.PostAsJsonAsync($"/api/MealPlans/{plan.Id}/revisions", request)).StatusCode);
+        await using var check = fixture.Context();
+        Assert.Equal(1, await check.MealPlans.CountAsync(p => p.UserId == owner));
+    }
+
+    [Fact]
     public async Task Trial_GoalRevisionsSaveTrackingAndRespectSharedGenerationLimit()
     {
         var owner=await SeedAsync(grantAccess:false);

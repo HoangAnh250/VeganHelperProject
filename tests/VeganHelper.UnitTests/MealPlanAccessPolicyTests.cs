@@ -48,7 +48,7 @@ public sealed class MealPlanAccessPolicyTests
         var result = MealPlanAccessPolicy.Evaluate(Access(now.AddDays(-20), now.AddDays(-3)), false, 0, now);
 
         Assert.Equal("grace_period", result.Status);
-        Assert.True(result.CanGenerate);
+        Assert.False(result.CanGenerate);
         Assert.True(result.CanViewExistingPlans);
         Assert.Equal(3, result.TrialGenerationsRemaining);
         Assert.Equal(now.AddDays(4), result.GraceEndsAt);
@@ -73,8 +73,23 @@ public sealed class MealPlanAccessPolicyTests
         var result = MealPlanAccessPolicy.Evaluate(Access(now.AddDays(1), now.AddMonths(1)), false, 0, now);
 
         Assert.Equal("scheduled", result.Status);
-        Assert.True(result.CanGenerate);
+        Assert.False(result.CanGenerate);
         Assert.False(result.CanViewExistingPlans);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void ExpiredPackage_CannotUseRemainingTrialsToCreateNextWeek(int trialUsage)
+    {
+        var now = Utc(2026, 11, 9);
+        var result = MealPlanAccessPolicy.Evaluate(Access(now.AddMonths(-1), now), false, trialUsage, now);
+        Assert.True(result.CanViewExistingPlans);
+        var error = Assert.Throws<VeganHelper.BLL.Exceptions.MealPlanAccessRequiredException>(
+            () => MealPlanAccessPolicy.RequireGeneration(result));
+        Assert.Equal("MEAL_PLAN_PACKAGE_EXPIRED", error.ErrorCode);
+        Assert.Contains("renew", error.Message);
     }
 
     private static DateTime Utc(int year, int month, int day) =>

@@ -17,8 +17,7 @@ public sealed class ExistingMealPlanAccessPolicy(IMealPlanPaymentService payment
     public async Task EnsureAsync(long userId,CancellationToken ct)
     {
         var access=await payments.GetAccessAsync(userId,ct);
-        if(!access.CanGenerate)
-            throw new MealPlanAccessRequiredException("Your three free meal-plan trials have been used. Purchase a package to generate more plans.","MEAL_PLAN_TRIAL_LIMIT_REACHED");
+        MealPlanAccessPolicy.RequireGeneration(access);
     }
 }
 
@@ -289,6 +288,7 @@ public sealed class MealRoutineService(IMealRoutineRepository routines,IMealPlan
             AllergiesSnapshot=JsonSerializer.Serialize(input.Allergies,Json),AvailableIngredientsSnapshot="[]",
             GenerationSource="manual",GenerationSnapshot=JsonSerializer.Serialize(fresh,Json),Status="completed",CreatedAt=now,UpdatedAt=now};
         var entitlement=await payments.GetAccessAsync(userId,ct);
+        MealPlanAccessPolicy.RequireGeneration(entitlement);
         if(entitlement.Status=="active") await plans.SaveAsync(result,Slots(fresh),ct);
         else if(!await plans.TrySaveTrialAsync(result,Slots(fresh),VeganHelper.BLL.Services.MealPlanAccessPolicy.TrialGenerationLimit,ct))
             throw new MealPlanAccessRequiredException("Your three free meal-plan trials have been used. Purchase a package to generate more plans.","MEAL_PLAN_TRIAL_LIMIT_REACHED");
