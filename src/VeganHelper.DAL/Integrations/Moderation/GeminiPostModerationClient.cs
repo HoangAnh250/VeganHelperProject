@@ -219,7 +219,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
                 }
                 if (!response.IsSuccessStatusCode)
                 {
-                    await LogProviderFailureAsync(response, settings.Model, token, ct);
+                    await LogProviderFailureAsync(response, settings.Model, "interactions", token, ct);
                     if (response.StatusCode == HttpStatusCode.TooManyRequests)
                         throw new ModerationAiException("provider_quota", true,
                             response.Headers.RetryAfter?.Delta?.TotalSeconds ??
@@ -408,20 +408,30 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             (int)response.StatusCode, code, parameter);
     }
 
-    private async Task LogProviderFailureAsync(HttpResponseMessage response, string model, CancellationToken requestToken, CancellationToken callerToken)
+    private async Task LogProviderFailureAsync(HttpResponseMessage response, string model, string stage, CancellationToken requestToken, CancellationToken callerToken)
     {
         if (logger is null || !logger.IsEnabled(LogLevel.Warning)) return;
         using var diagnosticTimeout = CancellationTokenSource.CreateLinkedTokenSource(requestToken);
         diagnosticTimeout.CancelAfter(TimeSpan.FromSeconds(2));
         var status = "unknown"; var reason = "unknown"; var parameter = "unknown";
+        var providerCode = "unknown";
+        var bodyFormat = "unreadable";
         try
         {
             var bytes = await ReadBoundedAsync(response.Content, 16 * 1024, "diagnostic_too_large", diagnosticTimeout.Token);
+            bodyFormat = bytes.Length == 0 ? "empty" : "invalid_json";
             using var json = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 16 });
+            bodyFormat = "json";
             if (json.RootElement.ValueKind == JsonValueKind.Object && json.RootElement.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.Object)
             {
-                // Log only known metadata. Provider messages can echo credentials or user content.
-                if (error.TryGetProperty("status", out var value) && value.ValueKind == JsonValueKind.String)
+                // Interactions uses string codes. Files API can instead return a numeric code and a status.
+                // Log only known metadata because provider messages can echo credentials or user content.
+                if (error.TryGetProperty("code", out var value) && value.ValueKind == JsonValueKind.String &&
+                    value.GetString() is "invalid_request" or "parameter_unknown" or "failed_precondition" or
+                        "authentication" or "permission_denied" or "rate_limit_exceeded" or "quota_exceeded" or
+                        "too_many_requests" or "api_error" or "service_unavailable")
+                    providerCode = value.GetString()!;
+                if (error.TryGetProperty("status", out value) && value.ValueKind == JsonValueKind.String)
                     status = value.GetString() is "INVALID_ARGUMENT" or "FAILED_PRECONDITION" or "UNAUTHENTICATED" or "PERMISSION_DENIED" or
                         "NOT_FOUND" or "RESOURCE_EXHAUSTED" or "INTERNAL" or "UNAVAILABLE" or "DEADLINE_EXCEEDED" ? value.GetString()! : "unknown";
                 if (error.TryGetProperty("details", out var details) && details.ValueKind == JsonValueKind.Array)
@@ -446,8 +456,8 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         {
             // A malformed/truncated diagnostic must not hide the original HTTP status.
         }
-        logger.LogWarning("Gemini moderation HTTP {HttpStatusCode}; model {Model}; provider status {ProviderStatus}; reason {ProviderReason}; parameter hint {ParameterHint}.",
-            (int)response.StatusCode, model, status, reason, parameter);
+        logger.LogWarning("Gemini moderation HTTP {HttpStatusCode}; stage {Stage}; model {Model}; provider code {ProviderCode}; provider status {ProviderStatus}; reason {ProviderReason}; parameter hint {ParameterHint}; body format {BodyFormat}.",
+            (int)response.StatusCode, stage, model, providerCode, status, reason, parameter, bodyFormat);
     }
 
     private void ValidateConfiguration(ModerationAiOptions settings)
@@ -627,7 +637,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         start.Headers.Add("X-Goog-Upload-Header-Content-Type", mimeType);
         using var startResponse = await httpClient.SendAsync(start, HttpCompletionOption.ResponseHeadersRead, ct);
         if (!startResponse.IsSuccessStatusCode)
-            await ThrowProviderFailureAsync(startResponse, settings.Model, ct);
+            await ThrowProviderFailureAsync(startResponse, settings.Model, "files_start", ct);
         if (!startResponse.Headers.TryGetValues("X-Goog-Upload-URL", out var uploadUrls))
             throw InvalidResponse("response_upload_url_missing");
         var uploadUrlValues = uploadUrls.Take(2).ToArray();
@@ -648,7 +658,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         upload.Headers.Add("X-Goog-Upload-Command", "upload, finalize");
         using var uploadResponse = await httpClient.SendAsync(upload, HttpCompletionOption.ResponseHeadersRead, ct);
         if (!uploadResponse.IsSuccessStatusCode)
-            await ThrowProviderFailureAsync(uploadResponse, settings.Model, ct);
+            await ThrowProviderFailureAsync(uploadResponse, settings.Model, "files_upload", ct);
         var file = ParseGeminiFile(await ReadBoundedAsync(uploadResponse.Content, MaxResponseBytes, "response_too_large", ct));
         uploadedGeminiFiles.Add(file.Name);
         if (file.State == "FAILED")
@@ -671,7 +681,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             request.Headers.Add("x-goog-api-key", settings.ApiKey);
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
             if (!response.IsSuccessStatusCode)
-                await ThrowProviderFailureAsync(response, settings.Model, ct);
+                await ThrowProviderFailureAsync(response, settings.Model, "files_poll", ct);
             current = ParseGeminiFile(await ReadBoundedAsync(response.Content, MaxResponseBytes, "response_too_large", ct));
             if (current.Name != file.Name)
                 throw InvalidResponse("response_file_mismatch");
@@ -685,9 +695,9 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         return current;
     }
 
-    private async Task ThrowProviderFailureAsync(HttpResponseMessage response, string model, CancellationToken ct)
+    private async Task ThrowProviderFailureAsync(HttpResponseMessage response, string model, string stage, CancellationToken ct)
     {
-        await LogProviderFailureAsync(response, model, ct, ct);
+        await LogProviderFailureAsync(response, model, stage, ct, ct);
         if (response.StatusCode == HttpStatusCode.TooManyRequests)
             throw new ModerationAiException("provider_quota", true,
                 response.Headers.RetryAfter?.Delta?.TotalSeconds ??
