@@ -17,8 +17,19 @@ internal static class AccountTokenValidation
             context.Fail("Invalid session. Sign in again.");
             return;
         }
-        var role = await context.HttpContext.RequestServices.GetRequiredService<IAccountAccessService>()
-            .GetSessionRoleAsync(userId, version, context.HttpContext.RequestAborted);
+        var requestAborted = context.HttpContext.RequestAborted;
+        string? role;
+        try
+        {
+            requestAborted.ThrowIfCancellationRequested();
+            role = await context.HttpContext.RequestServices.GetRequiredService<IAccountAccessService>()
+                .GetSessionRoleAsync(userId, version, requestAborted);
+        }
+        catch (OperationCanceledException) when (requestAborted.IsCancellationRequested)
+        {
+            context.NoResult();
+            return;
+        }
         if (role is null)
         {
             context.Fail("Session has been revoked or account is unavailable.");
