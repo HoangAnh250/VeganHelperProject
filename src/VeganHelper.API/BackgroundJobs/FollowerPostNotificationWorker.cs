@@ -2,7 +2,7 @@ using VeganHelper.BLL.Services;
 
 namespace VeganHelper.API.BackgroundJobs;
 
-// In-app fan-out must work even when browser push and Gemini are disabled.
+// In-app fan-out must work even when browser push and AI moderation are disabled.
 public sealed class FollowerPostNotificationWorker(IServiceScopeFactory scopes, ILogger<FollowerPostNotificationWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

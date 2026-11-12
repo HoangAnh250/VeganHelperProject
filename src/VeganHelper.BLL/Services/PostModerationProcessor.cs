@@ -74,7 +74,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                     ? Math.Clamp(requested, 60, 86400) : 900;
                 scan.State = "queued"; scan.Attempts = Math.Max(0, scan.Attempts - 1);
                 scan.ErrorCode = "provider_quota"; scan.NextAttemptAt = now.AddSeconds(seconds);
-                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.8"; scan.CompletedAt = null;
+                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.9"; scan.CompletedAt = null;
                 await repository.DeferProviderAsync(scan.NextAttemptAt, ct);
             }
             else
@@ -82,7 +82,7 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
                 var retry = failure?.Retryable == true && scan.Attempts < 5;
                 scan.State = retry ? "queued" : failure?.Retryable == true ? "failed" : "manual_required";
                 scan.ErrorCode = SafeCode(failure?.Code);
-                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.8";
+                scan.Model = options.Value.Model; scan.PromptVersion = "post-moderation.v2.9";
                 scan.NextAttemptAt = now.AddSeconds(30 * Math.Pow(3, Math.Max(0, scan.Attempts - 1)));
                 scan.CompletedAt = retry ? null : now;
             }
@@ -124,7 +124,9 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
         repository.AddAssessment(new PostModerationAssessment { PostId = post.Id, Revision = scan.Revision,
             RequestId = claimed.LeaseToken!.Value, CreatedAt = now,
             ResultJson = JsonSerializer.Serialize(new { scan.State, scan.ErrorCode, Result = result }, JsonSerializerOptions.Web) });
-        repository.AddUsage(new AiUsage { RequestId = claimed.LeaseToken!.Value, UserId = post.AuthorId, FeatureType = "content_moderation", Provider = "gemini",
+        repository.AddUsage(new AiUsage { RequestId = claimed.LeaseToken!.Value, UserId = post.AuthorId, FeatureType = "content_moderation",
+            Provider = result?.Model == "pegasus1.6" || scan.ErrorCode?.StartsWith("twelvelabs_http_", StringComparison.Ordinal) == true
+                ? "twelvelabs" : "deepseek",
             ModelName = scan.Model!, Status = result is null ? "failed" : "completed", InputTokens = result?.InputTokens, OutputTokens = result?.OutputTokens, CreatedAt = now });
         await repository.SaveAsync(ct);
         await transaction.CommitAsync(ct);
@@ -135,6 +137,6 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
     }
     private static string SafeCode(string? code) => (ModerationResponseErrors.IsKnown(code) || ModerationProviderErrors.IsKnown(code)) ? code! : code is "provider_quota" or "provider_timeout" or "provider_error" or "provider_unavailable" or "invalid_response" or
         "unsupported_media" or "video_too_long" or "media_unavailable" or "invalid_media" or "invalid_image" or "unsafe_media_url" or "provider_blocked" or
-        "invalid_configuration" or "invalid_input" or "media_too_large" or "input_too_large" or "request_too_large" or "ai_disabled"
+        "invalid_configuration" or "invalid_input" or "media_too_large" or "input_too_large" or "request_too_large" or "ai_disabled" or "video_provider_unavailable"
         ? code : "review_unavailable";
 }

@@ -108,7 +108,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     [InlineData("FAIL", false, "pending_review", true)]
     [InlineData("PASS", true, "pending_review", false)]
     [InlineData("FAIL", true, "pending_review", false)]
-    public async Task CompactGeminiContract_PreservesPublicationHoldAndNotification(string result, bool held, string expectedStatus, bool notify)
+    public async Task CompactDeepSeekContract_PreservesPublicationHoldAndNotification(string result, bool held, string expectedStatus, bool notify)
     {
         var job = await SeedAsync();
         await using (var setup = fixture.Context())
@@ -116,7 +116,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
                 s.SetProperty(p => p.Status, held ? "pending_review" : "published").SetProperty(p => p.ModerationHold, held));
         var reason = result == "PASS" ? "The content complies with community guidelines." : "The ingredients include meat; Admin review is required.";
         using var http = new HttpClient(new CompactResponseHandler(result, reason));
-        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "fake-test-key" }),
+        var client = new DeepSeekPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "fake-test-key" }),
             new ModerationPromptDefinition { Version = "post-moderation.v2.1", SystemInstruction = "Test policy", ResponseSchema = JsonSerializer.SerializeToElement(new { type = "object" }) });
         await RunAsync(client);
         await using var db = fixture.Context();
@@ -143,7 +143,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         await using (var setup = fixture.Context())
             await setup.Posts.Where(p => p.Id == job.PostId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, "published"));
         using var http = new HttpClient(new CompactResponseHandler("FAIL", "Animal ingredient detected. " + new string('x', 500)));
-        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "fake-test-key" }),
+        var client = new DeepSeekPostModerationClient(http, Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "fake-test-key" }),
             new ModerationPromptDefinition { Version = "post-moderation.v2.1", SystemInstruction = "Test policy", ResponseSchema = JsonSerializer.SerializeToElement(new { type = "object" }) });
         await RunAsync(client);
         await RunAsync(client);
@@ -189,14 +189,14 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         await using (var setup = fixture.Context())
         {
             await setup.Set<PostModerationScan>().Where(s => s.Id == oldModelJob.ScanId)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Model, "gemini-3.8-flash")
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Model, "deepseek-flash")
                     .SetProperty(x => x.ErrorCode, "provider_quota")
                     .SetProperty(x => x.NextAttemptAt, Now.UtcDateTime.AddHours(12)));
             await setup.Set<PostModerationSettings>()
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.ProviderRetryAfter, Now.UtcDateTime.AddHours(12)));
         }
 
-        await RunAsync(new FakeClient((_, _) => Task.FromResult(Result())), model: "gemini-3.5-flash-lite");
+        await RunAsync(new FakeClient((_, _) => Task.FromResult(Result())), model: "deepseek-v4-pro");
 
         await using var verify = fixture.Context();
         Assert.Equal("queued", (await verify.Set<PostModerationScan>().SingleAsync(s => s.Id == oldModelJob.ScanId)).State);
@@ -232,7 +232,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         Assert.Equal("safe", scan.State);
         Assert.Equal(1, scan.Attempts);
         Assert.Equal(.99, scan.Confidence);
-        Assert.Equal("gemini-3.8-flash", scan.Model);
+        Assert.Equal("deepseek-flash", scan.Model);
         Assert.Equal("post-moderation.v1", scan.PromptVersion);
         Assert.Equal("Plant based content.", scan.Summary);
         Assert.Equal(100, scan.InputTokens);
@@ -245,8 +245,8 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         Assert.False(await db.Flags.AnyAsync(f => f.PostId == job.PostId));
         await AssertNoDecisionOrNotificationAsync(db, job);
         var usage = await db.Set<AiUsage>().SingleAsync(u => u.UserId == job.AuthorId);
-        Assert.Equal("gemini", usage.Provider);
-        Assert.Equal("gemini-3.8-flash", usage.ModelName);
+        Assert.Equal("deepseek", usage.Provider);
+        Assert.Equal("deepseek-flash", usage.ModelName);
         Assert.Equal(100, usage.InputTokens);
         Assert.Equal(35, usage.OutputTokens);
     }
@@ -317,7 +317,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         Assert.Equal("pending", flag.Status);
         Assert.Equal(1, flag.PostRevision);
         Assert.Equal(job.ScanId, flag.ModerationScanId);
-        Assert.Equal("gemini-3.8-flash", flag.AiModelName);
+        Assert.Equal("deepseek-flash", flag.AiModelName);
         Assert.False(string.IsNullOrWhiteSpace(flag.Reason));
         Assert.Null(flag.ReporterId);
         Assert.Equal("pending_review", (await db.Posts.SingleAsync(p => p.Id == job.PostId)).Status);
@@ -702,7 +702,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     }
 
     private async Task RunAsync(IPostModerationAiClient client, bool enabled = true, DbCommandInterceptor? interceptor = null,
-        CancellationToken ct = default, string model = "gemini-3.8-flash")
+        CancellationToken ct = default, string model = "deepseek-flash")
     {
         await using var db = interceptor is null ? fixture.Context() : new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(fixture.Connection).AddInterceptors(interceptor).Options);
@@ -765,7 +765,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     }
 
     [Theory]
-    [InlineData("gemini_http_400")]
+    [InlineData("deepseek_http_400")]
     [InlineData("twelvelabs_http_401")]
     public async Task ProviderHttpFailure_PreservesProviderAndStatusWithoutPublishing(string code)
     {
@@ -844,7 +844,7 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
     private static ModerationAiResult Result(string verdict = "safe", double confidence = .99) => new(
         verdict, confidence, verdict == "safe" ? "Plant based content." : "Animal ingredient needs review.",
         verdict == "safe" ? [] : [new ModerationAiFinding("animal_ingredient_recipe", "content", "Animal ingredient", null, "Animal ingredient in content.")],
-        "gemini-3.8-flash", "post-moderation.v1", 100, 35, 42);
+        "deepseek-flash", "post-moderation.v1", 100, 35, 42);
 
     private sealed record Job(long PostId, long ScanId, long AuthorId);
 
@@ -853,8 +853,8 @@ public sealed class PostModerationProcessorTests(Member2ApiFixture fixture) : IA
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             Assert.Equal(HttpMethod.Post, request.Method); // No actual network or key is used by this harness.
-            var body = JsonSerializer.Serialize(new { status = "completed", steps = new[] {
-                new { type = "model_output", content = new[] { new { type = "text", text = JsonSerializer.Serialize(new { result, reason }) } } }
+            var body = JsonSerializer.Serialize(new { choices = new[] {
+                new { finish_reason = "stop", message = new { role = "assistant", content = JsonSerializer.Serialize(new { result, reason }) } }
             } });
             return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
         }

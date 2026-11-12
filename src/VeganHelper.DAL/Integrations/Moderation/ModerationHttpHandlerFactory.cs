@@ -4,7 +4,7 @@ using System.Net.Sockets;
 namespace VeganHelper.DAL.Integrations.Moderation;
 
 /// <summary>Use for the moderation typed HttpClient so media DNS is checked at socket creation.</summary>
-public static class GeminiModerationHttpHandlerFactory
+public static class ModerationHttpHandlerFactory
 {
     public static SocketsHttpHandler Create() => new()
     {
