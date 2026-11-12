@@ -126,7 +126,12 @@ public sealed class PostModerationProcessor(IModerationRepository repository, IP
             ResultJson = JsonSerializer.Serialize(new { scan.State, scan.ErrorCode, Result = result }, JsonSerializerOptions.Web) });
         repository.AddUsage(new AiUsage { RequestId = claimed.LeaseToken!.Value, UserId = post.AuthorId, FeatureType = "content_moderation", Provider = "gemini",
             ModelName = scan.Model!, Status = result is null ? "failed" : "completed", InputTokens = result?.InputTokens, OutputTokens = result?.OutputTokens, CreatedAt = now });
-        await repository.SaveAsync(ct); await transaction.CommitAsync(ct);
+        await repository.SaveAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        logger?.LogInformation(
+            "Moderation scan {ScanId} saved for post {PostId} revision {Revision}: state={ScanState}, postStatus={PostStatus}, error={ErrorCode}, worker={Worker}.",
+            scan.Id, post.Id, scan.Revision, scan.State, post.Status, scan.ErrorCode, Environment.MachineName);
     }
     private static string SafeCode(string? code) => (ModerationResponseErrors.IsKnown(code) || ModerationProviderErrors.IsKnown(code)) ? code! : code is "provider_quota" or "provider_timeout" or "provider_error" or "provider_unavailable" or "invalid_response" or
         "unsupported_media" or "video_too_long" or "media_unavailable" or "invalid_media" or "invalid_image" or "unsafe_media_url" or "provider_blocked" or
