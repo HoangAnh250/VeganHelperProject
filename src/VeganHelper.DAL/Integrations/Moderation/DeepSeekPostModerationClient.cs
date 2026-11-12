@@ -4,21 +4,20 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
 using VeganHelper.DAL.Media;
 
 namespace VeganHelper.DAL.Integrations.Moderation;
 
-public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<ModerationAiOptions> options,
-    ModerationPromptDefinition prompt, ILogger<GeminiPostModerationClient>? logger = null) : IPostModerationAiClient
+public sealed class DeepSeekPostModerationClient(HttpClient httpClient, IOptions<ModerationAiOptions> options,
+    ModerationPromptDefinition prompt, ILogger<DeepSeekPostModerationClient>? logger = null) : IPostModerationAiClient
 {
     private const int MaxImageBytes = 5 * 1024 * 1024;
     private const int MaxTotalImageBytes = 20 * 1024 * 1024;
     private const long MaxVideoBytes = 200L * 1024 * 1024;
     private const double MaxVideoDurationSeconds = 60;
-    // The provider's inline-data limit includes the base64 payload, instructions and text.
+    // Bound the serialized request, including base64 images, on small hosts.
     private const int MaxRequestBytes = 20_000_000;
     private const int MaxResponseBytes = 256 * 1024;
     private const int MaxTextChars = 100_000;
@@ -26,12 +25,9 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
     private const string VideoRelevancePolicy = "Every video must itself have a clear, substantive connection to vegan food, plant-based nutrition, or vegan education and lifestyle. FAIL an off-topic video even when it is harmless, and even when the post title, description or other media are on-topic. Examples include unrelated gaming, sports, music performances or personal footage. Allow incidental unrelated shots within an otherwise relevant video. A label or caption alone does not make unrelated footage relevant.";
     private static readonly Uri PegasusEndpoint = new("https://api.twelvelabs.io/v1.3/analyze");
     private const int MaxProviderAttempts = 2;
-    private static readonly TimeSpan BadRequestRetryDelay = TimeSpan.FromSeconds(1);
-    private static readonly Uri Endpoint = new("https://generativelanguage.googleapis.com/v1beta/interactions");
-    private static readonly Uri FilesUploadEndpoint = new("https://generativelanguage.googleapis.com/upload/v1beta/files");
-    private static readonly Uri FilesApiEndpoint = new("https://generativelanguage.googleapis.com/v1beta/");
+    private static readonly Uri DeepSeekEndpoint = new("https://api.deepseek.com/chat/completions");
     private static readonly JsonSerializerOptions JsonOptions = JsonSerializerOptions.Web;
-    private static readonly Regex ModelName = new("\\Agemini-[a-z0-9][a-z0-9.-]{0,79}\\z", RegexOptions.CultureInvariant);
+    private static readonly Regex ModelName = new("\\Adeepseek-[a-z0-9][a-z0-9.-]{0,79}\\z", RegexOptions.CultureInvariant);
 
     public async Task<ModerationAiResult> ReviewAsync(ModerationAiInput input, CancellationToken ct)
     {
@@ -40,19 +36,19 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         if (!settings.Enabled) throw new ModerationAiException("ai_disabled", false);
         ValidateConfiguration(settings);
         var uris = ValidateInput(input, settings);
-        if (string.IsNullOrWhiteSpace(settings.TwelveLabsApiKey) || !input.Media.Any(m => IsVideo(m.MediaType)))
-            return await ReviewGeminiAsync(input, ct);
+        if (!input.Media.Any(m => IsVideo(m.MediaType)))
+            return await ReviewDeepSeekAsync(input, ct);
 
         using var pendingCancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
         pendingCancellation.CancelAfter(TimeSpan.FromSeconds(settings.TimeoutSeconds));
         var token = pendingCancellation.Token;
         var clock = Stopwatch.StartNew();
-        logger?.LogInformation("Post {PostId} revision {Revision}: running Gemini and TwelveLabs concurrently.", input.PostId, input.Revision);
-        var geminiInput = input with { Media = input.Media.Where(m => !IsVideo(m.MediaType)).ToArray() };
+        logger?.LogInformation("Post {PostId} revision {Revision}: running DeepSeek and TwelveLabs concurrently.", input.PostId, input.Revision);
+        var textAndImages = input with { Media = input.Media.Where(m => !IsVideo(m.MediaType)).ToArray() };
         var delegatedVideoIds = input.Media.Where(m => IsVideo(m.MediaType)).Select(m => m.Id).ToArray();
-        var gemini = ReviewGeminiAsync(geminiInput, token, delegatedVideoIds);
+        var deepSeek = ReviewDeepSeekAsync(textAndImages, token, delegatedVideoIds);
         var video = ReviewPegasusVideosAsync(input, uris, token);
-        var pending = new List<Task<ModerationAiResult?>> { AsNullableAsync(gemini), video };
+        var pending = new List<Task<ModerationAiResult?>> { AsNullableAsync(deepSeek), video };
         Exception? failure = null;
         try
         {
@@ -81,7 +77,7 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             if (failure is ModerationAiException moderationError) throw moderationError;
             if (failure is OperationCanceledException) throw new ModerationAiException("provider_timeout", true);
             if (failure is not null) throw new ModerationAiException("provider_unavailable", true);
-            var safe = await gemini;
+            var safe = await deepSeek;
             return safe with { Model = $"{safe.Model}+{PegasusModel}", LatencyMs = (int)Math.Min(clock.ElapsedMilliseconds, int.MaxValue) };
         }
         finally
@@ -97,7 +93,10 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
 
     private async Task<ModerationAiResult?> ReviewPegasusVideosAsync(ModerationAiInput input, Uri[] uris, CancellationToken ct)
     {
-        // Bound concurrency to one video request plus Gemini; do not fan out all ten videos.
+        if (string.IsNullOrWhiteSpace(options.Value.TwelveLabsApiKey))
+            throw new ModerationAiException("video_provider_unavailable", false);
+
+        // Bound concurrency to one video request plus DeepSeek; do not fan out all ten videos.
         for (var i = 0; i < input.Media.Count; i++)
         {
             var media = input.Media[i];
@@ -118,26 +117,21 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         return null;
     }
 
-    private async Task<ModerationAiResult> ReviewGeminiAsync(ModerationAiInput input, CancellationToken ct,
+    private async Task<ModerationAiResult> ReviewDeepSeekAsync(ModerationAiInput input, CancellationToken ct,
         IReadOnlyList<long>? delegatedVideoIds = null)
     {
         ct.ThrowIfCancellationRequested();
         var settings = options.Value;
-        if (!settings.Enabled)
-            throw new ModerationAiException("ai_disabled", false);
-        ValidateConfiguration(settings);
         var mediaUris = ValidateInput(input, settings);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(settings.TimeoutSeconds));
         var token = timeout.Token;
         var stopwatch = Stopwatch.StartNew();
-        var uploadedGeminiFiles = new List<string>();
-        var temporaryFiles = new List<string>();
 
         try
         {
-            var geminiInput = input;
-            // User text remains a JSON payload in the user input, separate from system instructions.
+            var delegated = delegatedVideoIds is { Count: > 0 };
+            var targets = ExpectedChecks(input);
             var parts = new List<object>
             {
                 new
@@ -146,97 +140,81 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
                     text = JsonSerializer.Serialize(new
                     {
                         input.PostId, input.Revision, input.Title, input.Content, input.Ingredients, input.Steps,
-                        reviewTargets = ExpectedChecks(geminiInput),
-                        reviewScope = delegatedVideoIds is { Count: > 0 } ? "text_and_images" : "complete_post",
+                        reviewTargets = targets,
+                        reviewScope = delegated ? "text_and_images" : "complete_post",
                         delegatedVideoIds = delegatedVideoIds ?? [],
-                        media = geminiInput.Media.Select(m => new { m.Id, m.MediaType, m.DurationSeconds }).ToArray()
+                        media = input.Media.Select(m => new { m.Id, m.MediaType }).ToArray()
                     }, JsonOptions)
                 }
             };
-            var totalBytes = 0;
+            var totalImageBytes = 0;
             for (var index = 0; index < input.Media.Count; index++)
             {
-                // A label immediately before each asset makes its database identifier unambiguous.
-                parts.Add(new { type = "text", text = JsonSerializer.Serialize(new { mediaId = input.Media[index].Id }) });
-                if (IsImage(input.Media[index].MediaType))
+                var media = input.Media[index];
+                var image = await DownloadImageAsync(mediaUris[index], token);
+                totalImageBytes += image.Bytes.Length;
+                if (totalImageBytes > MaxTotalImageBytes)
+                    throw new ModerationAiException("input_too_large", false);
+                parts.Add(new { type = "text", text = JsonSerializer.Serialize(new { mediaId = media.Id }) });
+                parts.Add(new
                 {
-                    var image = await DownloadImageAsync(mediaUris[index], token);
-                    totalBytes = checked(totalBytes + image.Bytes.Length);
-                    if (totalBytes > MaxTotalImageBytes)
-                        throw new ModerationAiException("input_too_large", false);
-                    parts.Add(new { type = "image", data = Convert.ToBase64String(image.Bytes), mime_type = image.MimeType });
-                }
-                else
-                {
-                    var video = await DownloadVideoAsync(mediaUris[index], input.Media[index].MediaType, token);
-                    temporaryFiles.Add(video.Path);
-                    var uploaded = await UploadVideoAsync(video.Path, video.MimeType, input.PostId, input.Media[index].Id,
-                        settings, uploadedGeminiFiles, token);
-                    parts.Add(new
-                    {
-                        type = "video", uri = uploaded.Uri, mime_type = uploaded.MimeType,
-                        processing = new { type = "static", fps = 1 }
-                    });
-                }
+                    type = "image_url",
+                    image_url = new { url = $"data:{image.MimeType};base64,{Convert.ToBase64String(image.Bytes)}" }
+                });
             }
+
+            var systemInstruction = prompt.SystemInstruction;
+            if (delegated)
+                systemInstruction += "\nTRUSTED REVIEW SCOPE: Review only the supplied text and images. " +
+                    "TwelveLabs reviews every video separately. Do not fail because a delegated video is absent.";
+            var example = UsesCoverageChecks
+                ? JsonSerializer.Serialize(new { result = "PASS", reason = "The content complies with community guidelines.",
+                    checks = targets.ToDictionary(target => target, _ => "PASS") }, JsonOptions)
+                : """{"result":"PASS","reason":"The content complies with community guidelines."}""";
+            systemInstruction += "\nReturn one JSON object. Example shape (evaluate independently; do not copy the verdict): " + example;
 
             var body = JsonSerializer.SerializeToUtf8Bytes(new
             {
                 model = settings.Model,
-                store = false,
-                system_instruction = prompt.SystemInstruction + (delegatedVideoIds is { Count: > 0 }
-                    ? "\nTRUSTED REVIEW SCOPE: Videos are delegated to a separate TwelveLabs reviewer. " +
-                      "Assess ONLY the exact reviewTargets supplied here: title, description, ingredients, steps and attached images. " +
-                      "Do not assess delegated videos, invent video checks or FAIL because a delegated video is not attached to this request. " +
-                      "Mentioning a video in the post does not make that delegated asset missing. " +
-                      "Still check ALL supplied text and images for every community policy. The application requires a separate video PASS before treating the entire post as safe."
-                    : ""),
-                input = parts,
-                response_format = new { type = "text", mime_type = "application/json", schema = BuildResponseSchema(geminiInput) },
-                // This cap includes thinking tokens; reserve room for analysis, constrain final JSON separately.
-                generation_config = new { max_output_tokens = 2048, thinking_level = "low", thinking_summaries = "none" }
+                messages = new object[]
+                {
+                    new { role = "system", content = systemInstruction },
+                    new { role = "user", content = parts }
+                },
+                response_format = new { type = "json_object" },
+                thinking = new { type = "disabled" },
+                max_tokens = 1024,
+                stream = false
             }, JsonOptions);
             if (body.Length > MaxRequestBytes)
                 throw new ModerationAiException("input_too_large", false);
 
-            for (var providerAttempt = 1; providerAttempt <= MaxProviderAttempts; providerAttempt++)
+            for (var attempt = 1; attempt <= MaxProviderAttempts; attempt++)
             {
-                using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint) { Content = new ByteArrayContent(body) };
+                using var request = new HttpRequestMessage(HttpMethod.Post, DeepSeekEndpoint) { Content = new ByteArrayContent(body) };
                 request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                request.Headers.Add("x-goog-api-key", settings.ApiKey);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
                 using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
-                if (response.StatusCode == HttpStatusCode.BadRequest && providerAttempt < MaxProviderAttempts)
-                {
-                    try
-                    {
-                        await Task.Delay(BadRequestRetryDelay, token);
-                        continue;
-                    }
-                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-                    {
-                        // The retry delay exhausted the budget. Keep the HTTP status already received.
-                    }
-                }
                 if (!response.IsSuccessStatusCode)
                 {
-                    await LogProviderFailureAsync(response, settings.Model, "interactions", token, ct);
+                    logger?.LogWarning("DeepSeek moderation HTTP {HttpStatusCode}; model {Model}; post {PostId} revision {Revision}.",
+                        (int)response.StatusCode, settings.Model, input.PostId, input.Revision);
                     if (response.StatusCode == HttpStatusCode.TooManyRequests)
                         throw new ModerationAiException("provider_quota", true,
                             response.Headers.RetryAfter?.Delta?.TotalSeconds ??
                             (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds);
-                    throw new ModerationAiException($"gemini_http_{(int)response.StatusCode}", IsTransient(response.StatusCode));
+                    throw new ModerationAiException($"deepseek_http_{(int)response.StatusCode}", IsTransient(response.StatusCode));
                 }
-                ModerationAiResult result;
                 try
                 {
-                    result = await ReadModerationResponseAsync(response,
-                        root => ParseResponse(root, settings.Model, geminiInput), "Gemini", input, providerAttempt, token);
+                    var result = await ReadModerationResponseAsync(response,
+                        root => ParseResponse(root, settings.Model, input), "DeepSeek", input, attempt, token);
+                    return result with { LatencyMs = (int)Math.Min(stopwatch.ElapsedMilliseconds, int.MaxValue) };
                 }
-                catch (ModerationAiException error) when (ModerationResponseErrors.IsKnown(error.Code) && providerAttempt < MaxProviderAttempts)
+                catch (ModerationAiException error) when (ModerationResponseErrors.IsKnown(error.Code) && attempt < MaxProviderAttempts)
                 {
-                    continue;
+                    // DeepSeek JSON mode can occasionally return an empty or truncated response.
                 }
-                return result with { LatencyMs = (int)Math.Min(stopwatch.ElapsedMilliseconds, int.MaxValue) };
             }
             throw new ModerationAiException("provider_error", false);
         }
@@ -251,21 +229,6 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         catch (IOException)
         {
             throw new ModerationAiException("provider_unavailable", true);
-        }
-        catch (JsonException)
-        {
-            throw InvalidResponse("response_json_invalid");
-        }
-        finally
-        {
-            foreach (var name in uploadedGeminiFiles)
-                await TryDeleteGeminiFileAsync(name, settings.ApiKey);
-            foreach (var path in temporaryFiles)
-            {
-                try { File.Delete(path); }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
-            }
         }
     }
 
@@ -408,63 +371,11 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
             (int)response.StatusCode, code, parameter);
     }
 
-    private async Task LogProviderFailureAsync(HttpResponseMessage response, string model, string stage, CancellationToken requestToken, CancellationToken callerToken)
-    {
-        if (logger is null || !logger.IsEnabled(LogLevel.Warning)) return;
-        using var diagnosticTimeout = CancellationTokenSource.CreateLinkedTokenSource(requestToken);
-        diagnosticTimeout.CancelAfter(TimeSpan.FromSeconds(2));
-        var status = "unknown"; var reason = "unknown"; var parameter = "unknown";
-        var providerCode = "unknown";
-        var bodyFormat = "unreadable";
-        try
-        {
-            var bytes = await ReadBoundedAsync(response.Content, 16 * 1024, "diagnostic_too_large", diagnosticTimeout.Token);
-            bodyFormat = bytes.Length == 0 ? "empty" : "invalid_json";
-            using var json = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 16 });
-            bodyFormat = "json";
-            if (json.RootElement.ValueKind == JsonValueKind.Object && json.RootElement.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.Object)
-            {
-                // Interactions uses string codes. Files API can instead return a numeric code and a status.
-                // Log only known metadata because provider messages can echo credentials or user content.
-                if (error.TryGetProperty("code", out var value) && value.ValueKind == JsonValueKind.String &&
-                    value.GetString() is "invalid_request" or "parameter_unknown" or "failed_precondition" or
-                        "authentication" or "permission_denied" or "rate_limit_exceeded" or "quota_exceeded" or
-                        "too_many_requests" or "api_error" or "service_unavailable")
-                    providerCode = value.GetString()!;
-                if (error.TryGetProperty("status", out value) && value.ValueKind == JsonValueKind.String)
-                    status = value.GetString() is "INVALID_ARGUMENT" or "FAILED_PRECONDITION" or "UNAUTHENTICATED" or "PERMISSION_DENIED" or
-                        "NOT_FOUND" or "RESOURCE_EXHAUSTED" or "INTERNAL" or "UNAVAILABLE" or "DEADLINE_EXCEEDED" ? value.GetString()! : "unknown";
-                if (error.TryGetProperty("details", out var details) && details.ValueKind == JsonValueKind.Array)
-                    foreach (var detail in details.EnumerateArray())
-                        if (detail.ValueKind == JsonValueKind.Object && detail.TryGetProperty("reason", out value) && value.ValueKind == JsonValueKind.String &&
-                            value.GetString() is "API_KEY_INVALID" or "API_KEY_SERVICE_BLOCKED" or "API_KEY_HTTP_REFERRER_BLOCKED" or "API_KEY_IP_ADDRESS_BLOCKED" or
-                            "API_KEY_API_TARGET_BLOCKED" or "SERVICE_DISABLED" or "BILLING_DISABLED" or "CONSUMER_INVALID")
-                            reason = value.GetString()!;
-                if (error.TryGetProperty("message", out value) && value.ValueKind == JsonValueKind.String)
-                {
-                    var message = value.GetString()!;
-                    parameter = new[] { "thinking_level", "thinking_summaries", "max_output_tokens", "response_format", "mime_type", "schema", "system_instruction", "model", "input", "store" }
-                        .FirstOrDefault(name => message.Contains(name, StringComparison.OrdinalIgnoreCase)) ?? "unknown";
-                }
-            }
-        }
-        catch (OperationCanceledException) when (!callerToken.IsCancellationRequested)
-        {
-            // Headers already establish the failure; diagnostic timeout must not change retries.
-        }
-        catch (Exception error) when (error is JsonException or ModerationAiException or IOException or HttpRequestException)
-        {
-            // A malformed/truncated diagnostic must not hide the original HTTP status.
-        }
-        logger.LogWarning("Gemini moderation HTTP {HttpStatusCode}; stage {Stage}; model {Model}; provider code {ProviderCode}; provider status {ProviderStatus}; reason {ProviderReason}; parameter hint {ParameterHint}; body format {BodyFormat}.",
-            (int)response.StatusCode, stage, model, providerCode, status, reason, parameter, bodyFormat);
-    }
-
     private void ValidateConfiguration(ModerationAiOptions settings)
     {
         if (string.IsNullOrWhiteSpace(settings.ApiKey) || settings.ApiKey.Length > 256 ||
             settings.ApiKey.Any(char.IsControl) || string.IsNullOrEmpty(settings.Model) ||
-            !ModelName.IsMatch(settings.Model) || settings.TimeoutSeconds is < 1 or > 300 ||
+            settings.Model != ModerationAiOptions.DefaultModel || settings.TimeoutSeconds is < 1 or > 300 ||
             string.IsNullOrWhiteSpace(prompt.Version) || prompt.Version.Length > 80 ||
             string.IsNullOrWhiteSpace(prompt.SystemInstruction) || prompt.SystemInstruction.Length > 20_000 ||
             prompt.ResponseSchema.ValueKind != JsonValueKind.Object)
@@ -620,137 +531,6 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         _ => false
     };
 
-    private async Task<(string Name, string Uri, string MimeType)> UploadVideoAsync(string path, string mimeType,
-        long postId, long mediaId, ModerationAiOptions settings, List<string> uploadedGeminiFiles, CancellationToken ct)
-    {
-        // Browsers declare MOV as video/quicktime; Gemini documents the equivalent video/mov MIME.
-        mimeType = mimeType == "video/quicktime" ? "video/mov" : mimeType;
-        var length = new FileInfo(path).Length;
-        using var start = new HttpRequestMessage(HttpMethod.Post, FilesUploadEndpoint)
-        {
-            Content = new StringContent(JsonSerializer.Serialize(new { file = new { display_name = $"post-{postId}-media-{mediaId}" } }, JsonOptions), Encoding.UTF8, "application/json")
-        };
-        start.Headers.Add("x-goog-api-key", settings.ApiKey);
-        start.Headers.Add("X-Goog-Upload-Protocol", "resumable");
-        start.Headers.Add("X-Goog-Upload-Command", "start");
-        start.Headers.Add("X-Goog-Upload-Header-Content-Length", length.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        start.Headers.Add("X-Goog-Upload-Header-Content-Type", mimeType);
-        using var startResponse = await httpClient.SendAsync(start, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (!startResponse.IsSuccessStatusCode)
-            await ThrowProviderFailureAsync(startResponse, settings.Model, "files_start", ct);
-        if (!startResponse.Headers.TryGetValues("X-Goog-Upload-URL", out var uploadUrls))
-            throw InvalidResponse("response_upload_url_missing");
-        var uploadUrlValues = uploadUrls.Take(2).ToArray();
-        if (uploadUrlValues.Length != 1)
-            throw InvalidResponse("response_upload_url_invalid");
-        var uploadUrlText = uploadUrlValues[0];
-        if (!Uri.TryCreate(uploadUrlText, UriKind.Absolute, out var uploadUri) ||
-            uploadUri.Scheme != Uri.UriSchemeHttps || uploadUri.Port != 443 || uploadUri.UserInfo.Length != 0 ||
-            !uploadUri.IdnHost.Equals("generativelanguage.googleapis.com", StringComparison.OrdinalIgnoreCase))
-            throw InvalidResponse("response_upload_url_invalid");
-
-        using var videoStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
-        using var upload = new HttpRequestMessage(HttpMethod.Post, uploadUri) { Content = new StreamContent(videoStream, 64 * 1024) };
-        upload.Content.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
-        upload.Content.Headers.ContentLength = length;
-        upload.Headers.Add("X-Goog-Upload-Offset", "0");
-        upload.Headers.Add("X-Goog-Upload-Command", "upload, finalize");
-        using var uploadResponse = await httpClient.SendAsync(upload, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (!uploadResponse.IsSuccessStatusCode)
-            await ThrowProviderFailureAsync(uploadResponse, settings.Model, "files_upload", ct);
-        var file = ParseGeminiFile(await ReadBoundedAsync(uploadResponse.Content, MaxResponseBytes, "response_too_large", ct));
-        uploadedGeminiFiles.Add(file.Name);
-        if (file.State == "FAILED")
-            throw new ModerationAiException("invalid_media", false);
-        var activeFile = await WaitForGeminiFileAsync(file, settings, ct);
-        return (activeFile.Name, activeFile.Uri, activeFile.MimeType);
-    }
-
-    private async Task<(string Name, string Uri, string MimeType, string State)> WaitForGeminiFileAsync(
-        (string Name, string Uri, string MimeType, string State) file, ModerationAiOptions settings, CancellationToken ct)
-    {
-        var current = file;
-        var deadline = Stopwatch.StartNew();
-        while (current.State == "PROCESSING")
-        {
-            if (deadline.Elapsed >= TimeSpan.FromSeconds(45))
-                throw new ModerationAiException("provider_timeout", true);
-            await Task.Delay(TimeSpan.FromSeconds(2), ct);
-            using var request = new HttpRequestMessage(HttpMethod.Get, FileUri(current.Name));
-            request.Headers.Add("x-goog-api-key", settings.ApiKey);
-            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-            if (!response.IsSuccessStatusCode)
-                await ThrowProviderFailureAsync(response, settings.Model, "files_poll", ct);
-            current = ParseGeminiFile(await ReadBoundedAsync(response.Content, MaxResponseBytes, "response_too_large", ct));
-            if (current.Name != file.Name)
-                throw InvalidResponse("response_file_mismatch");
-            if (current.State == "FAILED")
-                throw new ModerationAiException("invalid_media", false);
-        }
-        if (current.State != "ACTIVE")
-            throw InvalidResponse("response_file_state_invalid");
-        if (!current.MimeType.StartsWith("video/", StringComparison.Ordinal))
-            throw new ModerationAiException("invalid_media", false);
-        return current;
-    }
-
-    private async Task ThrowProviderFailureAsync(HttpResponseMessage response, string model, string stage, CancellationToken ct)
-    {
-        await LogProviderFailureAsync(response, model, stage, ct, ct);
-        if (response.StatusCode == HttpStatusCode.TooManyRequests)
-            throw new ModerationAiException("provider_quota", true,
-                response.Headers.RetryAfter?.Delta?.TotalSeconds ??
-                (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds);
-        throw new ModerationAiException($"gemini_http_{(int)response.StatusCode}", IsTransient(response.StatusCode));
-    }
-
-    private static (string Name, string Uri, string MimeType, string State) ParseGeminiFile(byte[] bytes)
-    {
-        using var json = ParseResponseJson(bytes, "response_file_json_invalid", 16);
-        var root = json.RootElement;
-        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("file", out var wrapped))
-            root = wrapped;
-        if (root.ValueKind != JsonValueKind.Object ||
-            !TryReadString(root, "name", out var name) || !Regex.IsMatch(name, @"\Afiles/[A-Za-z0-9_-]{1,200}\z", RegexOptions.CultureInvariant) ||
-            !TryReadString(root, "state", out var state) || state is not ("PROCESSING" or "ACTIVE" or "FAILED"))
-            throw InvalidResponse("response_file_invalid");
-        // Failed File resources can omit URI/MIME; retain their name so finally can still delete them.
-        if (state == "FAILED") return (name, "", "", state);
-        if (
-            !TryReadString(root, "uri", out var uri) || !Uri.TryCreate(uri, UriKind.Absolute, out var parsedUri) ||
-            parsedUri.Scheme != Uri.UriSchemeHttps || parsedUri.Port != 443 || parsedUri.UserInfo.Length != 0 ||
-            !parsedUri.IdnHost.Equals("generativelanguage.googleapis.com", StringComparison.OrdinalIgnoreCase) ||
-            !TryReadString(root, "mimeType", out var mimeType) || !IsVideoMime(mimeType))
-            throw InvalidResponse("response_file_invalid");
-        return (name, uri, mimeType, state);
-    }
-
-    private static bool TryReadString(JsonElement element, string name, out string value)
-    {
-        value = "";
-        return element.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.String &&
-            !string.IsNullOrWhiteSpace(value = property.GetString()!);
-    }
-
-    private static Uri FileUri(string name) => new(FilesApiEndpoint, name);
-
-    private async Task TryDeleteGeminiFileAsync(string name, string apiKey)
-    {
-        using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Delete, FileUri(name));
-            request.Headers.Add("x-goog-api-key", apiKey);
-            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cleanup.Token);
-            // Cleanup is best effort; never replace a moderation result or provider error.
-        }
-        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException or ModerationAiException)
-        {
-            // Gemini files expire automatically; an unsuccessful cleanup is safe to retry later.
-        }
-    }
-
     private static bool HasImageSignature(byte[] bytes, string mimeType) => mimeType switch
     {
         "image/jpeg" => bytes.Length >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff,
@@ -823,46 +603,28 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
     {
         if (root.ValueKind != JsonValueKind.Object)
             throw InvalidResponse("response_envelope_invalid");
-        if (!root.TryGetProperty("status", out var status) || status.ValueKind != JsonValueKind.String)
-            throw InvalidResponse("response_status_missing");
-        if (status.GetString() != "completed" ||
-            root.TryGetProperty("error", out var providerError) && providerError.ValueKind != JsonValueKind.Null)
+        if (root.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
             throw new ModerationAiException("provider_blocked", false);
-        if (root.TryGetProperty("errors", out var errors))
-        {
-            if (errors.ValueKind != JsonValueKind.Array)
-                throw InvalidResponse();
-            if (errors.GetArrayLength() != 0)
-                throw new ModerationAiException("provider_blocked", false);
-        }
-        if (!root.TryGetProperty("steps", out var steps) || steps.ValueKind != JsonValueKind.Array)
-            throw InvalidResponse("response_steps_missing");
-        var text = new StringBuilder();
-        var outputSteps = 0;
-        foreach (var step in steps.EnumerateArray())
-        {
-            if (step.ValueKind != JsonValueKind.Object || !step.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String)
-                throw InvalidResponse("response_step_invalid");
-            if (step.TryGetProperty("error", out var stepError) && stepError.ValueKind != JsonValueKind.Null)
-                throw new ModerationAiException("provider_blocked", false);
-            if (type.GetString() == "thought")
-                continue;
-            if (type.GetString() != "model_output") throw InvalidResponse("response_step_invalid");
-            if (++outputSteps > 1) throw InvalidResponse("response_output_count");
-            if (!step.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Array)
-                throw InvalidResponse("response_output_missing");
-            foreach (var part in content.EnumerateArray())
-            {
-                if (part.ValueKind != JsonValueKind.Object || !part.TryGetProperty("type", out var partType) ||
-                    partType.ValueKind != JsonValueKind.String || partType.GetString() != "text" ||
-                    !part.TryGetProperty("text", out var partText) || partText.ValueKind != JsonValueKind.String)
-                    throw InvalidResponse("response_part_invalid");
-                text.Append(partText.GetString());
-            }
-        }
-        if (outputSteps != 1 || text.Length == 0)
+        if (!root.TryGetProperty("choices", out var choices) || choices.ValueKind != JsonValueKind.Array)
             throw InvalidResponse("response_output_missing");
-        using var document = ParseVerdictJson(text.ToString());
+        if (choices.GetArrayLength() != 1)
+            throw InvalidResponse("response_output_count");
+
+        var choice = choices[0];
+        if (choice.ValueKind != JsonValueKind.Object ||
+            !choice.TryGetProperty("finish_reason", out var finish) || finish.ValueKind != JsonValueKind.String)
+            throw InvalidResponse("response_envelope_invalid");
+        if (finish.GetString() == "content_filter")
+            throw new ModerationAiException("provider_blocked", false);
+        if (finish.GetString() != "stop")
+            throw InvalidResponse("response_incomplete");
+        if (!choice.TryGetProperty("message", out var message) || message.ValueKind != JsonValueKind.Object ||
+            !message.TryGetProperty("role", out var role) || role.ValueKind != JsonValueKind.String || role.GetString() != "assistant" ||
+            !message.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.String ||
+            string.IsNullOrWhiteSpace(content.GetString()))
+            throw InvalidResponse("response_output_missing");
+
+        using var document = ParseVerdictJson(content.GetString()!);
         var result = document.RootElement;
         if (UsesCoverageChecks) RequireProperties(result, "result", "reason", "checks");
         else RequireProperties(result, "result", "reason");
@@ -905,8 +667,8 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
         {
             if (usage.ValueKind != JsonValueKind.Object)
                 throw InvalidResponse("response_usage_invalid");
-            inputTokens = TokenCount(usage, "total_input_tokens");
-            outputTokens = TokenCount(usage, "total_output_tokens");
+            inputTokens = TokenCount(usage, "prompt_tokens");
+            outputTokens = TokenCount(usage, "completion_tokens");
         }
         return new ModerationAiResult(verdict, null, summary, findings, model, prompt.Version, inputTokens, outputTokens, 0);
     }
@@ -916,29 +678,6 @@ public sealed class GeminiPostModerationClient(HttpClient httpClient, IOptions<M
 
     private static string[] ExpectedChecks(ModerationAiInput input) =>
         ["title", "description", "ingredients", "steps", .. input.Media.Select(m => $"media_{m.Id}")];
-
-    private JsonNode BuildResponseSchema(ModerationAiInput input)
-    {
-        var schema = JsonNode.Parse(prompt.ResponseSchema.GetRawText())!;
-        if (!UsesCoverageChecks) return schema;
-        var properties = new JsonObject();
-        var required = new JsonArray();
-        foreach (var target in ExpectedChecks(input))
-        {
-            properties[target] = new JsonObject
-            {
-                ["type"] = "string",
-                ["enum"] = new JsonArray("PASS", "FAIL")
-            };
-            required.Add(target);
-        }
-        schema["properties"]!["checks"] = new JsonObject
-        {
-            ["type"] = "object", ["additionalProperties"] = false,
-            ["properties"] = properties, ["required"] = required
-        };
-        return schema;
-    }
 
     private static int? TokenCount(JsonElement usage, string property)
     {

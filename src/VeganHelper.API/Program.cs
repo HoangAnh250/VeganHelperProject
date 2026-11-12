@@ -236,22 +236,36 @@ builder.Services.AddScoped<IAdminModerationService, AdminModerationService>();
 builder.Services.AddScoped<PostModerationProcessor>();
 builder.Services.AddScoped<PostModerationJob>();
 builder.Services.AddOptions<ModerationAiOptions>().BindConfiguration("ModerationAi")
+    .PostConfigure(o =>
+    {
+        var moderationKey = builder.Configuration["ModerationAi:DeepSeekApiKey"];
+        var genieKey = builder.Configuration["DeepSeekChat:ApiKey"];
+        if (!string.IsNullOrWhiteSpace(moderationKey))
+            o.ApiKey = moderationKey;
+        else if (!string.IsNullOrWhiteSpace(genieKey))
+            o.ApiKey = genieKey;
+        if (o.ApiKey?.StartsWith("AIza", StringComparison.Ordinal) == true)
+            o.ApiKey = "";
+        // Existing deployments can retain their previous provider's model setting during rollout.
+        if (o.Model?.StartsWith("gemini-", StringComparison.Ordinal) == true)
+            o.Model = ModerationAiOptions.DefaultModel;
+    })
     .Validate(o => !o.Enabled || !string.IsNullOrWhiteSpace(o.ApiKey) && o.ApiKey.Length <= 256 && !o.ApiKey.Any(char.IsControl)
-        && o.Model is not null && System.Text.RegularExpressions.Regex.IsMatch(o.Model, @"\Agemini-[a-z0-9][a-z0-9.-]{0,79}\z")
+        && o.Model == ModerationAiOptions.DefaultModel
         && o.TimeoutSeconds is >= 1 and <= 300 && double.IsFinite(o.MinAutoPublishConfidence) && o.MinAutoPublishConfidence is >= .9 and <= 1
         && o.TwelveLabsApiKey is { Length: <= 256 } && !o.TwelveLabsApiKey.Any(char.IsControl)
-        && o.AllowedMediaHosts is not null, "Configure a valid ModerationAi key, model, timeout and confidence threshold.").ValidateOnStart();
+        && o.AllowedMediaHosts is not null, "Configure a valid DeepSeek moderation key, deepseek-flash model, timeout and confidence threshold.").ValidateOnStart();
 var moderationPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "PostModeration.v2.json");
 var moderationPrompt = JsonSerializer.Deserialize<ModerationPromptDefinition>(File.ReadAllText(moderationPromptPath), JsonSerializerOptions.Web)
     ?? throw new InvalidOperationException("Moderation prompt is missing.");
 if (string.IsNullOrWhiteSpace(moderationPrompt.Version) || moderationPrompt.Version.Length > 30 || string.IsNullOrWhiteSpace(moderationPrompt.SystemInstruction)
     || moderationPrompt.ResponseSchema.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Moderation prompt is invalid.");
 builder.Services.AddSingleton(moderationPrompt);
-builder.Services.AddHttpClient<IPostModerationAiClient, GeminiPostModerationClient>(client => client.Timeout = Timeout.InfiniteTimeSpan)
-    .ConfigurePrimaryHttpMessageHandler(GeminiModerationHttpHandlerFactory.Create)
-    // Resumable-upload URLs contain credentials in their query; emit only our sanitized diagnostics.
+builder.Services.AddHttpClient<IPostModerationAiClient, DeepSeekPostModerationClient>(client => client.Timeout = Timeout.InfiniteTimeSpan)
+    .ConfigurePrimaryHttpMessageHandler(ModerationHttpHandlerFactory.Create)
+    // Media URLs can contain credentials; emit only our sanitized diagnostics.
     .RemoveAllLoggers()
-    .RedactLoggedHeaders(["x-goog-api-key", "x-api-key"]);
+    .RedactLoggedHeaders(["Authorization", "x-api-key"]);
 builder.Services.AddOptions<DeepSeekChatOptions>().BindConfiguration("DeepSeekChat");
 var aiChatPromptPath = Path.Combine(builder.Environment.ContentRootPath, "Prompts", "VeganNutrition.v2.json");
 var aiChatPrompt = JsonSerializer.Deserialize<AiChatPromptDefinition>(
