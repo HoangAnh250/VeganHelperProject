@@ -24,6 +24,7 @@ public sealed class PostService : IPostService
     private readonly IMediaStorageService _mediaStorageService;
     private readonly ILogger<PostService> _logger;
     private readonly IPostInteractionRepository _postInteractionRepository;
+    private readonly IAdminAuditRepository? _adminAccessRepository;
 
     public PostService(
         IPostRepository postRepository, 
@@ -32,7 +33,8 @@ public sealed class PostService : IPostService
         IValidator<UpdatePostRequest> updateValidator,
         IMediaStorageService mediaStorageService,
         IPostInteractionRepository postInteractionRepository,
-        ILogger<PostService>? logger = null)
+        ILogger<PostService>? logger = null,
+        IAdminAuditRepository? adminAccessRepository = null)
     {
         _postRepository = postRepository;
         _validator = validator;
@@ -41,6 +43,7 @@ public sealed class PostService : IPostService
         _mediaStorageService = mediaStorageService;
         _postInteractionRepository = postInteractionRepository;
         _logger = logger ?? NullLogger<PostService>.Instance;
+        _adminAccessRepository = adminAccessRepository;
     }
 
     public async Task<long> CreatePostAsync(CreatePostRequest request, long authorId, CancellationToken cancellationToken = default)
@@ -169,19 +172,29 @@ public sealed class PostService : IPostService
         CancellationToken cancellationToken = default)
     {
         var keyword = request.Keyword?.Trim();
-        if (string.IsNullOrWhiteSpace(keyword))
+        if (request.Keyword is not null && string.IsNullOrWhiteSpace(keyword))
         {
             throw new ArgumentException("Keyword must contain at least 1 character.");
         }
+
+        if (request.CategoryId is <= 0)
+            throw new ArgumentException("CategoryId must be a positive number.");
+
+        var difficulty = request.DifficultyLevel?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(difficulty)) difficulty = null;
+        if (difficulty is not null && difficulty is not ("easy" or "medium" or "hard"))
+            throw new ArgumentException("DifficultyLevel must be easy, medium, or hard.");
 
         var pageIndex = request.PageIndex < 1 ? 1 : request.PageIndex;
         var pageSize = request.PageSize < 1 ? 10 : Math.Min(request.PageSize, 50);
 
         var (totalCount, items) = await _postRepository.SearchPostsAsync(
-            keyword,
+            keyword ?? string.Empty,
             pageIndex,
             pageSize,
-            cancellationToken);
+            cancellationToken,
+            request.CategoryId,
+            difficulty);
 
         var dtoItems = items.Select(p => new PostFeedItemDto
         {
@@ -218,14 +231,24 @@ public sealed class PostService : IPostService
     {
         var (post, authorName) = await _postRepository.GetPostDetailAsync(postId, cancellationToken);
         
-        if (post == null || post.IsDeleted || (post.Status != "published" && post.AuthorId != viewerId))
-        {
+        if (post == null || post.IsDeleted)
             throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} not found.");
+
+        var isPublic = post.Status == "published" && !post.ModerationHold;
+        if (!isPublic && post.AuthorId != viewerId)
+        {
+            var canPreview = viewerId.HasValue && _adminAccessRepository is not null
+                && await _adminAccessRepository.IsActiveAdminAsync(viewerId.Value, DateTime.UtcNow, cancellationToken);
+            if (!canPreview)
+                throw new VeganHelper.BLL.Exceptions.NotFoundException($"Post with ID {postId} not found.");
         }
 
-        // Increment view count in DB and locally for the return object
-        await _postRepository.IncrementViewCountAsync(postId, cancellationToken);
-        post.ViewCount++;
+        // Private previews must not inflate public view counts.
+        if (isPublic)
+        {
+            await _postRepository.IncrementViewCountAsync(postId, cancellationToken);
+            post.ViewCount++;
+        }
 
         var likeCount = await _postInteractionRepository.CountLikesAsync(postId, cancellationToken);
         var commentCount = await _postRepository.CountCommentsAsync(postId, cancellationToken);

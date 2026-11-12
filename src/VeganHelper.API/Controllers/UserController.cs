@@ -19,19 +19,18 @@ public sealed class UserController(IUserService service) : ControllerBase
         return ToActionResult(await service.GetProfileAsync(userId.Value, cancellationToken));
     }
 
+    /// <summary>Searches members, or lists newest members when keyword is omitted. Explicit blank keywords are invalid.</summary>
     [HttpGet("search")]
     [ProducesResponseType(typeof(PagedResult<UserSearchResultDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SearchUsers(
-        [FromQuery] string? keyword,
-        [FromQuery] int pageIndex = 1,
-        [FromQuery] int pageSize = 10,
+        [FromQuery] SearchUsersRequest request,
         CancellationToken cancellationToken = default)
     {
         return ToActionResult(await service.SearchUsersAsync(
-            keyword,
-            pageIndex,
-            pageSize,
+            request.Keyword,
+            request.PageIndex,
+            request.PageSize,
             cancellationToken));
     }
 

@@ -4,7 +4,7 @@ using VeganHelper.DAL.Integrations.Moderation;
 
 namespace VeganHelper.UnitTests;
 
-public partial class GeminiModerationClientTests
+public partial class DeepSeekModerationClientTests
 {
     [Theory]
     [InlineData("{\"result\":\"safe\",\"reason\":\"Fine\"}", "response_verdict_invalid")]
@@ -47,7 +47,7 @@ public partial class GeminiModerationClientTests
         {
             if (request.RequestUri!.Host == "media.example.org")
                 return Task.FromResult(Image(VideoTestData.Mp4(10), "video/mp4"));
-            if (request.RequestUri.Host == "generativelanguage.googleapis.com")
+            if (request.RequestUri.Host == "api.deepseek.com")
                 return Task.FromResult(Reply(Safe));
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(envelope) });
         }));

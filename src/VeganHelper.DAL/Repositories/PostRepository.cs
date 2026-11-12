@@ -280,15 +280,23 @@ public sealed class PostRepository : IPostRepository
         string keyword,
         int pageIndex,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int? categoryId = null,
+        string? difficultyLevel = null)
     {
-        var pattern = $"%{keyword}%";
-        var query = _context.Posts
-            .AsNoTracking()
-            .Where(p => !p.IsDeleted
-                && p.Status == "published"
-                && (EF.Functions.ILike(p.Title, pattern)
-                    || (p.Content != null && EF.Functions.ILike(p.Content, pattern))));
+        var query = _context.Posts.AsNoTracking()
+            .Where(p => !p.IsDeleted && p.Status == "published" && !p.ModerationHold);
+        if (!string.IsNullOrEmpty(keyword))
+        {
+            var escaped = keyword.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+            var pattern = $"%{escaped}%";
+            query = query.Where(p => EF.Functions.ILike(p.Title, pattern, "\\")
+                || (p.Content != null && EF.Functions.ILike(p.Content, pattern, "\\")));
+        }
+        if (categoryId.HasValue)
+            query = query.Where(p => p.PostCategories.Any(c => c.CategoryId == categoryId.Value));
+        if (!string.IsNullOrEmpty(difficultyLevel))
+            query = query.Where(p => p.DifficultyLevel != null && p.DifficultyLevel.ToLower() == difficultyLevel);
 
         var totalCount = await query.LongCountAsync(cancellationToken);
 

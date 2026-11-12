@@ -45,13 +45,14 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
             .Where(user => user.IsActive
                 && user.DeletedAt == null
                 && !db.Roles.Any(r => r.Id == user.RoleId && r.RoleName == "admin")
-                && (EF.Functions.Collate(user.Username.ToLower(), "C").Contains(normalizedKeyword)
+                && (normalizedKeyword == "" || EF.Functions.Collate(user.Username.ToLower(), "C").Contains(normalizedKeyword)
                     || db.UserProfiles.Any(profile =>
                         profile.UserId == user.Id && profile.DisplayName.ToLower().Contains(normalizedKeyword))))
             .Select(user => new
             {
                 user.Id,
                 user.Username,
+                user.CreatedAt,
                 DisplayName = db.UserProfiles
                     .Where(profile => profile.UserId == user.Id)
                     .Select(profile => profile.DisplayName)
@@ -63,11 +64,12 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
             });
 
         var totalCount = await query.LongCountAsync(cancellationToken);
-        var items = await query
-            .OrderByDescending(user => EF.Functions.Collate(user.Username.ToLower(), "C").StartsWith(normalizedKeyword))
-            .ThenByDescending(user => user.DisplayName != null && user.DisplayName.ToLower().StartsWith(normalizedKeyword))
-            .ThenBy(user => user.Username)
-            .ThenBy(user => user.Id)
+        var ordered = normalizedKeyword.Length == 0
+            ? query.OrderByDescending(user => user.CreatedAt).ThenByDescending(user => user.Id)
+            : query.OrderByDescending(user => EF.Functions.Collate(user.Username.ToLower(), "C").StartsWith(normalizedKeyword))
+                .ThenByDescending(user => user.DisplayName != null && user.DisplayName.ToLower().StartsWith(normalizedKeyword))
+                .ThenBy(user => user.Username).ThenBy(user => user.Id);
+        var items = await ordered
             .Skip((pageIndex - 1) * pageSize)
             .Take(pageSize)
             .Select(user => new UserSearchProjection

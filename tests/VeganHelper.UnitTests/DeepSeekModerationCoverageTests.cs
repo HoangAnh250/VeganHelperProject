@@ -5,7 +5,7 @@ using VeganHelper.BLL.Services;
 
 namespace VeganHelper.UnitTests;
 
-public partial class GeminiModerationClientTests
+public partial class DeepSeekModerationClientTests
 {
     private static ModerationPromptDefinition CoveragePrompt() => new()
     {
@@ -28,14 +28,14 @@ public partial class GeminiModerationClientTests
         {
             if (request.Method == HttpMethod.Get) return Image();
             using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
-            var schema = body.RootElement.GetProperty("response_format").GetProperty("schema");
-            var required = schema.GetProperty("properties").GetProperty("checks").GetProperty("required")
-                .EnumerateArray().Select(x => x.GetString()!).ToArray();
+            var payload = body.RootElement.GetProperty("messages")[1].GetProperty("content")[0].GetProperty("text").GetString();
+            using var input = JsonDocument.Parse(payload!);
+            var required = input.RootElement.GetProperty("reviewTargets").EnumerateArray().Select(x => x.GetString()!).ToArray();
             Assert.Equal(new[] { "title", "description", "ingredients", "steps", "media_11" }, required);
             var checks = required.ToDictionary(key => key, key => key == failedTarget ? "FAIL" : "PASS");
             return Reply(JsonSerializer.Serialize(new { result = "PASS", reason = "Compliant.", checks }));
         }));
-        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions
+        var client = new DeepSeekPostModerationClient(http, Options.Create(new ModerationAiOptions
             { Enabled = true, ApiKey = "private-key", AllowedMediaHosts = ["media.example.org"] }), CoveragePrompt());
         var result = await client.ReviewAsync(Input() with { Media = [Media(11)] }, default);
         Assert.Equal("flagged", result.Verdict);
@@ -52,7 +52,7 @@ public partial class GeminiModerationClientTests
     {
         var output = "{\"result\":\"PASS\",\"reason\":\"Compliant.\",\"checks\":" + checks + "}";
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(Reply(output))));
-        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions
+        var client = new DeepSeekPostModerationClient(http, Options.Create(new ModerationAiOptions
             { Enabled = true, ApiKey = "private-key" }), CoveragePrompt());
         var error = await Assert.ThrowsAsync<ModerationAiException>(() => client.ReviewAsync(Input(), default));
         Assert.Equal(expectedCode, error.Code);
@@ -74,7 +74,7 @@ public partial class GeminiModerationClientTests
             if (!omitSecondImage) checks["media_12"] = "PASS";
             return Task.FromResult(Reply(JsonSerializer.Serialize(new { result = "PASS", reason = "Compliant.", checks })));
         }));
-        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions
+        var client = new DeepSeekPostModerationClient(http, Options.Create(new ModerationAiOptions
             { Enabled = true, ApiKey = "private-key", AllowedMediaHosts = ["media.example.org"] }), CoveragePrompt());
         var input = Input() with { Media = [Media(11), Media(12)] };
         if (omitSecondImage)

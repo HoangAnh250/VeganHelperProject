@@ -5,7 +5,7 @@ using VeganHelper.DAL.Integrations.Moderation;
 
 namespace VeganHelper.UnitTests;
 
-public partial class GeminiModerationClientTests
+public partial class DeepSeekModerationClientTests
 {
     private static string ProductionPromptPath([CallerFilePath] string source = "") =>
         Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "../../src/VeganHelper.API/Prompts/PostModeration.v2.json"));
@@ -20,14 +20,14 @@ public partial class GeminiModerationClientTests
         using var http = new HttpClient(new FakeHandler(async (request, ct) =>
         {
             using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
-            var instructions = body.RootElement.GetProperty("system_instruction").GetString()!;
-            Assert.Equal(prompt.SystemInstruction, instructions);
+            var instructions = body.RootElement.GetProperty("messages")[0].GetProperty("content").GetString()!;
+            Assert.StartsWith(prompt.SystemInstruction, instructions);
             foreach (var policy in new[] { "spam", "repeated-character", "animal-derived", "pornographic", "profane", "Vietnamese" })
                 Assert.Contains(policy, instructions, StringComparison.OrdinalIgnoreCase);
             var checks = new { title = decision, description = "PASS", ingredients = "PASS", steps = "PASS" };
             return Reply(JsonSerializer.Serialize(new { result = decision, reason = "AI policy assessment.", checks }));
         }));
-        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions
+        var client = new DeepSeekPostModerationClient(http, Options.Create(new ModerationAiOptions
             { Enabled = true, ApiKey = "test-key" }), prompt);
         var result = await client.ReviewAsync(Input() with { Title = "spam" }, default);
         Assert.Equal(decision == "PASS" ? "safe" : "flagged", result.Verdict);

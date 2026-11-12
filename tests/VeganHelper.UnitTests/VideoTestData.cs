@@ -3,7 +3,7 @@ using System.Text;
 
 namespace VeganHelper.UnitTests;
 
-// Small container metadata fixtures; these tests do not pretend to decode video or call Gemini.
+// Small container metadata fixtures; these tests do not pretend to decode video or call an AI provider.
 internal static class VideoTestData
 {
     public static byte[] Mp4(double seconds, bool version1 = false, bool extendedSize = false)

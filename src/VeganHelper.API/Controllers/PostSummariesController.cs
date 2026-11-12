@@ -8,12 +8,13 @@ using VeganHelper.BLL.Contracts;
 namespace VeganHelper.API.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/posts/{postId:long:min(1)}/summary")]
 public sealed class PostSummariesController(IPostSummaryService service,
     IOptions<GroqSummaryOptions> options) : ControllerBase
 {
     [HttpGet]
-    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(PostSummaryDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Get(long postId, CancellationToken ct)
@@ -23,7 +24,7 @@ public sealed class PostSummariesController(IPostSummaryService service,
     }
 
     [HttpPost]
-    [Authorize]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [EnableRateLimiting("video-summary")]
     [ProducesResponseType(typeof(PostSummaryDto), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

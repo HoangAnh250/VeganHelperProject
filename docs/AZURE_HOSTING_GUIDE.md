@@ -98,8 +98,9 @@ Vào Web App → **Settings → Environment variables → App settings → Add**
 | `DeepSeekChat__ApiKey` | DeepSeek key for AI Genie chatbot; keep on Backend only |
 | `DeepSeekChat__Model` | `deepseek-flash` |
 | `ModerationAi__Enabled` | Khởi đầu `false`; bật khi đã xác nhận schema Hangfire và cấu hình AI |
-| `ModerationAi__ApiKey` | Gemini key dùng cho moderation |
-| `ModerationAi__Model` | `gemini-3.5-flash-lite` (cần quota trong project Google đang dùng) |
+| `ModerationAi__DeepSeekApiKey` | Tùy chọn, đặt nếu muốn dùng DeepSeek key riêng cho kiểm duyệt. Mặc định dùng `DeepSeekChat__ApiKey` của AI Genie. `ModerationAi__ApiKey` là cấu hình dự phòng khi cả hai biến trên trống. |
+| `ModerationAi__Model` | `deepseek-flash` hỗ trợ văn bản và ảnh |
+| `ModerationAi__TwelveLabsApiKey` | TwelveLabs key dùng kiểm duyệt video |
 | `ModerationAi__TimeoutSeconds` | Ví dụ `60` |
 | `ModerationAi__MinAutoPublishConfidence` | `0.9` theo cấu hình hiện tại |
 | `ModerationAi__AllowedMediaHosts__0` | **Hostname** media R2 public, không phải full URL; thêm __1, __2 nếu cần |
@@ -134,7 +135,7 @@ Follower notification worker hiện chạy khi môi trường không phải Test
 
 ## 4. Cấu hình OIDC để GitHub deploy BE
 
-BE dùng OIDC, không cần publish profile hay Azure client secret. Identity deploy khác với JWT secret, Gemini key và mật khẩu Supabase. Chỉ job deploy được quyền `id-token: write`. [OIDC trên Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure)
+BE dùng OIDC, không cần publish profile hay Azure client secret. Identity deploy khác với JWT secret, DeepSeek key và mật khẩu Supabase. Chỉ job deploy được quyền `id-token: write`. [OIDC trên Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure)
 
 ### 4.1 Tạo managed identity
 
@@ -199,7 +200,7 @@ Tab **Variables → New repository variable**:
 | `AZURE_WEBAPP_URL` | Base URL HTTPS copy từ Overview; không có `/api` |
 | `AZURE_DEPLOY_ENABLED` | Để `false` trong lúc chuẩn bị; đặt `true` sau khi runtime/OIDC đã xong |
 
-BE không cần Supabase/Gemini/R2 credentials trong GitHub Actions. CI chỉ dùng PostgreSQL service riêng; runtime secrets đặt tại App Service.
+BE không cần Supabase/DeepSeek/R2 credentials trong GitHub Actions. CI chỉ dùng PostgreSQL service riêng; runtime secrets đặt tại App Service.
 
 ## 5. Tạo hosting FE và cấu hình pipeline
 
@@ -234,7 +235,7 @@ Repo **FE** → **Settings → Secrets and variables → Actions → Secrets**:
 
 Tab Variables: thêm `AZURE_DEPLOY_ENABLED=false` lúc chuẩn bị; đổi `true` khi sẵn sàng. Đây là variable **riêng trong FE repo**, không tự lấy từ BE repo.
 
-FE không dùng database connection string, JWT signing key, SendGrid hay Gemini secret. Các `VITE_*` dù lưu trong GitHub Secrets vẫn được đưa vào bundle mà trình duyệt đọc được; không xem chúng là backend secrets.
+FE không dùng database connection string, JWT signing key, SendGrid hay DeepSeek secret. Các `VITE_*` dù lưu trong GitHub Secrets vẫn được đưa vào bundle mà trình duyệt đọc được; không xem chúng là backend secrets.
 
 Khi deploy bật, pipeline chặn API URL trống, localhost, HTTP, URL có credentials/query và URL không kết thúc bằng `/api`. Google/Goong có thể bỏ trống để CI build, nhưng chức năng liên quan sẽ không hoạt động đầy đủ; cấu hình chúng trước khi demo các chức năng đó.
 

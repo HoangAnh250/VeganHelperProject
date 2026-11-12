@@ -5,7 +5,7 @@ using VeganHelper.DAL.Integrations.Moderation;
 
 namespace VeganHelper.UnitTests;
 
-public partial class GeminiModerationClientTests
+public partial class DeepSeekModerationClientTests
 {
     [Theory]
     [InlineData(false)]
@@ -19,7 +19,7 @@ public partial class GeminiModerationClientTests
             if (request.RequestUri!.Host == "media.example.org")
                 return Image(VideoTestData.Mp4(10), "video/mp4");
 
-            if (request.RequestUri.Host == "generativelanguage.googleapis.com") return Reply(Safe);
+            if (request.RequestUri.Host == "api.deepseek.com") return Reply(Safe);
             Assert.Equal("api.twelvelabs.io", request.RequestUri.Host);
             using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
             var format = body.RootElement.GetProperty("response_format");
@@ -35,7 +35,7 @@ public partial class GeminiModerationClientTests
                 }))
             };
         }));
-        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions
+        var client = new DeepSeekPostModerationClient(http, Options.Create(new ModerationAiOptions
         {
             Enabled = true, ApiKey = "private-key", TwelveLabsApiKey = "test-pegasus-key",
             AllowedMediaHosts = ["media.example.org"]
@@ -62,7 +62,7 @@ public partial class GeminiModerationClientTests
     }
 
     [Fact]
-    public async Task Review_GeminiInvalidHttp200_RetriesOnceAndAcceptsCorrectedVerdict()
+    public async Task Review_DeepSeekInvalidHttp200_RetriesOnceAndAcceptsCorrectedVerdict()
     {
         var requests = 0;
         using var http = new HttpClient(new FakeHandler((_, _) =>
@@ -80,7 +80,7 @@ public partial class GeminiModerationClientTests
     public async Task Pegasus_ConfiguredKey_RoutesLegacyAndNewVideoToPegasus(int? duration, string decision)
     {
         var pegasusRequests = 0;
-        var geminiRequests = 0;
+        var deepSeekRequests = 0;
         using var http = new HttpClient(new FakeHandler(async (request, ct) =>
         {
             if (request.RequestUri!.Host == "media.example.org")
@@ -89,7 +89,7 @@ public partial class GeminiModerationClientTests
             {
                 pegasusRequests++;
                 Assert.Equal("test-pegasus-key", Assert.Single(request.Headers.GetValues("x-api-key")));
-                Assert.False(request.Headers.Contains("x-goog-api-key"));
+                Assert.Null(request.Headers.Authorization);
                 using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
                 Assert.Equal("pegasus1.6", body.RootElement.GetProperty("model_name").GetString());
                 Assert.InRange(body.RootElement.GetProperty("max_tokens").GetInt32(), 512, 98304);
@@ -102,12 +102,12 @@ public partial class GeminiModerationClientTests
                     }))
                 };
             }
-            geminiRequests++;
-            Assert.Equal("generativelanguage.googleapis.com", request.RequestUri.Host);
-            Assert.Equal("/v1beta/interactions", request.RequestUri.AbsolutePath);
+            deepSeekRequests++;
+            Assert.Equal("api.deepseek.com", request.RequestUri.Host);
+            Assert.Equal("/chat/completions", request.RequestUri.AbsolutePath);
             return Reply(Safe);
         }));
-        var client = new GeminiPostModerationClient(http, Options.Create(new ModerationAiOptions
+        var client = new DeepSeekPostModerationClient(http, Options.Create(new ModerationAiOptions
         {
             Enabled = true, ApiKey = "private-key", TwelveLabsApiKey = "test-pegasus-key",
             AllowedMediaHosts = ["media.example.org"]
@@ -117,7 +117,7 @@ public partial class GeminiModerationClientTests
             Media = [new ModerationAiMedia(11, "https://media.example.org/clip.mp4", "video", duration)]
         }, default);
         Assert.Equal(1, pegasusRequests);
-        Assert.Equal(1, geminiRequests);
+        Assert.Equal(1, deepSeekRequests);
         Assert.Equal(decision == "PASS" ? "safe" : "flagged", result.Verdict);
         Assert.Contains("pegasus1.6", result.Model);
     }
