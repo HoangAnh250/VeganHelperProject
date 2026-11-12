@@ -4,6 +4,7 @@ using System.Text;
 using FluentValidation;
 using Microsoft.OpenApi.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Console;
 using VeganHelper.BLL.DTOs.Posts;
 using VeganHelper.BLL.Services;
 using VeganHelper.BLL.Services.Media;
@@ -48,6 +49,7 @@ if (args.Contains("--generate-vapid-keys"))
 }
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Logging.AddFilter<ConsoleLoggerProvider>(DbLoggerCategory.Database.Command.Name, LogLevel.Warning);
 
 var loadLocalConfiguration = Environment.GetEnvironmentVariable("VEGANHELPER_SKIP_LOCAL_CONFIG") != "1";
 var supabaseConfigPath = loadLocalConfiguration ? DatabaseConnection.FindLocalConfiguration(builder.Environment.ContentRootPath) : null;
