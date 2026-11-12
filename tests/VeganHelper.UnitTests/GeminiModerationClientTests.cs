@@ -485,13 +485,15 @@ public partial class GeminiModerationClientTests
     }
 
     [Theory]
-    [InlineData("INVALID_ARGUMENT", "API_KEY_INVALID", "thinking_level")]
-    [InlineData("private-key", "private-key", "not_a_request_field")]
-    public async Task Review_Provider400_LogsOnlySafeDiagnosticMetadata(string providerStatus, string providerReason, string parameter)
+    [InlineData("INVALID_ARGUMENT", "API_KEY_INVALID", "thinking_level", "invalid_request", "invalid_request")]
+    [InlineData("private-key", "private-key", "not_a_request_field", "private-key", "unknown")]
+    [InlineData(null, null, "response_format", "parameter_unknown", "parameter_unknown")]
+    public async Task Review_Provider400_LogsOnlySafeDiagnosticMetadata(string? providerStatus, string? providerReason,
+        string parameter, string providerCode, string expectedCode)
     {
         var logger = new DiagnosticLogger();
         using var services = new ServiceCollection().AddSingleton<ILogger<GeminiPostModerationClient>>(logger).BuildServiceProvider();
-        var body = JsonSerializer.Serialize(new { error = new { status = providerStatus, message = $"Invalid {parameter}; private-key; confidential post content", details = new[] { new { reason = providerReason } } } });
+        var body = JsonSerializer.Serialize(new { error = new { code = providerCode, status = providerStatus, message = $"Invalid {parameter}; private-key; confidential post content", details = new[] { new { reason = providerReason } } } });
         using var http = new HttpClient(new FakeHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent(body) })));
         var client = ActivatorUtilities.CreateInstance<GeminiPostModerationClient>(services, http,
             Options.Create(new ModerationAiOptions { Enabled = true, ApiKey = "private-key" }), Prompt());
@@ -499,6 +501,9 @@ public partial class GeminiModerationClientTests
         Assert.Equal("gemini_http_400", error.Code); Assert.False(error.Retryable);
         var log = Assert.Single(logger.Messages);
         Assert.Contains("400", log); Assert.Contains("gemini-3.5-flash-lite", log);
+        Assert.Contains("stage interactions", log);
+        Assert.Contains($"provider code {expectedCode}", log);
+        Assert.Contains("body format json", log);
         Assert.DoesNotContain("private-key", log); Assert.DoesNotContain("confidential", log);
         Assert.DoesNotContain("private-key", error.ToString());
         if (providerStatus == "INVALID_ARGUMENT")
