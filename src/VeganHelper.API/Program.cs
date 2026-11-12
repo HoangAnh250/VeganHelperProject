@@ -50,6 +50,7 @@ if (args.Contains("--generate-vapid-keys"))
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddFilter<ConsoleLoggerProvider>(DbLoggerCategory.Database.Command.Name, LogLevel.Warning);
+builder.Logging.AddFilter<ConsoleLoggerProvider>("Microsoft.AspNetCore", LogLevel.Warning);
 
 var loadLocalConfiguration = Environment.GetEnvironmentVariable("VEGANHELPER_SKIP_LOCAL_CONFIG") != "1";
 var supabaseConfigPath = loadLocalConfiguration ? DatabaseConnection.FindLocalConfiguration(builder.Environment.ContentRootPath) : null;
