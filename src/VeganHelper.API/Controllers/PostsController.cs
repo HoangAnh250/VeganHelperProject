@@ -57,7 +57,8 @@ public class PostsController : ControllerBase
     }
 
     /// <summary>
-    /// Searches published articles, videos and recipes by title or content.
+    /// Searches public posts by title or content and optional category.
+    /// Omit keyword to browse the latest posts; an explicitly empty or whitespace-only keyword is invalid.
     /// </summary>
     [HttpGet("search")]
     [AllowAnonymous]

@@ -111,7 +111,7 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         CancellationToken cancellationToken)
     {
         var normalizedKeyword = keyword?.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedKeyword))
+        if (keyword is not null && string.IsNullOrWhiteSpace(normalizedKeyword))
         {
             return ServiceResult<PagedResult<UserSearchResultDto>>.Fail(
                 "Keyword must contain at least 1 character.",
@@ -122,7 +122,7 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         pageSize = pageSize < 1 ? 10 : Math.Min(pageSize, 50);
 
         var (totalCount, projections) = await repository.SearchUsersAsync(
-            normalizedKeyword,
+            normalizedKeyword ?? string.Empty,
             pageIndex,
             pageSize,
             cancellationToken);

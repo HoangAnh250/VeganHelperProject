@@ -30,7 +30,8 @@ public interface IPostRepository
         string keyword,
         int pageIndex,
         int pageSize,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        int? categoryId = null);
     Task<(Post? Post, string AuthorName)> GetPostDetailAsync(long postId, CancellationToken cancellationToken = default);
 
     Task<(System.Collections.Generic.List<Post> Posts, int TotalCount)> GetMyPostsAsync(long authorId, string? status, int pageIndex, int pageSize, CancellationToken cancellationToken = default);

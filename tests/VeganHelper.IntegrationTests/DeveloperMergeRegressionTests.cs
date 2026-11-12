@@ -36,7 +36,7 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
     [Theory]
     [InlineData("pending_review")]
     [InlineData("rejected")]
-    public async Task HeldPostDetail_IsVisibleOnlyToAuthor(string status)
+    public async Task HeldPostDetail_IsVisibleOnlyToAuthorAndActiveAdmin(string status)
     {
         var recipe = await RecipeAsync();
         await using (var db = fixture.Context())
@@ -45,6 +45,11 @@ public sealed class DeveloperMergeRegressionTests(Member2ApiFixture fixture)
         using var guest = fixture.Factory.Client();
         using var other = fixture.Factory.Client(await UserAsync());
         using var author = fixture.Factory.Client(recipe.AuthorId);
+        var adminId = await UserAsync();
+        await using (var db = fixture.Context())
+            await db.Users.Where(u => u.Id == adminId).ExecuteUpdateAsync(s => s.SetProperty(u => u.RoleId, 2));
+        using var admin = fixture.Factory.Client(adminId);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/posts/{recipe.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await guest.GetAsync($"/api/posts/{recipe.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/api/posts/{recipe.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await author.GetAsync($"/api/posts/{recipe.Id}")).StatusCode);
