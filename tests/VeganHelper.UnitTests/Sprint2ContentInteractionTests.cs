@@ -118,14 +118,14 @@ public sealed class Sprint2ContentInteractionTests
     public async Task SearchPostsAsync_AcceptsOneCharacterKeyword()
     {
         var repository = new Mock<IPostRepository>();
-        repository.Setup(x => x.SearchPostsAsync("a", 1, 10, It.IsAny<CancellationToken>(), It.IsAny<int?>()))
+        repository.Setup(x => x.SearchPostsAsync("a", 1, 10, It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<string?>()))
             .ReturnsAsync((0L, (IEnumerable<PostFeedProjection>)new List<PostFeedProjection>()));
         var service = CreatePostService(repository);
 
         var result = await service.SearchPostsAsync(new SearchPostsRequest { Keyword = "a" });
 
         Assert.Empty(result.Items);
-        repository.Verify(x => x.SearchPostsAsync("a", 1, 10, It.IsAny<CancellationToken>(), It.IsAny<int?>()), Times.Once);
+        repository.Verify(x => x.SearchPostsAsync("a", 1, 10, It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Theory]
@@ -145,7 +145,7 @@ public sealed class Sprint2ContentInteractionTests
             }
         };
 
-        repository.Setup(x => x.SearchPostsAsync(keyword, 1, 10, It.IsAny<CancellationToken>(), It.IsAny<int?>()))
+        repository.Setup(x => x.SearchPostsAsync(keyword, 1, 10, It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<string?>()))
             .ReturnsAsync((1L, projections));
 
         var result = await service.SearchPostsAsync(new SearchPostsRequest
@@ -159,7 +159,7 @@ public sealed class Sprint2ContentInteractionTests
         Assert.Equal(10, result.Items.First().Id);
         Assert.Equal(1L, result.TotalItems);
         Assert.Equal(1, result.TotalPages);
-        repository.Verify(x => x.SearchPostsAsync(keyword, 1, 10, It.IsAny<CancellationToken>(), It.IsAny<int?>()), Times.Once);
+        repository.Verify(x => x.SearchPostsAsync(keyword, 1, 10, It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -212,7 +212,7 @@ public sealed class Sprint2ContentInteractionTests
     {
         var repository = new Mock<IPostRepository>();
         await Assert.ThrowsAsync<ArgumentException>(() => CreatePostService(repository).SearchPostsAsync(new SearchPostsRequest { Keyword = " " }));
-        repository.Verify(x => x.SearchPostsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<int?>()), Times.Never);
+        repository.Verify(x => x.SearchPostsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<string?>()), Times.Never);
     }
     private static PostService CreatePostService(Mock<IPostRepository> repository) => new(
         repository.Object,

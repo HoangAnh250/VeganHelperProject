@@ -7,9 +7,11 @@ namespace VeganHelper.IntegrationTests;
 public partial class PostRepositoryTests
 {
     [Theory]
-    [InlineData("")]
-    [InlineData("tofu")]
-    public async Task SearchCategoryFiltersCountBeforePaginationAndExcludesPrivatePosts(string keyword)
+    [InlineData("", false)]
+    [InlineData("tofu", false)]
+    [InlineData("", true)]
+    [InlineData("tofu", true)]
+    public async Task SearchCategoryFiltersCountBeforePaginationAndExcludesPrivatePosts(string keyword, bool filterDifficulty)
     {
         var user = await AddUser();
         var category = new Category { Name = Guid.NewGuid().ToString("N"), Slug = Guid.NewGuid().ToString("N"), CategoryType = "post", PostCategoryKind = "recipe", IsActive = true };
@@ -17,7 +19,7 @@ public partial class PostRepositoryTests
         await _context.SaveChangesAsync();
         var posts = Enumerable.Range(0, 5).Select(i => {
             var p = NewPost(user.Id); p.Title = "tofu bowl";
-            p.CreatedAt = DateTime.UtcNow.AddMinutes(i);
+            p.CreatedAt = DateTime.UtcNow.AddMinutes(i); p.DifficultyLevel = i == 1 ? "hard" : "easy";
             p.PostCategories.Add(new PostCategory { CategoryId = category.Id });
             return p;
         }).ToArray();
@@ -26,10 +28,10 @@ public partial class PostRepositoryTests
         var otherCategory = NewPost(user.Id); otherCategory.Title = "tofu outside filter";
         _context.Posts.AddRange(posts); _context.Posts.Add(otherCategory);
         await _context.SaveChangesAsync();
-        var first = await _postRepository.SearchPostsAsync(keyword, 1, 2, default, category.Id);
-        var second = await _postRepository.SearchPostsAsync(keyword, 2, 2, default, category.Id);
-        Assert.Equal(3, first.TotalCount); Assert.Equal(3, second.TotalCount);
-        Assert.Equal(new[] { posts[2].Id, posts[1].Id }, first.Items.Select(p => p.Id));
+        var first = await _postRepository.SearchPostsAsync(keyword, 1, filterDifficulty ? 1 : 2, default, category.Id, filterDifficulty ? "easy" : null);
+        var second = await _postRepository.SearchPostsAsync(keyword, 2, filterDifficulty ? 1 : 2, default, category.Id, filterDifficulty ? "easy" : null);
+        Assert.Equal(filterDifficulty ? 2 : 3, first.TotalCount); Assert.Equal(filterDifficulty ? 2 : 3, second.TotalCount);
+        Assert.Equal(filterDifficulty ? new[] { posts[2].Id } : new[] { posts[2].Id, posts[1].Id }, first.Items.Select(p => p.Id));
         Assert.Equal(posts[0].Id, Assert.Single(second.Items).Id);
     }
 

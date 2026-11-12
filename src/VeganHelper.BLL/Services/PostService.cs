@@ -180,6 +180,11 @@ public sealed class PostService : IPostService
         if (request.CategoryId is <= 0)
             throw new ArgumentException("CategoryId must be a positive number.");
 
+        var difficulty = request.DifficultyLevel?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(difficulty)) difficulty = null;
+        if (difficulty is not null && difficulty is not ("easy" or "medium" or "hard"))
+            throw new ArgumentException("DifficultyLevel must be easy, medium, or hard.");
+
         var pageIndex = request.PageIndex < 1 ? 1 : request.PageIndex;
         var pageSize = request.PageSize < 1 ? 10 : Math.Min(request.PageSize, 50);
 
@@ -188,7 +193,8 @@ public sealed class PostService : IPostService
             pageIndex,
             pageSize,
             cancellationToken,
-            request.CategoryId);
+            request.CategoryId,
+            difficulty);
 
         var dtoItems = items.Select(p => new PostFeedItemDto
         {

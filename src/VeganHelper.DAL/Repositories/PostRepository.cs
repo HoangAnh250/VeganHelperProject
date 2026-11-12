@@ -281,7 +281,8 @@ public sealed class PostRepository : IPostRepository
         int pageIndex,
         int pageSize,
         CancellationToken cancellationToken = default,
-        int? categoryId = null)
+        int? categoryId = null,
+        string? difficultyLevel = null)
     {
         var query = _context.Posts.AsNoTracking()
             .Where(p => !p.IsDeleted && p.Status == "published" && !p.ModerationHold);
@@ -294,6 +295,8 @@ public sealed class PostRepository : IPostRepository
         }
         if (categoryId.HasValue)
             query = query.Where(p => p.PostCategories.Any(c => c.CategoryId == categoryId.Value));
+        if (!string.IsNullOrEmpty(difficultyLevel))
+            query = query.Where(p => p.DifficultyLevel != null && p.DifficultyLevel.ToLower() == difficultyLevel);
 
         var totalCount = await query.LongCountAsync(cancellationToken);
 

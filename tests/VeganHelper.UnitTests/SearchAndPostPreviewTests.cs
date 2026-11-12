@@ -68,11 +68,11 @@ public sealed class SearchAndPostPreviewTests
     public async Task PostSearch_DefaultBrowseAndSearchPassCategoryAndCapPageSize(string? keyword)
     {
         var posts = new Mock<IPostRepository>();
-        posts.Setup(p => p.SearchPostsAsync(keyword == null ? "" : "tofu", 1, 50, It.IsAny<CancellationToken>(), 7))
+        posts.Setup(p => p.SearchPostsAsync(keyword == null ? "" : "tofu", 1, 50, It.IsAny<CancellationToken>(), 7, "easy"))
             .ReturnsAsync((0L, Array.Empty<PostFeedProjection>()));
-        var page = await Service(posts).SearchPostsAsync(new SearchPostsRequest { Keyword = keyword, CategoryId = 7, PageIndex = 0, PageSize = 100 });
+        var page = await Service(posts).SearchPostsAsync(new SearchPostsRequest { Keyword = keyword, CategoryId = 7, DifficultyLevel = " EASY ", PageIndex = 0, PageSize = 100 });
         Assert.Equal(50, page.PageSize);
-        posts.Verify(p => p.SearchPostsAsync(keyword == null ? "" : "tofu", 1, 50, It.IsAny<CancellationToken>(), 7), Times.Once);
+        posts.Verify(p => p.SearchPostsAsync(keyword == null ? "" : "tofu", 1, 50, It.IsAny<CancellationToken>(), 7, "easy"), Times.Once);
     }
 
     [Theory]
@@ -105,4 +105,11 @@ public sealed class SearchAndPostPreviewTests
     [InlineData(-1)]
     public async Task PostSearchRejectsInvalidCategory(int categoryId) =>
         await Assert.ThrowsAsync<ArgumentException>(() => Service(new()).SearchPostsAsync(new SearchPostsRequest { CategoryId = categoryId }));
+
+    [Theory]
+    [InlineData("expert")]
+    [InlineData("easy,hard")]
+    [InlineData("<script>")]
+    public async Task SearchRejectsUnsupportedDifficulty(string difficulty) =>
+        await Assert.ThrowsAsync<ArgumentException>(() => Service(new()).SearchPostsAsync(new SearchPostsRequest { DifficultyLevel = difficulty }));
 }

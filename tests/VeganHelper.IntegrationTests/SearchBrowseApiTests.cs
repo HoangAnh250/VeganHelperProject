@@ -54,4 +54,17 @@ public sealed class SearchBrowseApiTests(Member2ApiFixture fixture)
         using var response = await client.GetAsync($"/api/posts/search?keyword=tofu&categoryId={category}");
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    [Theory]
+    [InlineData("expert", 400)]
+    [InlineData("easy%2Chard", 400)]
+    [InlineData("EASY", 200)]
+    [InlineData("medium", 200)]
+    [InlineData("hard", 200)]
+    public async Task SearchDifficultyIsValidatedAtHttpBoundary(string difficulty, int status)
+    {
+        using var client = fixture.Factory.Client();
+        using var response = await client.GetAsync($"/api/posts/search?difficultyLevel={difficulty}");
+        Assert.Equal(status, (int)response.StatusCode);
+    }
 }
