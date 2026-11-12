@@ -29,15 +29,21 @@ public partial class DeepSeekModerationClientTests
     [InlineData(false)]
     public async Task ParallelProviders_FirstFailReturnsWithoutWaitingAndCancelsSibling(bool deepSeekFails)
     {
-        var deepSeekStarted = Signal(); var pegasusStarted = Signal(); var siblingCancelled = Signal();
+        var siblingWaiting = Signal();
+        var siblingCancelled = Signal();
         using var http = new HttpClient(new FakeHandler(async (request, ct) =>
         {
             if (request.RequestUri!.Host == "media.example.org") return Image(VideoTestData.Mp4(10), "video/mp4");
             var isDeepSeek = request.RequestUri.Host == "api.deepseek.com";
-            (isDeepSeek ? deepSeekStarted : pegasusStarted).TrySetResult(true);
-            await Task.WhenAll(deepSeekStarted.Task, pegasusStarted.Task).WaitAsync(ct);
-            if (isDeepSeek == deepSeekFails) return isDeepSeek ? Reply(Flagged) : PegasusReply("FAIL");
-            try { await Task.Delay(Timeout.Infinite, ct); }
+            if (isDeepSeek == deepSeekFails)
+            {
+                await siblingWaiting.Task.WaitAsync(ct);
+                return isDeepSeek ? Reply(Flagged) : PegasusReply("FAIL");
+            }
+
+            var pendingResponse = Task.Delay(Timeout.Infinite, ct);
+            siblingWaiting.TrySetResult(true);
+            try { await pendingResponse; }
             catch (OperationCanceledException) { siblingCancelled.TrySetResult(true); throw; }
             throw new InvalidOperationException("The sibling request should be cancelled.");
         }));

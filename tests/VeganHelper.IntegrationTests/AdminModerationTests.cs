@@ -190,13 +190,15 @@ public sealed class AdminModerationTests(Member2ApiFixture fixture)
         Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync($"/api/posts/{post.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/admin/moderation/posts/{post.Id}")).StatusCode);
         await using var db = fixture.Context();
-        Assert.Equal(1, (await db.Posts.SingleAsync(p => p.Id == post.Id)).ViewCount);
+        Assert.Equal(post.ViewCount, (await db.Posts.SingleAsync(p => p.Id == post.Id)).ViewCount);
     }
     [Fact]
-    public async Task PostDetail_WhenPublished_GuestCanRead()
+    public async Task PostDetail_WhenPublished_GuestCanReadAndViewCountIncreases()
     {
         var post = await PostAsync("published"); using var guest = fixture.Factory.Client();
         Assert.Equal(HttpStatusCode.OK, (await guest.GetAsync($"/api/posts/{post.Id}")).StatusCode);
+        await using var db = fixture.Context();
+        Assert.Equal(post.ViewCount + 1, (await db.Posts.SingleAsync(p => p.Id == post.Id)).ViewCount);
     }
     [Theory]
     [InlineData("GET", "posts")]
