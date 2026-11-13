@@ -26,7 +26,9 @@ public sealed class AdminAuditService(IAdminAuditRepository repository, IMapper 
         {
             var page = await repository.ListAsync(request.AdminId, action, targetType, targetId,
                 request.From?.UtcDateTime, request.To?.UtcDateTime, request.PageIndex, request.PageSize, token, request.ImportantOnly);
-            return Pagination.Map<AdminAuditLog, AdminAuditLogDto>(page, request.PageIndex, request.PageSize, mapper);
+            var result = Pagination.Map<AdminAuditLog, AdminAuditLogDto>(page, request.PageIndex, request.PageSize, mapper);
+            await EnrichAsync(result.Items, page.Items.ToList(), token);
+            return result;
         }, null, ct);
     }
 
@@ -34,7 +36,9 @@ public sealed class AdminAuditService(IAdminAuditRepository repository, IMapper 
         ExecuteAsync(actor, "audit.view", "audit_log", id.ToString(System.Globalization.CultureInfo.InvariantCulture), async token =>
         {
             var entry = await repository.FindAsync(id, token) ?? throw new NotFoundException("Audit entry not found.");
-            return mapper.Map<AdminAuditLogDto>(entry);
+            var result = mapper.Map<AdminAuditLogDto>(entry);
+            await EnrichAsync([result], [entry], token);
+            return result;
         }, null, ct);
 
     public async Task<T> ExecuteAsync<T>(AdminActor actor, string action, string targetType, string? targetId,
@@ -58,6 +62,22 @@ public sealed class AdminAuditService(IAdminAuditRepository repository, IMapper 
         }, ct);
         await transaction.CommitAsync(ct);
         return result;
+    }
+
+    private async Task EnrichAsync(IEnumerable<AdminAuditLogDto> items, IReadOnlyList<AdminAuditLog> entries, CancellationToken ct)
+    {
+        var contexts = await repository.GetDisplayContextsAsync(entries, ct);
+        foreach (var item in items)
+        {
+            if (!contexts.TryGetValue(item.Id, out var context)) continue;
+            item.AdminName = context.AdminName;
+            item.AdminUsername = context.AdminUsername;
+            item.SubjectType = context.SubjectType;
+            item.SubjectName = context.SubjectName;
+            item.OwnerName = context.OwnerName;
+            item.OwnerUsername = context.OwnerUsername;
+            item.PostTitle = context.PostTitle;
+        }
     }
 
     private static string? Filter(string? value, int maxLength)

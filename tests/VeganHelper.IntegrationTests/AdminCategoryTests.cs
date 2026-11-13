@@ -307,6 +307,7 @@ public sealed class AdminCategoryTests(Member2ApiFixture fixture)
         public Task<DatabasePage<AdminAuditLog>> ListAsync(long? id, string? action, string? type, string? target,
             DateTime? from, DateTime? to, int index, int size, CancellationToken ct, bool importantOnly = false) => inner.ListAsync(id, action, type, target, from, to, index, size, ct, importantOnly);
         public Task<AdminAuditLog?> FindAsync(long id, CancellationToken ct) => inner.FindAsync(id, ct);
+        public Task<IReadOnlyDictionary<long, AuditDisplayContext>> GetDisplayContextsAsync(IReadOnlyList<AdminAuditLog> entries, CancellationToken ct) => inner.GetDisplayContextsAsync(entries, ct);
     }
 
     [Fact]

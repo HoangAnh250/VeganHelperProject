@@ -21,6 +21,13 @@ public sealed class AdminAuditListRequest
 
 public sealed class AdminAuditLogDto
 {
+    public string? AdminName { get; set; }
+    public string? AdminUsername { get; set; }
+    public string? SubjectType { get; set; }
+    public string? SubjectName { get; set; }
+    public string? OwnerName { get; set; }
+    public string? OwnerUsername { get; set; }
+    public string? PostTitle { get; set; }
     public long Id { get; set; }
     public long AdminId { get; set; }
     public string Action { get; set; } = string.Empty;

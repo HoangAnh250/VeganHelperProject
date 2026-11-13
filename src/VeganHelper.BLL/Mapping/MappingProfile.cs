@@ -16,7 +16,14 @@ public sealed class MappingProfile : Profile
         CreateMap<Flag, VeganHelper.BLL.DTOs.Posts.AdminPostReportDto>(MemberList.None);
         CreateMap<AdminPostReportProjection, VeganHelper.BLL.DTOs.Posts.AdminPostReportDto>(MemberList.None);
         CreateMap<PostModerationAssessment, VeganHelper.BLL.DTOs.Posts.ModerationAssessmentDto>();
-        CreateMap<AdminAuditLog, VeganHelper.BLL.DTOs.Admin.AdminAuditLogDto>();
+        CreateMap<AdminAuditLog, VeganHelper.BLL.DTOs.Admin.AdminAuditLogDto>()
+            .ForMember(d => d.AdminName, o => o.Ignore())
+            .ForMember(d => d.AdminUsername, o => o.Ignore())
+            .ForMember(d => d.SubjectType, o => o.Ignore())
+            .ForMember(d => d.SubjectName, o => o.Ignore())
+            .ForMember(d => d.OwnerName, o => o.Ignore())
+            .ForMember(d => d.OwnerUsername, o => o.Ignore())
+            .ForMember(d => d.PostTitle, o => o.Ignore());
         CreateMap<AdminMemberProjection, VeganHelper.BLL.DTOs.Admin.AdminMemberDto>();
         CreateMap<AdminCategoryProjection, VeganHelper.BLL.DTOs.Admin.AdminCategoryDto>();
         CreateMap<AdminCommentReportProjection, VeganHelper.BLL.DTOs.Admin.AdminCommentReportDto>();
