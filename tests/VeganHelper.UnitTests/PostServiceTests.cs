@@ -16,6 +16,44 @@ using Xunit;
 
 public class PostServiceTests
 {
+    [Theory]
+    [InlineData(998)]
+    [InlineData(999)]
+    [InlineData(1000)]
+    public async Task CreatePost_CookingStepLimit_AcceptsBoundaryAndRejectsOversizedInputBeforeUpload(int length)
+    {
+        Post? saved = null;
+        _mockPostRepository.Setup(r => r.CreatePostAsync(It.IsAny<Post>(), It.IsAny<CancellationToken>()))
+            .Callback<Post, CancellationToken>((post, _) => saved = post).ReturnsAsync((Post post, CancellationToken _) => post);
+        var request = new CreatePostRequest { Title = "Recipe", Content = "Recipe content", CategoryId = 1,
+            StepsJson = System.Text.Json.JsonSerializer.Serialize(new[] { new StepDto { StepNumber = 1, Description = new string('a', length) } }) };
+        if (length <= 999)
+        {
+            await _postService.CreatePostAsync(request, 1);
+            Assert.Equal(length, Assert.Single(saved!.PostSteps).Description.Length);
+        }
+        else
+        {
+            var error = await Assert.ThrowsAsync<ArgumentException>(() => _postService.CreatePostAsync(request, 1));
+            Assert.Contains("999 characters", error.Message);
+            _mockPostRepository.Verify(r => r.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+            _mockMediaStorageService.Verify(m => m.UploadFileAsync(It.IsAny<IFormFile>(), It.IsAny<string>()), Times.Never);
+        }
+    }
+
+    [Fact]
+    public async Task UpdatePost_RejectsOversizedCookingStepBeforeTransactionOrUpload()
+    {
+        _mockPostRepository.Setup(r => r.GetPostForUpdateAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Post { Id = 1, AuthorId = 2 });
+        var request = new UpdatePostRequest { StepsJson = System.Text.Json.JsonSerializer.Serialize(new[] {
+            new StepDto { StepNumber = 1, Description = new string('a', 1000) } }) };
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => _postService.UpdatePostAsync(1, request, 2));
+        Assert.Contains("999 characters", error.Message);
+        _mockPostRepository.Verify(r => r.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockMediaStorageService.Verify(m => m.UploadFileAsync(It.IsAny<IFormFile>(), It.IsAny<string>()), Times.Never);
+    }
+
     private readonly Mock<IPostRepository> _mockPostRepository;
     private readonly Mock<IValidator<CreatePostRequest>> _mockValidator;
 

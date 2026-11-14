@@ -552,6 +552,8 @@ public sealed class PostService : IPostService
     private static List<StepDto> ParseSteps(string? json)
     {
         var steps = ParseList<StepDto>(json, "Steps");
+        if (steps.Any(s => s.Description?.Length > 999))
+            throw new ArgumentException("Each cooking step must be 999 characters or fewer.");
         if (steps.Any(s => s.StepNumber <= 0 || string.IsNullOrWhiteSpace(s.Description))
             || steps.Select(s => s.StepNumber).Distinct().Count() != steps.Count)
             throw new ArgumentException("Cooking steps require unique positive step numbers and a description.");
