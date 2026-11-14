@@ -10,7 +10,7 @@ namespace VeganHelper.BLL.Services;
 public sealed class PostSummaryService(IPostSummaryRepository repository, IVideoSummaryAiClient ai,
     IPostSummaryQueue queue, ILogger<PostSummaryService> logger) : IPostSummaryService
 {
-    private string ProcessingModel => $"{ai.SummaryModel}|speech-v2";
+    private string ProcessingModel => $"{ai.SummaryModel}|speech-v3-language";
 
     public async Task<PostSummaryDto?> GetAsync(long postId, CancellationToken ct)
     {
@@ -58,12 +58,15 @@ public sealed class PostSummaryService(IPostSummaryRepository repository, IVideo
         try
         {
             var transcript = new StringBuilder();
+            var languages = new List<(string Language, int Weight)>();
             var clipNumber = 0;
             foreach (var video in source.Videos)
             {
                 clipNumber++;
-                var text = (await ai.TranscribeAsync(video.Url, ct)).Trim();
+                var speech = await ai.TranscribeAsync(video.Url, ct);
+                var text = speech.Text.Trim();
                 if (text.Length == 0) continue;
+                languages.Add((ResolveLanguage(speech), text.Count(char.IsLetter)));
                 transcript.AppendLine($"Clip {clipNumber} (media {video.Id}):");
                 transcript.AppendLine(text).AppendLine();
             }
@@ -72,7 +75,11 @@ public sealed class PostSummaryService(IPostSummaryRepository repository, IVideo
                 throw new InvalidOperationException("No reliable cooking speech was detected in these videos.");
             if (combined.Length > 80_000)
                 throw new InvalidOperationException("The combined transcript is too long to summarize.");
-            var summary = await SummarizeAsync(combined, ct);
+            // Pick once for the whole post; all chunks and the final merge must use the same language.
+            // GroupBy and the stable sort preserve the first spoken clip's language on an exact tie.
+            var language = languages.GroupBy(item => item.Language)
+                .OrderByDescending(group => group.Sum(item => (long)item.Weight)).First().Key;
+            var summary = await SummarizeAsync(combined, language, ct);
             var latest = await repository.GetPublicSourceAsync(postId, ct);
             if (latest is null || latest.Revision != source.Revision || SourceIds(latest) != ids) return;
             await repository.CompleteAsync(postId, source.Revision, ids, combined, summary, ProcessingModel, ct);
@@ -90,10 +97,20 @@ public sealed class PostSummaryService(IPostSummaryRepository repository, IVideo
     private static string SourceIds(SummarySource source) =>
         JsonSerializer.Serialize(source.Videos.Select(v => v.Id));
 
-    private async Task<string> SummarizeAsync(string transcript, CancellationToken ct)
+    private static string ResolveLanguage(VideoTranscription speech)
+    {
+        var language = speech.Language?.Trim().ToLowerInvariant();
+        if (language is "vi" or "vietnamese") return "vi";
+        if (language is "en" or "english") return "en";
+        // A missing language hint must not make the synthetic English clip labels determine the result.
+        const string vietnameseLetters = "ăâđêôơưĂÂĐÊÔƠƯàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ";
+        return speech.Text.Normalize().ToLowerInvariant().Any(vietnameseLetters.Contains) ? "vi" : "en";
+    }
+
+    private async Task<string> SummarizeAsync(string transcript, string language, CancellationToken ct)
     {
         const int chunkSize = 16_000;
-        if (transcript.Length <= chunkSize) return await ai.SummarizeAsync(transcript, ct);
+        if (transcript.Length <= chunkSize) return await ai.SummarizeAsync(transcript, language, ct);
         var partials = new List<string>();
         for (var offset = 0; offset < transcript.Length;)
         {
@@ -103,13 +120,13 @@ public sealed class PostSummaryService(IPostSummaryRepository repository, IVideo
                 var boundary = transcript.LastIndexOf(' ', end - 1, end - offset);
                 if (boundary > offset + chunkSize / 2) end = boundary + 1;
             }
-            partials.Add(await ai.SummarizeAsync(transcript[offset..end], ct));
+            partials.Add(await ai.SummarizeAsync(transcript[offset..end], language, ct));
             offset = end;
         }
         var combined = string.Join("\n\n", partials);
         if (combined.Length > 24_000)
             throw new InvalidOperationException("Intermediate summaries are too long.");
-        return await ai.SummarizeAsync(combined, ct);
+        return await ai.SummarizeAsync(combined, language, ct);
     }
 
     private bool Matches(PostSummary summary, SummarySource source) =>

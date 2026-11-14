@@ -19,6 +19,45 @@ namespace VeganHelper.IntegrationTests;
 public sealed class AdminFoundationTests(Member2ApiFixture fixture)
 {
     [Fact]
+    public async Task AuditDisplay_ResolvesActorPostOwnerAndCommentReportWithoutConfusingReportIdWithCommentId()
+    {
+        var admin = await UserAsync();
+        var author = await UserAsync(role: 1);
+        long postAuditId, commentAuditId;
+        await using (var db = fixture.Context())
+        {
+            db.UserProfiles.Add(new UserProfile { UserId = admin, DisplayName = "Review Administrator", DietType = "vegan" });
+            db.UserProfiles.Add(new UserProfile { UserId = author, DisplayName = "Recipe Author", DietType = "vegan" });
+            var post = new Post { AuthorId = author, Title = "Pumpkin soup", Content = "Recipe", Status = "published", CreatedAt = DateTime.UtcNow };
+            db.Posts.Add(post);
+            await db.SaveChangesAsync();
+            var comment = new Comment { PostId = post.Id, UserId = author, Content = "Thanks", Status = "visible", CreatedAt = DateTime.UtcNow };
+            db.Comments.Add(comment);
+            await db.SaveChangesAsync();
+            var flag = new Flag { CommentId = comment.Id, ReporterId = admin, Reason = "Review comment", Status = "pending", SourceType = "user", CreatedAt = DateTime.UtcNow };
+            db.Flags.Add(flag);
+            await db.SaveChangesAsync();
+            var postEntry = new AdminAuditLog { AdminId = admin, Action = "post.approve", TargetType = "post", TargetId = post.Id.ToString(), TraceId = "display-test", CreatedAt = DateTime.UtcNow };
+            var commentEntry = new AdminAuditLog { AdminId = admin, Action = "comment_report.keep", TargetType = "comment", TargetId = flag.Id.ToString(), TraceId = "display-test", CreatedAt = DateTime.UtcNow };
+            db.AdminAuditLogs.AddRange(postEntry, commentEntry);
+            await db.SaveChangesAsync();
+            postAuditId = postEntry.Id;
+            commentAuditId = commentEntry.Id;
+        }
+        using var client = Client(admin.ToString());
+        var page = await client.GetFromJsonAsync<JsonElement>($"/api/admin/audit-logs?AdminId={admin}&ImportantOnly=true");
+        var postDto = page.GetProperty("items").EnumerateArray().Single(e => e.GetProperty("id").GetInt64() == postAuditId);
+        Assert.Equal("Review Administrator", postDto.GetProperty("adminName").GetString());
+        Assert.StartsWith("audit_", postDto.GetProperty("adminUsername").GetString());
+        Assert.Equal("Pumpkin soup", postDto.GetProperty("subjectName").GetString());
+        Assert.Equal("Recipe Author", postDto.GetProperty("ownerName").GetString());
+        var commentDto = await client.GetFromJsonAsync<JsonElement>($"/api/admin/audit-logs/{commentAuditId}");
+        Assert.Equal("comment", commentDto.GetProperty("subjectType").GetString());
+        Assert.Equal("Recipe Author", commentDto.GetProperty("ownerName").GetString());
+        Assert.Equal("Pumpkin soup", commentDto.GetProperty("postTitle").GetString());
+    }
+
+    [Fact]
     public async Task ListAuditLogs_ImportantOnly_FiltersBeforePagingAndPreservesHistory()
     {
         var admin = await UserAsync();

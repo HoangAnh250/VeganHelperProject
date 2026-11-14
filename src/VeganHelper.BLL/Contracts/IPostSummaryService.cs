@@ -12,10 +12,12 @@ public interface IPostSummaryService
 
 public interface IVideoSummaryAiClient
 {
-    Task<string> TranscribeAsync(string mediaUrl, CancellationToken ct);
-    Task<string> SummarizeAsync(string transcript, CancellationToken ct);
+    Task<VideoTranscription> TranscribeAsync(string mediaUrl, CancellationToken ct);
+    Task<string> SummarizeAsync(string transcript, string language, CancellationToken ct);
     string SummaryModel { get; }
 }
+
+public sealed record VideoTranscription(string Text, string? Language);
 
 public interface IPostSummaryQueue
 {
