@@ -18,6 +18,8 @@ public sealed class PostSummaryService(IPostSummaryRepository repository, IVideo
         if (source is null) return null;
         var saved = await repository.GetAsync(postId, ct);
         if (saved is null) return new(postId, "not_requested", null, null, null, null, null);
+        if (saved.Status == "processing" && saved.RequestedAt < DateTime.UtcNow.AddMinutes(-30))
+            return new(postId, "failed", null, null, "The previous attempt timed out. Please try again.", saved.RequestedAt, null);
         if (!Matches(saved, source))
             return new(postId, "stale", null, null, null, saved.RequestedAt, null);
         return Map(saved);
@@ -29,6 +31,7 @@ public sealed class PostSummaryService(IPostSummaryRepository repository, IVideo
         if (source is null) return null;
         if (source.Videos.Count == 0) throw new ArgumentException("This post has no ready video to summarize.");
         var ids = SourceIds(source);
+        await repository.RecoverExpiredAsync(postId, DateTime.UtcNow.AddMinutes(-30), ct);
         var saved = await repository.GetAsync(postId, ct);
         if (saved is null)
         {
@@ -55,6 +58,9 @@ public sealed class PostSummaryService(IPostSummaryRepository repository, IVideo
         if (source is null || source.Videos.Count == 0) return;
         var ids = SourceIds(source);
         if (!await repository.TryClaimAsync(postId, source.Revision, ids, ct)) return;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromMinutes(15));
+        ct = timeout.Token;
         try
         {
             var transcript = new StringBuilder();

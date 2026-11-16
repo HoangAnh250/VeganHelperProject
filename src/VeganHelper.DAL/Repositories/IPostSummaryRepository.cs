@@ -10,6 +10,7 @@ public interface IPostSummaryRepository
     Task<SummarySource?> GetPublicSourceAsync(long postId, CancellationToken ct);
     Task<PostSummary?> GetAsync(long postId, CancellationToken ct);
     Task AddAsync(PostSummary summary, CancellationToken ct);
+    Task RecoverExpiredAsync(long postId, DateTime cutoff, CancellationToken ct);
     Task ResetAsync(long postId, int revision, string mediaIdsJson, CancellationToken ct);
     Task<bool> TryClaimAsync(long postId, int revision, string mediaIdsJson, CancellationToken ct);
     Task<bool> CompleteAsync(long postId, int revision, string mediaIdsJson, string transcript,

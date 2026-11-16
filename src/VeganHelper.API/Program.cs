@@ -346,6 +346,10 @@ builder.Services.AddScoped<CloudflareR2StorageService>();
 builder.Services.AddScoped<IMediaStorageService>(sp => sp.GetRequiredService<CloudflareR2StorageService>());
 builder.Services.AddScoped<IAvatarStorage>(sp => sp.GetRequiredService<CloudflareR2StorageService>());
 
+builder.Services.AddHostedService(sp => new RecurringJobRegistrationWorker(
+    sp, sp.GetRequiredService<ILogger<RecurringJobRegistrationWorker>>(),
+    pushWorkerConfigured, mealWorkerConfigured, moderationWorkerConfigured));
+
 var app = builder.Build();
 
 if (prepareJobs)
@@ -405,22 +409,6 @@ app.UseRateLimiter();
 app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapControllers();
-if (pushWorkerConfigured &&
-    !args.Any(a => a is "--migrate" or "--seed" or "--seed-posts"))
-{
-    app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<NotificationPushJob>(
-        "notifications-web-push", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
-}
-if (mealWorkerConfigured)
-{
-    app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<MealRoutineJob>(
-        "meal-routine-review", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
-    app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<MealPlanExpiryReminderJob>(
-        "meal-package-expiry-reminder", job => job.RunAsync(CancellationToken.None), Cron.Hourly());
-}
-if (moderationWorkerConfigured)
-    app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<PostModerationJob>(
-        "posts-ai-moderation", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
 app.Run();
 
 static string? FindEnvironmentFile(string startPath)

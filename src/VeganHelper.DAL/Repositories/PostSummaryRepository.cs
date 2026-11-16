@@ -32,6 +32,11 @@ public sealed class PostSummaryRepository(AppDbContext db) : IPostSummaryReposit
             ON CONFLICT (post_id) DO NOTHING
             """, ct);
 
+    public Task RecoverExpiredAsync(long postId, DateTime cutoff, CancellationToken ct) =>
+        db.PostSummaries.Where(s => s.PostId == postId && s.Status == "processing" && s.RequestedAt < cutoff)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, "pending")
+                .SetProperty(x => x.RequestedAt, DateTime.UtcNow), ct);
+
     public Task ResetAsync(long postId, int revision, string mediaIdsJson, CancellationToken ct) =>
         db.PostSummaries.Where(s => s.PostId == postId)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.ContentRevision, revision)
@@ -47,7 +52,7 @@ public sealed class PostSummaryRepository(AppDbContext db) : IPostSummaryReposit
     public async Task<bool> TryClaimAsync(long postId, int revision, string mediaIdsJson, CancellationToken ct) =>
         await db.PostSummaries.Where(s => s.PostId == postId && s.ContentRevision == revision &&
                 s.SourceMediaIdsJson == mediaIdsJson && s.Status == "pending")
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, "processing"), ct) == 1;
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, "processing").SetProperty(x => x.RequestedAt, DateTime.UtcNow), ct) == 1;
 
     public async Task<bool> CompleteAsync(long postId, int revision, string mediaIdsJson, string transcript,
         string summary, string model, CancellationToken ct) =>

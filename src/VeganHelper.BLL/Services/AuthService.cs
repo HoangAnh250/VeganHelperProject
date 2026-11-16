@@ -508,6 +508,7 @@ public sealed class AuthService(
             return ServiceResult<MessageResponseDto>.Fail("Email is already registered.", 409);
 
         token.ConsumedAt = now;
+        user.TokenVersion++;
         user.Email = user.PendingEmail;
         user.PendingEmail = null;
         user.EmailVerifiedAt = now;
@@ -629,6 +630,7 @@ public sealed class AuthService(
             return ServiceResult<MessageResponseDto>.Fail("The reset token is invalid or expired.", 400);
 
         token.UsedAt = now;
+        user.TokenVersion++;
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.FailedLoginAttempts = 0;
         user.LockedUntil = null;
