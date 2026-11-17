@@ -603,16 +603,15 @@ public sealed class MealPlanningApiTests(Member2ApiFixture fixture)
     }
 
     [Fact]
-    public async Task UnknownCustomAlias_ReselectedViaIngredientPickerStillBlocksGeneration()
+    public async Task UnknownPrivateAllergyDoesNotEnterCatalogAndStillBlocksGeneration()
     {
         var owner=await SeedAsync(); using var client=fixture.Factory.Client(owner);
         var alias="arachide "+Guid.NewGuid().ToString("N");
         Assert.Equal(HttpStatusCode.OK,(await client.PutAsJsonAsync("/api/HealthProfile/allergies",new
         { allergyIngredientIds=Array.Empty<long>(),customAllergies=new[]{alias} })).StatusCode);
         await using var db=fixture.Context();
-        var aliasId=await db.UserAllergies.Where(a=>a.UserId==owner).Select(a=>a.IngredientId).SingleAsync();
-        Assert.Equal(HttpStatusCode.OK,(await client.PutAsJsonAsync("/api/HealthProfile/allergies",new
-        { allergyIngredientIds=new[]{aliasId},customAllergies=Array.Empty<string>() })).StatusCode);
+        Assert.False(await db.Ingredients.AnyAsync(i => i.Name == alias));
+        Assert.True(await db.Set<CustomUserAllergy>().AnyAsync(a => a.UserId == owner && a.Name == alias));
         Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync("/api/MealPlans/generate",new
         { startDate=DateOnly.FromDateTime(DateTime.UtcNow) })).StatusCode);
         Assert.False(await db.MealPlans.AnyAsync(p=>p.UserId==owner));

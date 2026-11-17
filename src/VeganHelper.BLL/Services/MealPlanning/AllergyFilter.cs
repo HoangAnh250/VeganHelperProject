@@ -32,21 +32,27 @@ public static class AllergyFilter
 
     private static bool Contains(string name, string token) => (" "+name+" ").Contains(" "+token+" ",StringComparison.Ordinal);
 
+    public static bool Matches(AllergyProjection allergy, Ingredient ingredient) =>
+        Matches(allergy, ingredient, Normalize(allergy.Name));
+
+    private static bool Matches(AllergyProjection allergy, Ingredient ingredient, string name)
+    {
+        if (allergy.IngredientId > 0 && allergy.IngredientId == ingredient.Id) return true;
+        if (name.Length == 0) return false;
+        var candidate = Normalize(ingredient.Name);
+        return Contains(candidate, name) ||
+            Families.Any(family => family.Any(token => Contains(name, token)) && family.Any(token => Contains(candidate, token)));
+    }
+
     public static HashSet<long> ExcludedIngredients(IReadOnlyList<AllergyProjection> allergies,
         IReadOnlyList<Ingredient> ingredients, IReadOnlySet<long> recipeIngredientIds)
     {
-        var excluded=new HashSet<long>();
+        var excluded = new HashSet<long>();
         foreach (var allergy in allergies)
         {
-            excluded.Add(allergy.IngredientId);
-            var name=Normalize(allergy.Name);
-            var families=Families.Where(f=>f.Any(token=>Contains(name,token))).ToArray();
-            var matches=ingredients.Where(i=>
-            {
-                var candidate=Normalize(i.Name);
-                if (candidate==name || Contains(candidate,name)) return name.Length>0;
-                return families.Any(f=>f.Any(token=>Contains(candidate,token)));
-            }).ToList();
+            var name = Normalize(allergy.Name);
+            var families = Families.Where(family => family.Any(token => Contains(name, token))).ToArray();
+            var matches = ingredients.Where(ingredient => Matches(allergy, ingredient, name)).ToList();
             // Global ingredients include arbitrary user-created aliases. Submission method and
             // another unused alias row cannot establish that recipes are being filtered.
             if (families.Length==0 && !matches.Any(i=>recipeIngredientIds.Contains(i.Id)))

@@ -172,6 +172,32 @@ namespace VeganHelper.DAL.PostgresMigrations
                         });
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.AvatarCleanupItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NextAttemptAt");
+
+                    b.ToTable("avatar_cleanup", (string)null);
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.BmiHistory", b =>
                 {
                     b.Property<long>("Id")
@@ -500,6 +526,20 @@ namespace VeganHelper.DAL.PostgresMigrations
                         });
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.CustomUserAllergy", b =>
+                {
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("UserId", "Name");
+
+                    b.ToTable("custom_user_allergies", (string)null);
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.EmailVerificationToken", b =>
                 {
                     b.Property<long>("Id")
@@ -675,6 +715,8 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .IsUnique()
                         .HasFilter("source_type = 'user' AND status = 'pending' AND post_revision IS NOT NULL");
 
+                    b.HasIndex(new[] { "CommentId" }, "IX_flags_comment_id");
+
                     b.ToTable("flags", null, t =>
                         {
                             t.HasCheckConstraint("CK_flags_1", "status IN ('pending','resolved','dismissed')");
@@ -704,6 +746,12 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .IsRequired()
                         .HasColumnType("character varying(20)")
                         .HasColumnName("default_unit");
+
+                    b.Property<bool>("IsLegacyAllergyAlias")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_legacy_allergy_alias");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1279,6 +1327,8 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasFilter("\"PreviousPlanId\" IS NOT NULL");
 
                     b.HasIndex("UserId", "State");
+
+                    b.HasIndex(new[] { "PreviousPlanId" }, "IX_meal_plan_routines_previous_plan_fk");
 
                     b.ToTable("meal_plan_routines", null, t =>
                         {
@@ -2280,6 +2330,50 @@ namespace VeganHelper.DAL.PostgresMigrations
                     b.ToTable("refresh_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("VeganHelper.DAL.Entities.RegistrationChallenge", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OtpHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("ProofExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProofHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProofHash")
+                        .IsUnique();
+
+                    b.HasIndex("Email", "CreatedAt");
+
+                    b.ToTable("registration_challenges", (string)null);
+                });
+
             modelBuilder.Entity("VeganHelper.DAL.Entities.Role", b =>
                 {
                     b.Property<int>("Id")
@@ -3042,6 +3136,15 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasPrincipalKey("PostId", "Id")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_comments_3");
+                });
+
+            modelBuilder.Entity("VeganHelper.DAL.Entities.CustomUserAllergy", b =>
+                {
+                    b.HasOne("VeganHelper.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("VeganHelper.DAL.Entities.EmailVerificationToken", b =>

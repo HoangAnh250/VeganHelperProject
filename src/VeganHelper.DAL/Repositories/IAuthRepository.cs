@@ -21,6 +21,13 @@ public interface IAuthRepository
     Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> LockOtpUserAsync(User user, CancellationToken ct);
     Task<List<EmailVerificationToken>> GetRecentOtpIssuancesAsync(long userId, DateTime since, int limit, CancellationToken ct);
     Task<EmailVerificationToken?> FindLatestOtpAsync(long userId, string purpose, CancellationToken ct);
+    Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> LockRegistrationAsync(string email, CancellationToken ct);
+    Task<List<RegistrationChallenge>> GetRegistrationChallengesAsync(string email, DateTime since, int limit, CancellationToken ct);
+    Task<bool> UpdatePendingUsernameAsync(User user, string username, CancellationToken ct);
+    Task<bool> CompleteEmailChangeAsync(long userId, string email, DateTime now, CancellationToken ct);
+    Task AddRegistrationChallengeAsync(RegistrationChallenge challenge, CancellationToken ct);
+    Task<string?> FindRegistrationEmailAsync(string proofHash, CancellationToken ct);
+    Task<List<DateTime>> GetRecentPasswordResetRequestsAsync(long userId, DateTime since, CancellationToken ct);
     Task AddPasswordResetTokenAsync(PasswordResetToken token, CancellationToken cancellationToken);
     Task<PasswordResetToken?> FindPasswordResetTokenAsync(string tokenHash, CancellationToken cancellationToken);
     Task AddRefreshTokenAsync(RefreshToken token, CancellationToken cancellationToken);

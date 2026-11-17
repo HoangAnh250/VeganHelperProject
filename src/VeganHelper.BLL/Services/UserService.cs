@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using VeganHelper.BLL.Services.Media;
 using System.Text.RegularExpressions;
 using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
@@ -7,7 +9,7 @@ using VeganHelper.DAL.Storage;
 
 namespace VeganHelper.BLL.Services;
 
-public sealed class UserService(IUserRepository repository, IAvatarStorage avatarStorage) : IUserService
+public sealed class UserService(IUserRepository repository, IAvatarStorage avatarStorage, ILogger<UserService>? logger = null) : IUserService
 {
     private static readonly Regex VietnamesePhone = new("^(0|\\+84)(3|5|7|8|9)[0-9]{8}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private const long MaxAvatarBytes = 5 * 1024 * 1024;
@@ -45,7 +47,8 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
             return ServiceResult<UserProfileDto>.Fail("Full name must contain at least 3 characters.", 400);
         if (command.BirthDate is { } birthDate && birthDate >= DateOnly.FromDateTime(DateTime.UtcNow))
             return ServiceResult<UserProfileDto>.Fail("Date of birth must be a valid date before today.", 400);
-        if (command.HeightCm is <= 0 or > 300 || command.WeightKg is <= 0 or > 500)
+        if (command.HeightCm is < BodyMeasurements.MinHeight or > BodyMeasurements.MaxHeight ||
+            command.WeightKg is < BodyMeasurements.MinWeight or > BodyMeasurements.MaxWeight)
             return ServiceResult<UserProfileDto>.Fail("Height and weight must be positive and within the allowed range.", 400);
         if (command.BiologicalSex is not null && command.BiologicalSex is not ("male" or "female" or "other"))
             return ServiceResult<UserProfileDto>.Fail("Biological sex is invalid.", 400);
@@ -64,12 +67,14 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
         {
             if (command.AvatarBytes.LongLength > MaxAvatarBytes)
                 return ServiceResult<UserProfileDto>.Fail("Avatar must not exceed 5 MB.", 400);
-            if (command.AvatarContentType is not ("image/jpeg" or "image/png"))
+            if (command.AvatarContentType is not ("image/jpeg" or "image/png") ||
+                !AvatarImage.IsValid(command.AvatarBytes, command.AvatarContentType))
                 return ServiceResult<UserProfileDto>.Fail("Avatar must be a JPG or PNG image.", 400);
             if (string.IsNullOrWhiteSpace(command.AvatarFileName))
                 return ServiceResult<UserProfileDto>.Fail("Avatar file name is required.", 400);
         }
 
+        await using var transaction = await repository.LockProfileAsync(userId, cancellationToken);
         var profile = await repository.FindUserProfileAsync(userId, cancellationToken);
         if (profile is null)
         {
@@ -84,22 +89,43 @@ public sealed class UserService(IUserRepository repository, IAvatarStorage avata
 
         if (command.DisplayName is not null && !string.IsNullOrWhiteSpace(command.DisplayName))
             profile.DisplayName = command.DisplayName.Trim();
-        if (command.HeightCm.HasValue) profile.HeightCm = command.HeightCm.Value;
-        if (command.WeightKg.HasValue) profile.WeightKg = command.WeightKg.Value;
+        var bmiEntry = BodyMeasurements.Apply(profile, command.HeightCm, command.WeightKg);
+        if (bmiEntry is not null) repository.AddBmiHistory(bmiEntry);
         if (command.BirthDate.HasValue) profile.BirthDate = command.BirthDate.Value;
         if (command.BiologicalSex is not null) profile.BiologicalSex = command.BiologicalSex;
         if (command.DietType is not null) profile.DietType = command.DietType;
-        if (command.AvatarBytes is not null)
+        string? uploadedAvatar = null;
+        try
         {
-            profile.AvatarUrl = await avatarStorage.SaveAsync(
-                command.AvatarBytes,
-                command.AvatarFileName ?? "avatar.jpg",
-                command.AvatarContentType!,
-                cancellationToken);
+            if (command.AvatarBytes is not null)
+            {
+                var previousAvatar = profile.AvatarUrl;
+                uploadedAvatar = await avatarStorage.SaveAsync(command.AvatarBytes,
+                    command.AvatarFileName!, command.AvatarContentType!, cancellationToken);
+                profile.AvatarUrl = uploadedAvatar;
+                if (previousAvatar != uploadedAvatar && avatarStorage.OwnsAvatar(previousAvatar))
+                    repository.QueueAvatarCleanup(previousAvatar!);
+            }
+            profile.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.UtcNow;
+            await repository.SaveChangesAsync(cancellationToken);
         }
-        profile.UpdatedAt = DateTime.UtcNow;
-        user.UpdatedAt = DateTime.UtcNow;
-        await repository.SaveChangesAsync(cancellationToken);
+        catch
+        {
+            if (uploadedAvatar is not null)
+            {
+                try
+                {
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    await avatarStorage.DeleteAvatarAsync(uploadedAvatar, timeout.Token);
+                }
+                catch (Exception error) { logger?.LogWarning(error, "Could not remove a failed avatar upload."); }
+            }
+            throw;
+        }
+        // A lost connection during commit can leave the outcome unknown. Never delete the new
+        // object here because the profile may already reference it.
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         var isGoogleLinked = await repository.IsGoogleLinkedAsync(userId, cancellationToken);
         return ServiceResult<UserProfileDto>.Ok(Map(user, profile, isGoogleLinked, await repository.RoleNameAsync(user.RoleId, cancellationToken) ?? "member"));
     }

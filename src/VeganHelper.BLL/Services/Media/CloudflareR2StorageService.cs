@@ -81,9 +81,29 @@ public class CloudflareR2StorageService : IMediaStorageService, IAvatarStorage
         };
 
         await _s3Client.PutObjectAsync(request, cancellationToken);
-        return $"{_publicUrl}/{objectKey}";
+        return $"{_publicUrl.TrimEnd('/')}/{objectKey}";
     }
     
+    public bool OwnsAvatar(string? url)
+    {
+        var prefix = _publicUrl?.TrimEnd('/') + "/avatars/";
+        if (url is null || string.IsNullOrWhiteSpace(_publicUrl) || !url.StartsWith(prefix, StringComparison.Ordinal))
+            return false;
+        var file = url[prefix.Length..];
+        return (file.EndsWith(".jpg", StringComparison.Ordinal) || file.EndsWith(".png", StringComparison.Ordinal))
+            && Guid.TryParseExact(file[..^4], "N", out _);
+    }
+
+    public async Task DeleteAvatarAsync(string url, CancellationToken ct)
+    {
+        if (!OwnsAvatar(url)) return;
+        await _s3Client.DeleteObjectAsync(new DeleteObjectRequest
+        {
+            BucketName = _bucketName,
+            Key = url[(_publicUrl.TrimEnd('/').Length + 1)..]
+        }, ct);
+    }
+
     public async Task DeleteFileAsync(string fileUrl)
     {
         if (string.IsNullOrEmpty(fileUrl) || !fileUrl.StartsWith(_publicUrl))

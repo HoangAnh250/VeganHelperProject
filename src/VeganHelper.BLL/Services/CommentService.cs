@@ -117,6 +117,7 @@ public sealed class CommentService(
             throw new NotFoundException($"Published post with ID {postId} was not found.");
         }
 
+        await using var transaction = await repository.BeginTransactionAsync(cancellationToken);
         var comment = await repository.GetCommentForUpdateAsync(commentId, cancellationToken);
         EnsureCommentBelongsToPost(comment, postId);
         EnsureCommentOwner(comment!, userId);
@@ -128,11 +129,9 @@ public sealed class CommentService(
             throw new ArgumentException("Comment contains blocked language and was not updated.");
         }
 
-        await using var transaction = await repository.BeginTransactionAsync(cancellationToken);
         comment!.Content = content;
-        comment.Status = moderation.Action == CommentModerationAction.HidePendingReview
-            ? "hidden"
-            : "visible";
+        if (moderation.Action == CommentModerationAction.HidePendingReview)
+            comment.Status = "hidden";
         comment.UpdatedAt = DateTime.UtcNow;
 
         await repository.SaveChangesAsync(cancellationToken);

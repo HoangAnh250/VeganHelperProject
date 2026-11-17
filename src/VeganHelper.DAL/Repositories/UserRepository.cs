@@ -8,6 +8,25 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
 {
     public Task<string?> RoleNameAsync(int roleId, CancellationToken ct) =>
         db.Roles.Where(r => r.Id == roleId).Select(r => r.RoleName).SingleOrDefaultAsync(ct);
+    public async Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> LockProfileAsync(long userId, CancellationToken ct)
+    {
+        var transaction = await db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({userId})", ct);
+            return transaction;
+        }
+        catch
+        {
+            await transaction.DisposeAsync();
+            throw;
+        }
+    }
+
+    public void AddBmiHistory(BmiHistory entry) => db.BmiHistories.Add(entry);
+    public void QueueAvatarCleanup(string url) =>
+        db.Set<AvatarCleanupItem>().Add(new AvatarCleanupItem { Url = url, NextAttemptAt = DateTime.UtcNow });
+
     private const string GoogleProvider = "google";
 
     public async Task<(User User, UserProfile Profile)?> FindProfileAsync(long userId, CancellationToken cancellationToken)

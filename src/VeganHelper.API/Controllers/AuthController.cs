@@ -4,37 +4,62 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
+using VeganHelper.API.Authorization;
 
 namespace VeganHelper.API.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(IAuthService service) : ControllerBase
+public sealed class AuthController(IAuthService service, IConfiguration configuration, LoginFailureLimiter loginFailures) : ControllerBase
 {
     [AllowAnonymous]
     [EnableRateLimiting("otp-send")]
     [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterRequestDto request, CancellationToken cancellationToken) =>
-        ToActionResult(await service.RegisterAsync(request, cancellationToken));
-
-    [AllowAnonymous]
-    [EnableRateLimiting("otp-verify")]
+    [HttpPost("resend-verification")]
     [HttpPost("verify-email")]
-    public async Task<IActionResult> VerifyEmail(VerifyEmailRequestDto request, CancellationToken cancellationToken) =>
-        ToActionResult(await service.VerifyEmailAsync(request, cancellationToken));
+    public IActionResult LegacyRegistration() =>
+        Conflict(new { error = "Registration has changed. Refresh the page to continue." });
 
     [AllowAnonymous]
     [EnableRateLimiting("otp-send")]
-    [HttpPost("resend-verification")]
-    public async Task<IActionResult> ResendVerification(ResendVerificationRequestDto request, CancellationToken cancellationToken) =>
-        ToActionResult(await service.ResendVerificationAsync(request, cancellationToken));
+    [HttpPost("register/start")]
+    public async Task<IActionResult> StartRegistration(ResendVerificationRequestDto request, CancellationToken ct) =>
+        RegistrationEnabled() ? ToActionResult(await service.StartRegistrationAsync(request, ct)) : RegistrationPaused();
 
     [AllowAnonymous]
+    [EnableRateLimiting("otp-verify")]
+    [HttpPost("register/verify")]
+    public async Task<IActionResult> VerifyRegistration(VerifyEmailRequestDto request, CancellationToken ct) =>
+        RegistrationEnabled() ? ToActionResult(await service.VerifyRegistrationAsync(request, ct)) : RegistrationPaused();
+
+    [AllowAnonymous]
+    [EnableRateLimiting("otp-verify")]
+    [HttpPost("register/complete")]
+    public async Task<IActionResult> CompleteRegistration(CompleteRegistrationRequestDto request, CancellationToken ct) =>
+        RegistrationEnabled() ? ToActionResult(await service.CompleteRegistrationAsync(request, ct)) : RegistrationPaused();
+
+    private bool RegistrationEnabled() => configuration.GetValue("Registration:Enabled", true);
+    private IActionResult RegistrationPaused() =>
+        StatusCode(503, new { error = "Registration is temporarily unavailable. Please try again later." });
+
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
     [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginRequestDto request, CancellationToken cancellationToken) =>
-        ToActionResult(await service.LoginAsync(request, cancellationToken));
+    public async Task<IActionResult> Login(LoginRequestDto request, CancellationToken cancellationToken)
+    {
+        var result = await loginFailures.RunAsync(request.Identifier,
+            HttpContext.Connection.RemoteIpAddress?.MapToIPv6().ToString() ?? "unknown",
+            () => service.LoginAsync(request, cancellationToken),
+            result => result.StatusCode == 401, result => result.Succeeded, seconds =>
+            {
+                Response.Headers.RetryAfter = seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return ServiceResult<AuthResponseDto>.Fail("Too many failed sign-in attempts. Please try again later.", 429);
+            }, cancellationToken);
+        return ToActionResult(result);
+    }
 
     [AllowAnonymous]
+    [EnableRateLimiting("login")]
     [HttpPost("google")]
     public async Task<IActionResult> LoginWithGoogle(GoogleLoginRequestDto request, CancellationToken cancellationToken) =>
         ToActionResult(await service.LoginWithGoogleAsync(request, cancellationToken));
@@ -140,6 +165,7 @@ public sealed class AuthController(IAuthService service) : ControllerBase
     }
 
     [AllowAnonymous]
+    [EnableRateLimiting("password-reset")]
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequestDto request, CancellationToken cancellationToken) =>
         ToActionResult(await service.ForgotPasswordAsync(request, cancellationToken));

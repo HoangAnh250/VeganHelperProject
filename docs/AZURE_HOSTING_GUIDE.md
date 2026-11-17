@@ -327,3 +327,12 @@ Actions được ghim commit chính thức đã xác minh để tránh tag dịc
 - Không có secret local trong Git hoặc artifact BE.
 - `Frontend__BaseUrl` đúng FE production; kiểm tra email reset thật, đường dẫn trực tiếp `/forgot-password`, token hết hạn và token không tái sử dụng.
 - Đã ghi lại commit FE/BE đang phát hành và theo dõi credit/chi phí thực tế.
+
+
+## Phát hành thay đổi đăng ký và dữ liệu hồ sơ
+
+- Xác nhận bản BE phát hành đã có migration OTP `ScopeEmailVerificationCodes` và truy vấn mã theo phạm vi. Với đợt auth, chạy migration `VerifyRegistrationBeforeAccountCreation` trên bản sao staging rồi đưa BE và FE tương thích lên cùng môi trường. Có thể đặt `Registration__Enabled=false` để tạm đóng đăng ký email trong lúc chuyển FE. Bản BE mới trả 409 trên route đăng ký cũ, nên client còn bundle cũ phải tải lại trang.
+- Kiểm tra quyền và IP sau proxy trên staging trước khi bật đăng ký. Rate limit dùng địa chỉ mà ASP.NET Core nhận từ proxy tin cậy, còn số lần đăng nhập thất bại theo định danh/IP nằm trong bộ nhớ từng instance. OTP và cooldown gửi email vẫn được xử lý trong PostgreSQL.
+- Trước đợt profile, chạy thử migration `HardenProfilesAndForeignKeyIndexes` với dữ liệu cũ. Để tránh khóa ghi lâu khi bảng lớn, DBA có thể tạo trước hai index trên production bằng `CREATE INDEX CONCURRENTLY` (ngoài transaction), kiểm tra `indisvalid`, rồi mới chạy migration. Tên index là `IX_flags_comment_id` trên `flags(comment_id)` và `IX_meal_plan_routines_previous_plan_fk` trên `meal_plan_routines("PreviousPlanId")`. Migration có giới hạn chờ khóa 5 giây cho bước backfill/index.
+- Smoke test `/health/live`, đăng ký bằng email test, login, kiểm tra 429 và lần lượt thử comment, profile, avatar trên staging. Theo dõi 5xx, 401/429, log gửi OTP và cảnh báo `Avatar cleanup item`. Nếu gặp sự cố auth, tạm tắt đăng ký, giữ migration và chỉ rollback về bản BE vẫn hiểu schema OTP hiện hành.
+- Chạy ba kịch bản Playwright từ repo FE bằng `powershell -NoProfile -File e2e/Run-LocalAudit.ps1`. Script dùng Chrome và PostgreSQL 17 riêng, lấy OTP từ log email Development, sau đó dừng tiến trình test và container đã tạo.

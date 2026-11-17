@@ -90,12 +90,14 @@ public sealed class HealthProfileService(
 
     public async Task<AllergyWarningsDto> GetPostWarningsAsync(long userId, long postId, CancellationToken ct = default)
     {
-        var warnings = await repository.GetPostWarningsAsync(userId, postId, ct)
+        var ingredients = await repository.GetPostIngredientsAsync(userId, postId, ct)
             ?? throw new NotFoundException("Post not found.");
+        var warnings = (await repository.GetAsync(userId, ct)).Allergies
+            .Where(allergy => ingredients.Any(ingredient => MealPlanning.AllergyFilter.Matches(allergy, ingredient))).ToList();
         return new AllergyWarningsDto { PostId = postId, Allergens = mapper.Map<List<AllergyDto>>(warnings) };
     }
 
-    private static decimal CalculateBmi(decimal kg, decimal cm) => Math.Round(kg / ((cm / 100m) * (cm / 100m)), 2);
+    private static decimal CalculateBmi(decimal kg, decimal cm) => BodyMeasurements.CalculateBmi(kg, cm);
     private static string GetBmiCategory(decimal bmi) => bmi < 18.5m ? "Underweight" : bmi < 25m ? "Normal" : bmi < 30m ? "Overweight" : "Obese";
 
     private static bool HasAdultReference(UserProfile profile) => profile.BirthDate is null

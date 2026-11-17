@@ -15,10 +15,7 @@ public sealed class MealPlanningRepository(AppDbContext db) : IMealPlanningRepos
         {
             Profile=await db.UserProfiles.AsNoTracking().SingleOrDefaultAsync(p=>p.UserId==userId,ct),
             Ingredients=await db.Ingredients.AsNoTracking().OrderBy(i=>i.Id).ToListAsync(ct),
-            Allergies=await (from a in db.UserAllergies.AsNoTracking()
-                join i in db.Ingredients on a.IngredientId equals i.Id
-                where a.UserId==userId orderby i.Id
-                select new AllergyProjection { IngredientId=i.Id, Name=i.Name, IsCustom=a.IsCustom }).ToListAsync(ct),
+            Allergies=await HealthProfileRepository.LoadAllergiesAsync(db,userId,ct),
             Meals=await db.Meals.AsNoTracking().Where(m=>m.OwnerUserId==null || m.OwnerUserId==userId)
                 .OrderBy(m=>m.Id).Select(m=>new MealCandidate
                 {

@@ -146,7 +146,9 @@ public sealed class AdminFoundationTests(Member2ApiFixture fixture)
 
         var response = await client.GetAsync("/api/admin/audit-logs");
 
-        Assert.Equal(active && !deleted ? HttpStatusCode.Forbidden : HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(active && !deleted
+            ? role == 2 ? HttpStatusCode.OK : HttpStatusCode.Forbidden
+            : HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Theory]

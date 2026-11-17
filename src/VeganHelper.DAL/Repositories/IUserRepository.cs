@@ -18,5 +18,8 @@ public interface IUserRepository
     Task<PublicUserProfileProjection?> GetPublicProfileAsync(
         long userId,
         CancellationToken cancellationToken);
+    Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> LockProfileAsync(long userId, CancellationToken ct);
+    void AddBmiHistory(BmiHistory entry);
+    void QueueAvatarCleanup(string url);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

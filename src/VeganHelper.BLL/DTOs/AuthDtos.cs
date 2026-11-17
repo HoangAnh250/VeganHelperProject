@@ -134,3 +134,19 @@ public sealed record AuthResponseDto(
     string RefreshToken,
     DateTime AccessTokenExpiresAt,
     DateTime RefreshTokenExpiresAt);
+
+public sealed class CompleteRegistrationRequestDto
+{
+    [Required, StringLength(128)]
+    public string RegistrationToken { get; init; } = "";
+    [Required, StringLength(100, MinimumLength = 3)]
+    public string Username { get; init; } = "";
+    [Required, StringLength(100, MinimumLength = 3)]
+    public string FullName { get; init; } = "";
+    [Required, StringLength(128, MinimumLength = 8)]
+    public string Password { get; init; } = "";
+    [Required, Compare(nameof(Password))]
+    public string ConfirmPassword { get; init; } = "";
+}
+
+public sealed record RegistrationProofDto(string RegistrationToken);

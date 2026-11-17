@@ -38,8 +38,9 @@ public sealed class CommentRepository(AppDbContext context) : ICommentRepository
     public Task<Comment?> GetCommentForUpdateAsync(
         long commentId,
         CancellationToken cancellationToken = default) =>
-        context.Comments
-            .SingleOrDefaultAsync(comment => comment.Id == commentId, cancellationToken);
+        context.Database.CurrentTransaction is not null
+            ? GetCommentForReportAsync(commentId, cancellationToken)
+            : context.Comments.SingleOrDefaultAsync(comment => comment.Id == commentId, cancellationToken);
 
     public async Task<IReadOnlyList<Comment>> GetCommentsForUpdateAsync(
         long postId,

@@ -26,6 +26,7 @@ internal static class MealPlanRoutineConfiguration
             e.HasOne<User>().WithMany().HasForeignKey(x=>x.UserId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne<MealPlan>().WithMany().HasForeignKey(x=>x.PreviousPlanId).OnDelete(DeleteBehavior.NoAction);
             e.HasIndex(x=>new{x.UserId,x.State});
+            e.HasIndex(x => x.PreviousPlanId, "IX_meal_plan_routines_previous_plan_fk");
             e.HasIndex(x=>x.PreviousPlanId).IsUnique().HasFilter("\"PreviousPlanId\" IS NOT NULL");
         });
         builder.Entity<MealPlanEntry>(e=>

@@ -115,6 +115,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.FailedAttempts).HasColumnName("failed_attempts").HasDefaultValue(0);
             entity.HasIndex(x => new { x.UserId, x.CreatedAt }).HasDatabaseName("IX_email_verification_tokens_user_created");
         });
+        modelBuilder.Entity<RegistrationChallenge>(entity =>
+        {
+            entity.ToTable("registration_challenges");
+            entity.Property(x => x.Email).HasMaxLength(255);
+            entity.Property(x => x.OtpHash).HasMaxLength(64);
+            entity.Property(x => x.ProofHash).HasMaxLength(64);
+            entity.HasIndex(x => new { x.Email, x.CreatedAt });
+            entity.HasIndex(x => x.ProofHash).IsUnique();
+        });
         modelBuilder.Entity<PasswordResetToken>(entity =>
         {
             entity.ToTable("password_reset_tokens");
@@ -320,6 +329,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         });
         modelBuilder.Entity<Ingredient>(entity =>
         {
+            entity.Property(x => x.IsLegacyAllergyAlias).HasColumnName("is_legacy_allergy_alias").HasDefaultValue(false);
             entity.ToTable("ingredients", table =>
             {
                 table.HasCheckConstraint("CK_ingredients_1", "calories_per_100g >= 0");
@@ -344,6 +354,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.Unit).HasColumnName("unit").HasColumnType("character varying(20)").IsRequired(true);
             entity.HasOne<Post>().WithMany(p => p.PostIngredients).HasForeignKey(x => new { x.PostId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_ingredients_1");
             entity.HasOne(x => x.Ingredient).WithMany().HasForeignKey(x => new { x.IngredientId }).HasPrincipalKey(x => new { x.Id }).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_post_ingredients_2");
+        });
+        modelBuilder.Entity<AvatarCleanupItem>(entity =>
+        {
+            entity.ToTable("avatar_cleanup");
+            entity.Property(x => x.Url).HasMaxLength(1000);
+            entity.HasIndex(x => x.NextAttemptAt);
+        });
+        modelBuilder.Entity<CustomUserAllergy>(entity =>
+        {
+            entity.ToTable("custom_user_allergies");
+            entity.HasKey(x => new { x.UserId, x.Name });
+            entity.Property(x => x.Name).HasMaxLength(100);
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<UserAllergy>(entity =>
         {
@@ -728,6 +751,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 .IsUnique()
                 .HasDatabaseName("UX_flags_user_comment_report")
                 .HasFilter("source_type = 'user' AND comment_id IS NOT NULL AND reporter_id IS NOT NULL");
+            entity.HasIndex(x => x.CommentId, "IX_flags_comment_id");
             entity.HasIndex(x => x.CommentId)
                 .IsUnique()
                 .HasDatabaseName("UX_flags_pending_keyword_comment")

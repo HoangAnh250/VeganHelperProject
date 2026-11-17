@@ -125,6 +125,30 @@ public sealed class AdminCommentReportTests(Member2ApiFixture fixture)
         Assert.All(await db.Flags.Where(flag => flag.CommentId == reported.Comment.Id).ToListAsync(), flag => Assert.Equal("resolved", flag.Status));
     }
 
+    [Fact]
+    public async Task ConcurrentAuthorEditCannotUndoAdminRemoval()
+    {
+        var admin = await UserAsync(2);
+        var reported = await ReportedCommentAsync(hidden: false);
+        using var reviewer = Client(admin.Id);
+        using var author = Client(reported.Comment.UserId, "member");
+
+        var editTask = author.PutAsJsonAsync($"/api/posts/{reported.Comment.PostId}/comments/{reported.Comment.Id}",
+            new { content = "Here is an updated recipe tip." });
+        var decisionTask = reviewer.PostAsJsonAsync($"/api/admin/moderation/comment-reports/{reported.First.Id}/decision",
+            new { action = "remove", reason = "The reports have been reviewed." });
+        await Task.WhenAll(editTask, decisionTask);
+        using var edit = await editTask;
+        using var decision = await decisionTask;
+
+        Assert.Contains(edit.StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.NotFound });
+        Assert.Equal(HttpStatusCode.OK, decision.StatusCode);
+        await using var db = fixture.Context();
+        var comment = await db.Comments.SingleAsync(value => value.Id == reported.Comment.Id);
+        Assert.Equal("hidden", comment.Status);
+        Assert.True(comment.IsDeleted);
+    }
+
     [Theory]
     [InlineData("keep", "visible", "dismissed")]
     [InlineData("remove", "hidden", "resolved")]

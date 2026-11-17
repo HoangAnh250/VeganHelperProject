@@ -27,7 +27,7 @@ public sealed class PasswordResetLinkTests(Member2ApiFixture fixture)
         await using var db = fixture.Context();
         var suffix = Guid.NewGuid().ToString("N");
         var email = "reset+" + suffix + "@example.invalid";
-        var user = new User { Username = "reset_" + suffix, Email = email, RoleId = 1, IsActive = true, PasswordHash = "old-hash", CreatedAt = DateTime.UtcNow };
+        var user = new User { Username = "reset_" + suffix, Email = email, RoleId = 1, IsActive = true, EmailVerifiedAt = DateTime.UtcNow, PasswordHash = "old-hash", CreatedAt = DateTime.UtcNow };
         db.Users.Add(user); await db.SaveChangesAsync();
         var response = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -52,6 +52,11 @@ public sealed class PasswordResetLinkTests(Member2ApiFixture fixture)
         Assert.Equal(await response.Content.ReadAsStringAsync(), await unknown.Content.ReadAsStringAsync());
         Assert.Single(sender.Messages);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/forgot-password", new { email })).StatusCode);
+        Assert.Single(sender.Messages);
+        await db.PasswordResetTokens.Where(t => t.UserId == user.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(t => t.CreatedAt, DateTime.UtcNow.AddMinutes(-2)));
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/forgot-password", new { email })).StatusCode);
+        Assert.Equal(2, sender.Messages.Count);
         var expiredLink = sender.Messages[1].PlainTextBody.Split('\n').Single(line => line.StartsWith("http", StringComparison.Ordinal));
         var expiredToken = WebUtility.UrlDecode(new Uri(expiredLink).Query.TrimStart('?').Split('&').Single(pair => pair.StartsWith("token=", StringComparison.Ordinal)).Split('=', 2)[1]);
         await db.PasswordResetTokens.Where(t => t.UserId == user.Id && t.UsedAt == null)

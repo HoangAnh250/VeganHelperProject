@@ -4,9 +4,9 @@ namespace VeganHelper.BLL.Contracts;
 
 public interface IAuthService
 {
-    Task<ServiceResult<MessageResponseDto>> RegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken);
-    Task<ServiceResult<MessageResponseDto>> ResendVerificationAsync(ResendVerificationRequestDto request, CancellationToken cancellationToken);
-    Task<ServiceResult<MessageResponseDto>> VerifyEmailAsync(VerifyEmailRequestDto request, CancellationToken cancellationToken);
+    Task<ServiceResult<MessageResponseDto>> StartRegistrationAsync(ResendVerificationRequestDto request, CancellationToken ct);
+    Task<ServiceResult<RegistrationProofDto>> VerifyRegistrationAsync(VerifyEmailRequestDto request, CancellationToken ct);
+    Task<ServiceResult<MessageResponseDto>> CompleteRegistrationAsync(CompleteRegistrationRequestDto request, CancellationToken ct);
     Task<ServiceResult<AuthResponseDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken);
     Task<ServiceResult<AuthResponseDto>> LoginWithGoogleAsync(GoogleLoginRequestDto request, CancellationToken cancellationToken);
     Task<ServiceResult<MessageResponseDto>> LinkGoogleAsync(long userId, GoogleLoginRequestDto request, CancellationToken cancellationToken);

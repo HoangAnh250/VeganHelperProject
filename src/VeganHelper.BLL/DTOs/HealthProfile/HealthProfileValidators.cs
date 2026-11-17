@@ -1,4 +1,5 @@
 using FluentValidation;
+using VeganHelper.DAL.Entities;
 
 namespace VeganHelper.BLL.DTOs.HealthProfile;
 
@@ -6,8 +7,8 @@ public sealed class UpdateHealthProfileRequestValidator : AbstractValidator<Upda
 {
     public UpdateHealthProfileRequestValidator()
     {
-        RuleFor(x => x.HeightCm).InclusiveBetween(100m, 250m);
-        RuleFor(x => x.WeightKg).InclusiveBetween(30m, 200m);
+        RuleFor(x => x.HeightCm).InclusiveBetween(BodyMeasurements.MinHeight, BodyMeasurements.MaxHeight);
+        RuleFor(x => x.WeightKg).InclusiveBetween(BodyMeasurements.MinWeight, BodyMeasurements.MaxWeight);
         RuleFor(x => x.BiologicalSex).Must(v => v is "male" or "female" or "other");
         RuleFor(x => x.DietType).Must(v => v is "vegan" or "lacto_ovo_vegetarian");
         RuleFor(x => x.ActivityLevel).Must(v => v is "sedentary" or "light" or "moderate" or "active" or "very_active");

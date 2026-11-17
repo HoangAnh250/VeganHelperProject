@@ -65,6 +65,7 @@ if (envFilePath is not null)
 }
 
 builder.Services.AddControllers();
+builder.Services.AddSingleton<LoginFailureLimiter>();
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("guest-ai-chat", context =>
@@ -89,13 +90,13 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
-    foreach (var (policy, limit) in new[] { ("otp-send", 12), ("otp-verify", 30) })
+    foreach (var (policy, limit, minutes) in new[] { ("otp-send", 12, 5), ("otp-verify", 30, 5), ("login", 30, 5), ("password-reset", 10, 15) })
         options.AddPolicy(policy, context => RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.MapToIPv6().ToString() ?? "unknown",
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = limit,
-                Window = TimeSpan.FromMinutes(5),
+                Window = TimeSpan.FromMinutes(minutes),
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
@@ -106,12 +107,12 @@ builder.Services.AddRateLimiter(options =>
             context.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
         var isVideoSummary = context.HttpContext.Request.Path.Value?.EndsWith("/summary", StringComparison.OrdinalIgnoreCase) == true;
         var policy = context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
-        if (policy is "otp-send" or "otp-verify")
+        if (policy is "otp-send" or "otp-verify" or "login" or "password-reset")
         {
             await context.HttpContext.Response.WriteAsJsonAsync(new
             {
-                error = "Too many verification requests from this network. Please try again later.",
-                code = "OTP_RATE_LIMITED"
+                error = "Too many authentication requests from this network. Please try again later.",
+                code = policy is "otp-send" or "otp-verify" ? "OTP_RATE_LIMITED" : "AUTH_RATE_LIMITED"
             }, cancellationToken);
             return;
         }
@@ -329,7 +330,10 @@ builder.Services.AddScoped<INotificationPublisher>(sp => sp.GetRequiredService<N
 builder.Services.AddScoped<NotificationPushDispatcher>();
 builder.Services.AddScoped<FollowerPostNotificationDispatcher>();
 if (!builder.Environment.IsEnvironment("Testing"))
+{
     builder.Services.AddHostedService<FollowerPostNotificationWorker>();
+    builder.Services.AddHostedService<AvatarCleanupWorker>();
+}
 builder.Services.AddScoped<NotificationPushJob>();
 builder.Services.AddSingleton<IValidateOptions<WebPushSettings>, WebPushOptionsValidator>();
 builder.Services.AddOptions<WebPushSettings>().BindConfiguration("WebPush").ValidateOnStart();

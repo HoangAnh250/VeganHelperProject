@@ -11,7 +11,7 @@ public sealed class AdminAuditRepository(AppDbContext db) : IAdminAuditRepositor
         (from user in db.Users.AsNoTracking()
          join role in db.Roles on user.RoleId equals role.Id
          where user.Id == userId && user.IsActive && user.DeletedAt == null
-            && (user.LockedUntil == null || user.LockedUntil <= now) && role.RoleName == "admin"
+            && role.RoleName == "admin"
             && !db.UserBans.Any(b => b.UserId == user.Id && b.UnbannedAt == null && (b.ExpiresAt == null || b.ExpiresAt > now))
          select user.Id).AnyAsync(ct);
 

@@ -296,7 +296,7 @@ public sealed class Member2ApiTests(Member2ApiFixture fixture)
     }
 
     [Fact]
-    public async Task DeclareAllergies_WhenTwoUsersCreateSameCustomNameConcurrently_ReusesOneIngredient()
+    public async Task DeclareAllergies_WhenTwoUsersCreateSameCustomNameConcurrently_StoresPrivateNames()
     {
         var firstId = await UserAsync();
         var secondId = await UserAsync();
@@ -308,12 +308,11 @@ public sealed class Member2ApiTests(Member2ApiFixture fixture)
             first.PutAsJsonAsync("/api/HealthProfile/allergies", new { customAllergies = new[] { name } }),
             second.PutAsJsonAsync("/api/HealthProfile/allergies", new { customAllergies = new[] { name.ToUpperInvariant() } }));
         await using var db = fixture.Context();
-        var selected = await db.UserAllergies.Where(a => a.UserId == firstId || a.UserId == secondId).ToListAsync();
+        var selected = await db.Set<CustomUserAllergy>().Where(a => a.UserId == firstId || a.UserId == secondId).ToListAsync();
 
         Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
         Assert.Equal(2, selected.Count);
-        Assert.Single(selected.Select(a => a.IngredientId).Distinct());
-        Assert.All(selected, allergy => Assert.True(allergy.IsCustom));
+        Assert.False(await db.Ingredients.AnyAsync(ingredient => ingredient.Name.ToLower() == name.ToLower()));
     }
 
     [Fact]

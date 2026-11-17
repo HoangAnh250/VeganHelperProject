@@ -9,12 +9,22 @@ public sealed class HealthProfileRepository(AppDbContext db) : IHealthProfileRep
     public async Task<HealthProfileProjection> GetAsync(long userId, CancellationToken ct)
     {
         var profile = await db.UserProfiles.AsNoTracking().SingleOrDefaultAsync(p => p.UserId == userId, ct);
-        var allergies = await (from allergy in db.UserAllergies.AsNoTracking()
-                               join ingredient in db.Ingredients on allergy.IngredientId equals ingredient.Id
-                               where allergy.UserId == userId
-                               orderby ingredient.Name, ingredient.Id
-                               select new AllergyProjection { IngredientId = ingredient.Id, Name = ingredient.Name, IsCustom = allergy.IsCustom }).ToListAsync(ct);
-        return new(profile, allergies);
+        return new(profile, await LoadAllergiesAsync(db, userId, ct));
+    }
+
+    internal static Task<List<AllergyProjection>> LoadAllergiesAsync(AppDbContext db, long userId, CancellationToken ct)
+    {
+        var catalog = from allergy in db.UserAllergies
+                      join ingredient in db.Ingredients on allergy.IngredientId equals ingredient.Id
+                      where allergy.UserId == userId && !allergy.IsCustom
+                      select new AllergyProjection { IngredientId = ingredient.Id, Name = ingredient.Name, IsCustom = false };
+        var custom = db.Set<CustomUserAllergy>().Where(x => x.UserId == userId)
+            .Select(x => new AllergyProjection { IngredientId = 0L, Name = x.Name, IsCustom = true });
+        var legacy = from allergy in db.UserAllergies
+                     join ingredient in db.Ingredients on allergy.IngredientId equals ingredient.Id
+                     where allergy.UserId == userId && allergy.IsCustom
+                     select new AllergyProjection { IngredientId = 0L, Name = ingredient.Name, IsCustom = true };
+        return catalog.Concat(custom.Union(legacy)).OrderBy(x => x.Name).ToListAsync(ct);
     }
 
     public async Task UpdateAsync(long userId, UserProfile values, decimal bmi, CancellationToken ct)
@@ -28,15 +38,13 @@ public sealed class HealthProfileRepository(AppDbContext db) : IHealthProfileRep
             profile = new UserProfile { UserId = userId, DisplayName = username };
             db.UserProfiles.Add(profile);
         }
-        profile.HeightCm = values.HeightCm;
-        profile.WeightKg = values.WeightKg;
+        var entry = BodyMeasurements.Apply(profile, values.HeightCm, values.WeightKg);
+        if (entry is not null) db.BmiHistories.Add(entry);
         profile.BirthDate = values.BirthDate;
         profile.BiologicalSex = values.BiologicalSex;
         profile.ActivityLevel = values.ActivityLevel;
         profile.DietType = values.DietType;
-        profile.CurrentBmi = bmi;
         profile.UpdatedAt = DateTime.UtcNow;
-        db.BmiHistories.Add(new BmiHistory { UserId = userId, HeightCm = values.HeightCm!.Value, WeightKg = values.WeightKg!.Value, BmiValue = bmi, RecordedAt = DateTime.UtcNow });
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
     }
@@ -45,26 +53,12 @@ public sealed class HealthProfileRepository(AppDbContext db) : IHealthProfileRep
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({userId})", ct);
-        var ids = await db.Ingredients.Where(i => ingredientIds.Contains(i.Id)).Select(i => i.Id).ToListAsync(ct);
+        var ids = await db.Ingredients.Where(i => ingredientIds.Contains(i.Id) && !i.IsLegacyAllergyAlias).Select(i => i.Id).ToListAsync(ct);
         if (ids.Count != ingredientIds.Count) throw new ArgumentException("One or more ingredient IDs do not exist.");
-        var selected = ids.ToDictionary(id => id, _ => false);
-        if (customNames.Count > 0) await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(-3912301)", ct);
-        foreach (var name in customNames)
-        {
-            var normalized = name.ToLowerInvariant();
-            var ingredient = await db.Ingredients.FirstOrDefaultAsync(i => i.Name.ToLower() == normalized, ct);
-            if (ingredient is null)
-            {
-                var inserted = await db.Ingredients.FromSqlInterpolated($"""
-                    INSERT INTO ingredients (name, default_unit) VALUES ({name}, {"g"})
-                    ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING *
-                    """).ToListAsync(ct);
-                ingredient = inserted.Single();
-            }
-            selected.TryAdd(ingredient.Id, true);
-        }
         await db.UserAllergies.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);
-        db.UserAllergies.AddRange(selected.Select(pair => new UserAllergy { UserId = userId, IngredientId = pair.Key, IsCustom = pair.Value, CreatedAt = DateTime.UtcNow }));
+        await db.Set<CustomUserAllergy>().Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);
+        db.UserAllergies.AddRange(ids.Select(id => new UserAllergy { UserId = userId, IngredientId = id, CreatedAt = DateTime.UtcNow }));
+        db.Set<CustomUserAllergy>().AddRange(customNames.Select(name => new CustomUserAllergy { UserId = userId, Name = name }));
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
     }
@@ -79,7 +73,7 @@ public sealed class HealthProfileRepository(AppDbContext db) : IHealthProfileRep
 
     public async Task<DatabasePage<Ingredient>> SearchIngredientsAsync(string? keyword, int pageIndex, int pageSize, CancellationToken ct)
     {
-        var query = db.Ingredients.AsNoTracking().AsQueryable();
+        var query = db.Ingredients.AsNoTracking().Where(i => !i.IsLegacyAllergyAlias);
         if (!string.IsNullOrWhiteSpace(keyword))
         {
             var normalized = keyword.ToLowerInvariant();
@@ -90,14 +84,14 @@ public sealed class HealthProfileRepository(AppDbContext db) : IHealthProfileRep
         return new(count, items);
     }
 
-    public async Task<IReadOnlyList<AllergyProjection>?> GetPostWarningsAsync(long userId, long postId, CancellationToken ct)
+    public async Task<IReadOnlyList<Ingredient>?> GetPostIngredientsAsync(long userId, long postId, CancellationToken ct)
     {
-        if (!await db.Posts.AnyAsync(p => p.Id == postId && !p.IsDeleted && (p.Status == "published" || p.AuthorId == userId), ct)) return null;
+        if (!await db.Posts.AnyAsync(p => p.Id == postId && !p.IsDeleted &&
+            ((p.Status == "published" && !p.ModerationHold) || p.AuthorId == userId), ct)) return null;
         return await (from ingredient in db.Ingredients.AsNoTracking()
-                      join allergy in db.UserAllergies on ingredient.Id equals allergy.IngredientId
-                      join postIngredient in db.PostIngredients on ingredient.Id equals postIngredient.IngredientId
-                      where allergy.UserId == userId && postIngredient.PostId == postId
+                      join link in db.PostIngredients on ingredient.Id equals link.IngredientId
+                      where link.PostId == postId
                       orderby ingredient.Name, ingredient.Id
-                      select new AllergyProjection { IngredientId = ingredient.Id, Name = ingredient.Name, IsCustom = allergy.IsCustom }).ToListAsync(ct);
+                      select ingredient).ToListAsync(ct);
     }
 }

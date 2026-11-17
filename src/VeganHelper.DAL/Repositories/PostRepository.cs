@@ -178,7 +178,11 @@ public sealed class PostRepository : IPostRepository
     {
         var normalizedName = name.ToLowerInvariant();
         var existing = await _context.Ingredients.FirstOrDefaultAsync(i => i.Name.ToLower() == normalizedName, cancellationToken);
-        if (existing is not null) return existing;
+        if (existing is not null)
+        {
+            if (existing.IsLegacyAllergyAlias) existing.IsLegacyAllergyAlias = false;
+            return existing;
+        }
 
         // Concurrent requests for the same name share the existing unique ingredient.
         // This runs in the post transaction, so a failed recipe does not leave orphan ingredients.
