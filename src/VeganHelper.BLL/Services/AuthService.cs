@@ -42,19 +42,103 @@ public sealed class AuthService(
                 return response;
             var now = DateTime.UtcNow;
             var recent = await repository.GetRegistrationChallengesAsync(email, now.AddHours(-1), OtpSendLimitPerHour, ct);
-            if (recent.Count >= OtpSendLimitPerHour || recent.FirstOrDefault()?.CreatedAt > now.AddSeconds(-OtpCooldownSeconds) ||
-                recent.FirstOrDefault()?.ProofExpiresAt > now)
+            if (recent.Count >= OtpSendLimitPerHour || recent.FirstOrDefault()?.CreatedAt > now.AddSeconds(-OtpCooldownSeconds))
                 return response;
 
             do { code = TokenSecurity.GenerateOtp(); }
             while (recent.Any(x => x.OtpHash == TokenSecurity.Hash(code)));
+            var previous = recent.FirstOrDefault();
+            var pendingUsername = previous?.PendingUsername;
+            var pendingDisplayName = previous?.PendingDisplayName;
+            var pendingPasswordHash = previous?.PendingPasswordHash;
+            ClearRegistrationDrafts(recent);
             await repository.AddRegistrationChallengeAsync(new RegistrationChallenge
             {
-                Email = email, CreatedAt = now, OtpHash = TokenSecurity.Hash(code)
+                Email = email,
+                CreatedAt = now,
+                OtpHash = TokenSecurity.Hash(code),
+                PendingUsername = pendingUsername,
+                PendingDisplayName = pendingDisplayName,
+                PendingPasswordHash = pendingPasswordHash
             }, ct);
             await repository.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
         }
+        await TrySendEmailAsync(AuthEmailTemplates.VerificationCode(email, code, EmailTokenLifetimeMinutes), ct);
+        return response;
+    }
+
+    public async Task<ServiceResult<MessageResponseDto>> BeginRegistrationAsync(RegistrationStartRequestDto request, CancellationToken ct)
+    {
+        var hasAnyCredentials = !string.IsNullOrWhiteSpace(request.Username) ||
+            !string.IsNullOrWhiteSpace(request.FullName) || !string.IsNullOrWhiteSpace(request.Password) ||
+            !string.IsNullOrWhiteSpace(request.ConfirmPassword);
+        var hasAllCredentials = !string.IsNullOrWhiteSpace(request.Username) &&
+            !string.IsNullOrWhiteSpace(request.FullName) && !string.IsNullOrWhiteSpace(request.Password) &&
+            !string.IsNullOrWhiteSpace(request.ConfirmPassword);
+        if (!hasAnyCredentials)
+            return await StartRegistrationAsync(new ResendVerificationRequestDto { Email = request.Email }, ct);
+        if (!hasAllCredentials)
+            return ServiceResult<MessageResponseDto>.Fail("Enter your name, username and both password fields before requesting a code.", 400);
+
+        var email = NormalizeEmail(request.Email);
+        var username = request.Username!.Trim();
+        var displayName = request.FullName!.Trim();
+        var response = ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto(ResendMessage));
+        if (username.Length < 3 || username.Contains('@') || displayName.Length < 3 ||
+            request.Password != request.ConfirmPassword || request.Password!.Length < 8)
+            return ServiceResult<MessageResponseDto>.Fail("Enter a valid name, username without @ and matching passwords.", 400);
+
+        string code;
+        await using (var transaction = await repository.LockRegistrationAsync(email, ct))
+        {
+            var user = await repository.FindUserByEmailAsync(email, ct);
+            if (user is not null && (user.IsActive || user.EmailVerifiedAt is not null || user.DeletedAt is not null))
+                return response;
+
+            var now = DateTime.UtcNow;
+            var recent = await repository.GetRegistrationChallengesAsync(email, now.AddHours(-1), OtpSendLimitPerHour, ct);
+            if (recent.Count >= OtpSendLimitPerHour)
+                return response;
+
+            var usernameOwner = await repository.FindUserByUsernameAsync(username, ct);
+            if (usernameOwner is not null && usernameOwner.Id != user?.Id)
+                return ServiceResult<MessageResponseDto>.Fail("Username is already registered.", 409);
+
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password!);
+            var latest = recent.FirstOrDefault();
+            if (latest?.CreatedAt > now.AddSeconds(-OtpCooldownSeconds))
+            {
+                // Before email verification, allow correcting the draft while preserving the OTP already sent.
+                // Once a proof exists, never mutate credentials bound to that proof.
+                if (latest.ProofHash is null)
+                {
+                    ClearRegistrationDrafts(recent.Skip(1));
+                    latest.PendingUsername = username;
+                    latest.PendingDisplayName = displayName;
+                    latest.PendingPasswordHash = passwordHash;
+                    await repository.SaveChangesAsync(ct);
+                    await transaction.CommitAsync(ct);
+                }
+                return response;
+            }
+
+            do { code = TokenSecurity.GenerateOtp(); }
+            while (recent.Any(x => x.OtpHash == TokenSecurity.Hash(code)));
+            ClearRegistrationDrafts(recent);
+            await repository.AddRegistrationChallengeAsync(new RegistrationChallenge
+            {
+                Email = email,
+                CreatedAt = now,
+                OtpHash = TokenSecurity.Hash(code),
+                PendingUsername = username,
+                PendingDisplayName = displayName,
+                PendingPasswordHash = passwordHash
+            }, ct);
+            await repository.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+
         await TrySendEmailAsync(AuthEmailTemplates.VerificationCode(email, code, EmailTokenLifetimeMinutes), ct);
         return response;
     }
@@ -90,16 +174,35 @@ public sealed class AuthService(
         var email = await repository.FindRegistrationEmailAsync(hash, ct);
         if (email is null) return invalid;
 
-        var username = request.Username.Trim();
-        var displayName = request.FullName.Trim();
-        if (username.Length < 3 || username.Contains('@') || displayName.Length < 3 || request.Password != request.ConfirmPassword)
-            return ServiceResult<MessageResponseDto>.Fail("Enter a valid name, username without @ and matching passwords.", 400);
-
         await using var transaction = await repository.LockRegistrationAsync(email, ct);
         var now = DateTime.UtcNow;
         var challenge = (await repository.GetRegistrationChallengesAsync(email, now.AddMinutes(-25), 1, ct)).FirstOrDefault();
         if (challenge?.ProofHash != hash || challenge.CompletedAt is not null || !(challenge.ProofExpiresAt > now))
             return invalid;
+
+        var hasPendingCredentials = challenge.PendingUsername is not null &&
+            challenge.PendingDisplayName is not null && challenge.PendingPasswordHash is not null;
+        var hasSubmittedCredentials = !string.IsNullOrWhiteSpace(request.Username) &&
+            !string.IsNullOrWhiteSpace(request.FullName) && !string.IsNullOrWhiteSpace(request.Password) &&
+            !string.IsNullOrWhiteSpace(request.ConfirmPassword);
+        var hasAnySubmittedCredentials = !string.IsNullOrWhiteSpace(request.Username) ||
+            !string.IsNullOrWhiteSpace(request.FullName) || !string.IsNullOrWhiteSpace(request.Password) ||
+            !string.IsNullOrWhiteSpace(request.ConfirmPassword);
+        if (hasAnySubmittedCredentials && !hasSubmittedCredentials)
+            return ServiceResult<MessageResponseDto>.Fail("Enter your name, username and both password fields.", 400);
+
+        var username = hasSubmittedCredentials
+            ? request.Username!.Trim()
+            : hasPendingCredentials ? challenge.PendingUsername!.Trim() : request.Username?.Trim() ?? "";
+        var displayName = hasSubmittedCredentials
+            ? request.FullName!.Trim()
+            : hasPendingCredentials ? challenge.PendingDisplayName!.Trim() : request.FullName?.Trim() ?? "";
+        var passwordHash = hasSubmittedCredentials
+            ? BCrypt.Net.BCrypt.HashPassword(request.Password!)
+            : hasPendingCredentials ? challenge.PendingPasswordHash : null;
+        if (username.Length < 3 || username.Contains('@') || displayName.Length < 3 ||
+            (passwordHash is null && (string.IsNullOrEmpty(request.Password) || request.Password.Length < 8 || request.Password != request.ConfirmPassword)))
+            return ServiceResult<MessageResponseDto>.Fail("Enter a valid name, username without @ and matching passwords.", 400);
 
         var user = await repository.FindUserByEmailAsync(email, ct);
         if (user is not null && (user.IsActive || user.EmailVerifiedAt is not null || user.DeletedAt is not null))
@@ -119,7 +222,7 @@ public sealed class AuthService(
                 return ServiceResult<MessageResponseDto>.Fail("Email is already registered.", 409);
             user = (await repository.FindUserByEmailAsync(email, ct))!;
         }
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+        user.PasswordHash = passwordHash ?? BCrypt.Net.BCrypt.HashPassword(request.Password!);
         user.PendingEmail = null;
         user.EmailVerifiedAt = now;
         user.IsActive = true;
@@ -128,6 +231,7 @@ public sealed class AuthService(
         user.FailedLoginAttempts = 0;
         user.LockedUntil = null;
         challenge.CompletedAt = now;
+        ClearRegistrationDraft(challenge);
         await repository.SaveChangesAsync(ct);
         var profile = await userRepository.FindUserProfileAsync(user.Id, ct);
         if (profile is null)
@@ -136,6 +240,19 @@ public sealed class AuthService(
         await userRepository.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return ServiceResult<MessageResponseDto>.Created(new MessageResponseDto("Registration successful. You can now sign in."));
+    }
+
+    private static void ClearRegistrationDrafts(IEnumerable<RegistrationChallenge> challenges)
+    {
+        foreach (var challenge in challenges)
+            ClearRegistrationDraft(challenge);
+    }
+
+    private static void ClearRegistrationDraft(RegistrationChallenge challenge)
+    {
+        challenge.PendingUsername = null;
+        challenge.PendingDisplayName = null;
+        challenge.PendingPasswordHash = null;
     }
 
     public async Task<ServiceResult<AuthResponseDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken)

@@ -10,4 +10,7 @@ public sealed class RegistrationChallenge
     public string? ProofHash { get; set; }
     public DateTime? ProofExpiresAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public string? PendingUsername { get; set; }
+    public string? PendingDisplayName { get; set; }
+    public string? PendingPasswordHash { get; set; }
 }

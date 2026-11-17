@@ -35,6 +35,25 @@ public sealed class ResendVerificationRequestDto
     public string Email { get; init; } = string.Empty;
 }
 
+public sealed class RegistrationStartRequestDto
+{
+    [Required, EmailAddress, StringLength(255)]
+    public string Email { get; init; } = string.Empty;
+
+    // Optional so clients already on the email-first flow can finish an in-flight signup.
+    [StringLength(100, MinimumLength = 3)]
+    public string? Username { get; init; }
+
+    [StringLength(100, MinimumLength = 3)]
+    public string? FullName { get; init; }
+
+    [StringLength(128, MinimumLength = 8)]
+    public string? Password { get; init; }
+
+    [Compare(nameof(Password))]
+    public string? ConfirmPassword { get; init; }
+}
+
 public sealed class LoginRequestDto
 {
     [Required, StringLength(255)]
@@ -139,14 +158,16 @@ public sealed class CompleteRegistrationRequestDto
 {
     [Required, StringLength(128)]
     public string RegistrationToken { get; init; } = "";
-    [Required, StringLength(100, MinimumLength = 3)]
-    public string Username { get; init; } = "";
-    [Required, StringLength(100, MinimumLength = 3)]
-    public string FullName { get; init; } = "";
-    [Required, StringLength(128, MinimumLength = 8)]
-    public string Password { get; init; } = "";
-    [Required, Compare(nameof(Password))]
-    public string ConfirmPassword { get; init; } = "";
+    // Optional for the verified-first flow. Retained for clients completing an
+    // in-flight registration started by the previous API contract.
+    [StringLength(100, MinimumLength = 3)]
+    public string? Username { get; init; }
+    [StringLength(100, MinimumLength = 3)]
+    public string? FullName { get; init; }
+    [StringLength(128, MinimumLength = 8)]
+    public string? Password { get; init; }
+    [Compare(nameof(Password))]
+    public string? ConfirmPassword { get; init; }
 }
 
 public sealed record RegistrationProofDto(string RegistrationToken);

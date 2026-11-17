@@ -121,6 +121,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.Email).HasMaxLength(255);
             entity.Property(x => x.OtpHash).HasMaxLength(64);
             entity.Property(x => x.ProofHash).HasMaxLength(64);
+            entity.Property(x => x.PendingUsername).HasMaxLength(100);
+            entity.Property(x => x.PendingDisplayName).HasMaxLength(100);
+            entity.Property(x => x.PendingPasswordHash).HasMaxLength(128);
             entity.HasIndex(x => new { x.Email, x.CreatedAt });
             entity.HasIndex(x => x.ProofHash).IsUnique();
         });

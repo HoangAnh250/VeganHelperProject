@@ -23,7 +23,13 @@ public sealed class AuthController(IAuthService service, IConfiguration configur
     [AllowAnonymous]
     [EnableRateLimiting("otp-send")]
     [HttpPost("register/start")]
-    public async Task<IActionResult> StartRegistration(ResendVerificationRequestDto request, CancellationToken ct) =>
+    public async Task<IActionResult> StartRegistration(RegistrationStartRequestDto request, CancellationToken ct) =>
+        RegistrationEnabled() ? ToActionResult(await service.BeginRegistrationAsync(request, ct)) : RegistrationPaused();
+
+    [AllowAnonymous]
+    [EnableRateLimiting("otp-send")]
+    [HttpPost("register/resend")]
+    public async Task<IActionResult> ResendRegistrationCode(ResendVerificationRequestDto request, CancellationToken ct) =>
         RegistrationEnabled() ? ToActionResult(await service.StartRegistrationAsync(request, ct)) : RegistrationPaused();
 
     [AllowAnonymous]

@@ -4,6 +4,7 @@ namespace VeganHelper.BLL.Contracts;
 
 public interface IAuthService
 {
+    Task<ServiceResult<MessageResponseDto>> BeginRegistrationAsync(RegistrationStartRequestDto request, CancellationToken ct);
     Task<ServiceResult<MessageResponseDto>> StartRegistrationAsync(ResendVerificationRequestDto request, CancellationToken ct);
     Task<ServiceResult<RegistrationProofDto>> VerifyRegistrationAsync(VerifyEmailRequestDto request, CancellationToken ct);
     Task<ServiceResult<MessageResponseDto>> CompleteRegistrationAsync(CompleteRegistrationRequestDto request, CancellationToken ct);
