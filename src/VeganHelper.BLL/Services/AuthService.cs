@@ -18,6 +18,11 @@ public sealed class AuthService(
     IOptions<FrontendOptions> frontendOptions) : IAuthService
 {
     private const int EmailTokenLifetimeMinutes = 15;
+    private const int MaxOtpAttempts = 5;
+    private const int OtpSendLimitPerHour = 10;
+    private const int OtpCooldownSeconds = 60;
+    private const string OtpSendLimitMessage = "Please wait before requesting another code. If you have requested several codes, try again later.";
+    private const string ResendMessage = "If the account is eligible, a verification code will be sent.";
     private const int PasswordResetLifetimeMinutes = 15;
     private const int MaxFailedLoginAttempts = 5;
     private const string RegistrationVerificationPurpose = "registration";
@@ -40,6 +45,7 @@ public sealed class AuthService(
         var existingUser = await repository.FindUserByEmailAsync(email, cancellationToken);
         if (existingUser is not null)
         {
+            await using var transaction = await repository.LockOtpUserAsync(existingUser, cancellationToken);
             // A pending registration can be restarted. The user remains inactive
             // until the newly issued verification code is accepted.
             if (existingUser.IsActive || existingUser.EmailVerifiedAt is not null || existingUser.DeletedAt is not null)
@@ -50,6 +56,11 @@ public sealed class AuthService(
                 return ServiceResult<MessageResponseDto>.Fail("Username is already registered.", 409);
 
             var pendingNow = DateTime.UtcNow;
+            var code = await PrepareOtpAsync(existingUser.Id, RegistrationVerificationPurpose, email, pendingNow, cancellationToken);
+            if (code is null)
+                return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto(
+                    "Please use your current verification code or wait before requesting another.", IsExistingUnverified: true));
+
             existingUser.Username = username;
             existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
             existingUser.PendingEmail = null;
@@ -71,9 +82,9 @@ public sealed class AuthService(
             }
 
             await userRepository.SaveChangesAsync(cancellationToken);
-            await ResendVerificationAsync(
-                new ResendVerificationRequestDto { Email = email },
-                cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            if (!await TrySendEmailAsync(AuthEmailTemplates.VerificationCode(email, code, EmailTokenLifetimeMinutes, isResend: true), cancellationToken))
+                return ServiceResult<MessageResponseDto>.Fail("The verification email could not be sent. Please try again later.", 503);
 
             return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto(
                 "This email has already been registered but is not yet verified. A fresh verification code has been sent.",
@@ -106,17 +117,16 @@ public sealed class AuthService(
         }, cancellationToken);
         await userRepository.SaveChangesAsync(cancellationToken);
 
-        var verificationCode = TokenSecurity.GenerateOtp();
-        await repository.AddEmailVerificationTokenAsync(new EmailVerificationToken
+        string? verificationCode;
+        await using (var transaction = await repository.LockOtpUserAsync(user, cancellationToken))
         {
-            UserId = user.Id,
-            Purpose = RegistrationVerificationPurpose,
-            TargetEmail = email,
-            TokenHash = TokenSecurity.Hash(verificationCode),
-            ExpiresAt = now.AddMinutes(EmailTokenLifetimeMinutes),
-            CreatedAt = now
-        }, cancellationToken);
-        await repository.SaveChangesAsync(cancellationToken);
+            verificationCode = await PrepareOtpAsync(user.Id, RegistrationVerificationPurpose, email, DateTime.UtcNow, cancellationToken);
+            await repository.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        if (verificationCode is null)
+            return ServiceResult<MessageResponseDto>.Created(new MessageResponseDto(
+                "Registration successful. Verify your email before logging in.", IsExistingUnverified: false));
         var emailSent = await TrySendEmailAsync(
             AuthEmailTemplates.VerificationCode(email, verificationCode, EmailTokenLifetimeMinutes),
             cancellationToken);
@@ -132,56 +142,46 @@ public sealed class AuthService(
     {
         var email = NormalizeEmail(request.Email);
         var user = await repository.FindUserByEmailAsync(email, cancellationToken);
-        if (user is null || user.DeletedAt is not null || user.EmailVerifiedAt is not null)
-            return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("If the account exists and is not verified, a new verification code has been sent."));
+        if (user is null)
+            return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto(ResendMessage));
 
-        var now = DateTime.UtcNow;
-        var verificationCode = TokenSecurity.GenerateOtp();
-        await repository.RevokeEmailVerificationTokensAsync(user.Id, RegistrationVerificationPurpose, now, cancellationToken);
-        await repository.AddEmailVerificationTokenAsync(new EmailVerificationToken
+        string? code;
+        await using (var transaction = await repository.LockOtpUserAsync(user, cancellationToken))
         {
-            UserId = user.Id,
-            Purpose = RegistrationVerificationPurpose,
-            TargetEmail = email,
-            TokenHash = TokenSecurity.Hash(verificationCode),
-            ExpiresAt = now.AddMinutes(EmailTokenLifetimeMinutes),
-            CreatedAt = now
-        }, cancellationToken);
-        await repository.SaveChangesAsync(cancellationToken);
+            if (user.DeletedAt is not null || user.EmailVerifiedAt is not null || !string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase))
+                return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto(ResendMessage));
+            code = await PrepareOtpAsync(user.Id, RegistrationVerificationPurpose, email, DateTime.UtcNow, cancellationToken);
+            if (code is not null) await repository.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
 
-        var emailSent = await TrySendEmailAsync(
-            AuthEmailTemplates.VerificationCode(email, verificationCode, EmailTokenLifetimeMinutes, isResend: true),
-            cancellationToken);
-        if (!emailSent)
-            return ServiceResult<MessageResponseDto>.Fail("The verification email could not be sent. Please try again later.", 503);
-
-        return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("If the account exists and is not verified, a new verification code has been sent."));
+        if (code is not null)
+            await TrySendEmailAsync(AuthEmailTemplates.VerificationCode(email, code, EmailTokenLifetimeMinutes, isResend: true), cancellationToken);
+        return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto(ResendMessage));
     }
 
     public async Task<ServiceResult<MessageResponseDto>> VerifyEmailAsync(VerifyEmailRequestDto request, CancellationToken cancellationToken)
     {
         var email = NormalizeEmail(request.Email);
         var user = await repository.FindUserByEmailAsync(email, cancellationToken);
+        const string invalidCode = "The verification code is invalid or expired.";
         if (user is null)
-            return ServiceResult<MessageResponseDto>.Fail("Invalid verification request.", 400);
-        if (user.EmailVerifiedAt is not null)
-            return ServiceResult<MessageResponseDto>.Fail("Email is already verified.", 400);
-
-        var token = await repository.FindEmailVerificationTokenAsync(TokenSecurity.Hash(request.Otp), cancellationToken);
-        if (token is null
-            || token.UserId != user.Id
-            || token.Purpose != RegistrationVerificationPurpose
-            || !string.Equals(token.TargetEmail, email, StringComparison.OrdinalIgnoreCase)
-            || token.ConsumedAt is not null
-            || token.ExpiresAt <= DateTime.UtcNow)
-            return ServiceResult<MessageResponseDto>.Fail("The verification code is invalid or expired.", 400);
+            return ServiceResult<MessageResponseDto>.Fail(invalidCode, 400);
+        await using var transaction = await repository.LockOtpUserAsync(user, cancellationToken);
+        if (user.DeletedAt is not null || !string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase) || user.EmailVerifiedAt is not null)
+            return ServiceResult<MessageResponseDto>.Fail(invalidCode, 400);
 
         var now = DateTime.UtcNow;
-        token.ConsumedAt = now;
+        if (!await CheckOtpAsync(user.Id, RegistrationVerificationPurpose, email, request.Otp, now, cancellationToken))
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return ServiceResult<MessageResponseDto>.Fail(invalidCode, 400);
+        }
         user.EmailVerifiedAt = now;
         user.IsActive = true;
         user.UpdatedAt = now;
         await repository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("Email verified successfully."));
     }
 
@@ -327,7 +327,10 @@ public sealed class AuthService(
     public async Task<ServiceResult<MessageResponseDto>> RequestGoogleUnlinkAsync(long userId, RequestGoogleUnlinkDto request, CancellationToken cancellationToken)
     {
         var user = await repository.FindUserByIdAsync(userId, cancellationToken);
-        if (user is null || user.DeletedAt is not null)
+        if (user is null)
+            return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
+        await using var transaction = await repository.LockOtpUserAsync(user, cancellationToken);
+        if (user.DeletedAt is not null)
             return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
         if (user.PasswordHash is null)
             return ServiceResult<MessageResponseDto>.Fail("Set a local password before unlinking Google.", 409);
@@ -341,18 +344,10 @@ public sealed class AuthService(
             return ServiceResult<MessageResponseDto>.Fail("The current password is incorrect.", 403);
 
         var now = DateTime.UtcNow;
-        var verificationCode = TokenSecurity.GenerateOtp();
-        await repository.RevokeEmailVerificationTokensAsync(userId, GoogleUnlinkPurpose, now, cancellationToken);
-        await repository.AddEmailVerificationTokenAsync(new EmailVerificationToken
-        {
-            UserId = userId,
-            Purpose = GoogleUnlinkPurpose,
-            TargetEmail = user.Email,
-            TokenHash = TokenSecurity.Hash(verificationCode),
-            ExpiresAt = now.AddMinutes(EmailTokenLifetimeMinutes),
-            CreatedAt = now
-        }, cancellationToken);
+        var verificationCode = await PrepareOtpAsync(userId, GoogleUnlinkPurpose, user.Email, now, cancellationToken);
+        if (verificationCode is null) return ServiceResult<MessageResponseDto>.Fail(OtpSendLimitMessage, 429);
         await repository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         if (!await TrySendEmailAsync(
                 AuthEmailTemplates.SecurityCode(
@@ -369,33 +364,36 @@ public sealed class AuthService(
     public async Task<ServiceResult<MessageResponseDto>> ConfirmGoogleUnlinkAsync(long userId, ConfirmGoogleUnlinkDto request, CancellationToken cancellationToken)
     {
         var user = await repository.FindUserByIdAsync(userId, cancellationToken);
-        if (user is null || user.DeletedAt is not null)
+        if (user is null)
+            return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
+        await using var transaction = await repository.LockOtpUserAsync(user, cancellationToken);
+        if (user.DeletedAt is not null)
             return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
 
         var identity = await repository.FindIdentityByUserAsync(userId, GoogleProvider, cancellationToken);
         if (identity is null)
             return ServiceResult<MessageResponseDto>.Fail("Google is not linked to this account.", 404);
 
-        var token = await repository.FindEmailVerificationTokenAsync(TokenSecurity.Hash(request.Otp), cancellationToken);
         var now = DateTime.UtcNow;
-        if (token is null
-            || token.UserId != userId
-            || token.Purpose != GoogleUnlinkPurpose
-            || !string.Equals(token.TargetEmail, user.Email, StringComparison.OrdinalIgnoreCase)
-            || token.ConsumedAt is not null
-            || token.ExpiresAt <= now)
+        if (!await CheckOtpAsync(userId, GoogleUnlinkPurpose, user.Email, request.Otp, now, cancellationToken))
+        {
+            await transaction.CommitAsync(cancellationToken);
             return ServiceResult<MessageResponseDto>.Fail("The security code is invalid or expired.", 400);
+        }
 
-        token.ConsumedAt = now;
         repository.RemoveUserIdentity(identity);
         await repository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("Google account unlinked successfully."));
     }
 
     public async Task<ServiceResult<MessageResponseDto>> RequestEmailChangeAsync(long userId, RequestEmailChangeDto request, CancellationToken cancellationToken)
     {
         var user = await repository.FindUserByIdAsync(userId, cancellationToken);
-        if (user is null || user.DeletedAt is not null)
+        if (user is null)
+            return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
+        await using var transaction = await repository.LockOtpUserAsync(user, cancellationToken);
+        if (user.DeletedAt is not null)
             return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
         if (!user.IsActive || user.EmailVerifiedAt is null)
             return ServiceResult<MessageResponseDto>.Fail("Verify and activate your account before changing email.", 403);
@@ -414,20 +412,13 @@ public sealed class AuthService(
             return ServiceResult<MessageResponseDto>.Fail("Email is already registered.", 409);
 
         var now = DateTime.UtcNow;
+        var verificationCode = await PrepareOtpAsync(userId, EmailChangeCurrentPurpose, user.Email, now, cancellationToken);
+        if (verificationCode is null) return ServiceResult<MessageResponseDto>.Fail(OtpSendLimitMessage, 429);
+        await repository.RevokeEmailVerificationTokensAsync(userId, EmailChangeNewPurpose, now, cancellationToken);
         user.PendingEmail = newEmail;
         user.UpdatedAt = now;
-        var verificationCode = TokenSecurity.GenerateOtp();
-        await repository.RevokeEmailVerificationTokensAsync(userId, EmailChangeCurrentPurpose, now, cancellationToken);
-        await repository.AddEmailVerificationTokenAsync(new EmailVerificationToken
-        {
-            UserId = userId,
-            Purpose = EmailChangeCurrentPurpose,
-            TargetEmail = user.Email,
-            TokenHash = TokenSecurity.Hash(verificationCode),
-            ExpiresAt = now.AddMinutes(EmailTokenLifetimeMinutes),
-            CreatedAt = now
-        }, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         if (!await TrySendEmailAsync(
                 AuthEmailTemplates.SecurityCode(
@@ -444,34 +435,25 @@ public sealed class AuthService(
     public async Task<ServiceResult<MessageResponseDto>> ConfirmCurrentEmailChangeOtpAsync(long userId, ConfirmEmailChangeOtpDto request, CancellationToken cancellationToken)
     {
         var user = await repository.FindUserByIdAsync(userId, cancellationToken);
-        if (user is null || user.DeletedAt is not null)
+        if (user is null)
+            return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
+        await using var transaction = await repository.LockOtpUserAsync(user, cancellationToken);
+        if (user.DeletedAt is not null)
             return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
         if (string.IsNullOrWhiteSpace(user.PendingEmail))
             return ServiceResult<MessageResponseDto>.Fail("No email change request is pending.", 409);
 
-        var token = await repository.FindEmailVerificationTokenAsync(TokenSecurity.Hash(request.Otp), cancellationToken);
         var now = DateTime.UtcNow;
-        if (token is null
-            || token.UserId != userId
-            || token.Purpose != EmailChangeCurrentPurpose
-            || !string.Equals(token.TargetEmail, user.Email, StringComparison.OrdinalIgnoreCase)
-            || token.ConsumedAt is not null
-            || token.ExpiresAt <= now)
-            return ServiceResult<MessageResponseDto>.Fail("The security code is invalid or expired.", 400);
-
-        token.ConsumedAt = now;
-        var newEmailCode = TokenSecurity.GenerateOtp();
-        await repository.RevokeEmailVerificationTokensAsync(userId, EmailChangeNewPurpose, now, cancellationToken);
-        await repository.AddEmailVerificationTokenAsync(new EmailVerificationToken
+        if (!await CheckOtpAsync(userId, EmailChangeCurrentPurpose, user.Email, request.Otp, now, cancellationToken))
         {
-            UserId = userId,
-            Purpose = EmailChangeNewPurpose,
-            TargetEmail = user.PendingEmail,
-            TokenHash = TokenSecurity.Hash(newEmailCode),
-            ExpiresAt = now.AddMinutes(EmailTokenLifetimeMinutes),
-            CreatedAt = now
-        }, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return ServiceResult<MessageResponseDto>.Fail("The security code is invalid or expired.", 400);
+        }
+
+        var newEmailCode = await PrepareOtpAsync(userId, EmailChangeNewPurpose, user.PendingEmail, now, cancellationToken);
+        if (newEmailCode is null) return ServiceResult<MessageResponseDto>.Fail(OtpSendLimitMessage, 429);
         await repository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         if (!await TrySendEmailAsync(
                 AuthEmailTemplates.SecurityCode(
@@ -488,26 +470,25 @@ public sealed class AuthService(
     public async Task<ServiceResult<MessageResponseDto>> ConfirmNewEmailAsync(long userId, ConfirmEmailChangeOtpDto request, CancellationToken cancellationToken)
     {
         var user = await repository.FindUserByIdAsync(userId, cancellationToken);
-        if (user is null || user.DeletedAt is not null)
+        if (user is null)
+            return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
+        await using var transaction = await repository.LockOtpUserAsync(user, cancellationToken);
+        if (user.DeletedAt is not null)
             return ServiceResult<MessageResponseDto>.Fail("User was not found.", 404);
         if (string.IsNullOrWhiteSpace(user.PendingEmail))
             return ServiceResult<MessageResponseDto>.Fail("No email change request is pending.", 409);
 
-        var token = await repository.FindEmailVerificationTokenAsync(TokenSecurity.Hash(request.Otp), cancellationToken);
         var now = DateTime.UtcNow;
-        if (token is null
-            || token.UserId != userId
-            || token.Purpose != EmailChangeNewPurpose
-            || !string.Equals(token.TargetEmail, user.PendingEmail, StringComparison.OrdinalIgnoreCase)
-            || token.ConsumedAt is not null
-            || token.ExpiresAt <= now)
+        if (!await CheckOtpAsync(userId, EmailChangeNewPurpose, user.PendingEmail, request.Otp, now, cancellationToken))
+        {
+            await transaction.CommitAsync(cancellationToken);
             return ServiceResult<MessageResponseDto>.Fail("The verification code is invalid or expired.", 400);
+        }
 
         var existingUser = await repository.FindUserByEmailAsync(user.PendingEmail, cancellationToken);
         if (existingUser is not null && existingUser.Id != userId)
             return ServiceResult<MessageResponseDto>.Fail("Email is already registered.", 409);
 
-        token.ConsumedAt = now;
         user.TokenVersion++;
         user.Email = user.PendingEmail;
         user.PendingEmail = null;
@@ -516,7 +497,52 @@ public sealed class AuthService(
         user.UpdatedAt = now;
         await repository.RevokeRefreshTokensAsync(userId, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return ServiceResult<MessageResponseDto>.Ok(new MessageResponseDto("Email changed successfully. Please log in again with your new email."));
+    }
+
+    // Callers hold the per-user database lock through SaveChanges and commit.
+    private async Task<string?> PrepareOtpAsync(long userId, string purpose, string email, DateTime now, CancellationToken ct)
+    {
+        var recent = await repository.GetRecentOtpIssuancesAsync(userId, now.AddHours(-1), OtpSendLimitPerHour, ct);
+        if (recent.Count >= OtpSendLimitPerHour ||
+            recent.Any(x => x.Purpose == purpose && x.CreatedAt > now.AddSeconds(-OtpCooldownSeconds)))
+            return null;
+
+        string code;
+        string hash;
+        do
+        {
+            code = TokenSecurity.GenerateOtp();
+            hash = TokenSecurity.Hash(code);
+        } while (recent.Any(x => x.Purpose == purpose && x.TokenHash == hash));
+
+        await repository.RevokeEmailVerificationTokensAsync(userId, purpose, now, ct);
+        await repository.AddEmailVerificationTokenAsync(new EmailVerificationToken
+        {
+            UserId = userId, Purpose = purpose, TargetEmail = email, TokenHash = hash,
+            CreatedAt = now, ExpiresAt = now.AddMinutes(EmailTokenLifetimeMinutes)
+        }, ct);
+        return code;
+    }
+
+    private async Task<bool> CheckOtpAsync(long userId, string purpose, string email, string code, DateTime now, CancellationToken ct)
+    {
+        var token = await repository.FindLatestOtpAsync(userId, purpose, ct);
+        if (token is null || token.ConsumedAt is not null || token.ExpiresAt <= now ||
+            token.FailedAttempts >= MaxOtpAttempts ||
+            !string.Equals(token.TargetEmail, email, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (string.Equals(token.TokenHash, TokenSecurity.Hash(code), StringComparison.Ordinal))
+        {
+            token.ConsumedAt = now;
+            return true;
+        }
+
+        token.FailedAttempts++;
+        await repository.SaveChangesAsync(ct);
+        return false;
     }
 
     public async Task<ServiceResult<MessageResponseDto>> SetPasswordAsync(long userId, SetPasswordRequestDto request, CancellationToken cancellationToken)

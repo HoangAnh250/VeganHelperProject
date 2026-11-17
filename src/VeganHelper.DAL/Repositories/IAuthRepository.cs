@@ -18,7 +18,9 @@ public interface IAuthRepository
     void RemoveUserIdentity(UserIdentity identity);
     Task AddEmailVerificationTokenAsync(EmailVerificationToken token, CancellationToken cancellationToken);
     Task RevokeEmailVerificationTokensAsync(long userId, string purpose, DateTime revokedAt, CancellationToken cancellationToken);
-    Task<EmailVerificationToken?> FindEmailVerificationTokenAsync(string tokenHash, CancellationToken cancellationToken);
+    Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> LockOtpUserAsync(User user, CancellationToken ct);
+    Task<List<EmailVerificationToken>> GetRecentOtpIssuancesAsync(long userId, DateTime since, int limit, CancellationToken ct);
+    Task<EmailVerificationToken?> FindLatestOtpAsync(long userId, string purpose, CancellationToken ct);
     Task AddPasswordResetTokenAsync(PasswordResetToken token, CancellationToken cancellationToken);
     Task<PasswordResetToken?> FindPasswordResetTokenAsync(string tokenHash, CancellationToken cancellationToken);
     Task AddRefreshTokenAsync(RefreshToken token, CancellationToken cancellationToken);

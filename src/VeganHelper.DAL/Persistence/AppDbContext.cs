@@ -112,7 +112,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_email_verification_tokens_users");
             entity.HasIndex(x => new { x.UserId, x.Purpose, x.ExpiresAt }).HasDatabaseName("IX_email_verification_tokens_user_purpose_expiry");
-            entity.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("UQ_email_verification_tokens_hash");
+            entity.Property(x => x.FailedAttempts).HasColumnName("failed_attempts").HasDefaultValue(0);
+            entity.HasIndex(x => new { x.UserId, x.CreatedAt }).HasDatabaseName("IX_email_verification_tokens_user_created");
         });
         modelBuilder.Entity<PasswordResetToken>(entity =>
         {

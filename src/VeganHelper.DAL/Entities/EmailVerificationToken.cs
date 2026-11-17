@@ -7,6 +7,7 @@ public sealed class EmailVerificationToken
     public string Purpose { get; set; } = "registration";
     public string? TargetEmail { get; set; }
     public string TokenHash { get; set; } = string.Empty;
+    public int FailedAttempts { get; set; }
     public DateTime ExpiresAt { get; set; }
     public DateTime? ConsumedAt { get; set; }
     public DateTime CreatedAt { get; set; }

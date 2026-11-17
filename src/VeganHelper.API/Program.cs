@@ -89,12 +89,32 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
+    foreach (var (policy, limit) in new[] { ("otp-send", 12), ("otp-verify", 30) })
+        options.AddPolicy(policy, context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.MapToIPv6().ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limit,
+                Window = TimeSpan.FromMinutes(5),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
         if (context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter))
             context.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
         var isVideoSummary = context.HttpContext.Request.Path.Value?.EndsWith("/summary", StringComparison.OrdinalIgnoreCase) == true;
+        var policy = context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
+        if (policy is "otp-send" or "otp-verify")
+        {
+            await context.HttpContext.Response.WriteAsJsonAsync(new
+            {
+                error = "Too many verification requests from this network. Please try again later.",
+                code = "OTP_RATE_LIMITED"
+            }, cancellationToken);
+            return;
+        }
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
             error = isVideoSummary

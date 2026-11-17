@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs;
 
@@ -11,16 +12,19 @@ namespace VeganHelper.API.Controllers;
 public sealed class AuthController(IAuthService service) : ControllerBase
 {
     [AllowAnonymous]
+    [EnableRateLimiting("otp-send")]
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequestDto request, CancellationToken cancellationToken) =>
         ToActionResult(await service.RegisterAsync(request, cancellationToken));
 
     [AllowAnonymous]
+    [EnableRateLimiting("otp-verify")]
     [HttpPost("verify-email")]
     public async Task<IActionResult> VerifyEmail(VerifyEmailRequestDto request, CancellationToken cancellationToken) =>
         ToActionResult(await service.VerifyEmailAsync(request, cancellationToken));
 
     [AllowAnonymous]
+    [EnableRateLimiting("otp-send")]
     [HttpPost("resend-verification")]
     public async Task<IActionResult> ResendVerification(ResendVerificationRequestDto request, CancellationToken cancellationToken) =>
         ToActionResult(await service.ResendVerificationAsync(request, cancellationToken));
@@ -46,6 +50,7 @@ public sealed class AuthController(IAuthService service) : ControllerBase
     }
 
     [Authorize]
+    [EnableRateLimiting("otp-send")]
     [HttpPost("google/unlink/request")]
     public async Task<IActionResult> RequestGoogleUnlink(RequestGoogleUnlinkDto request, CancellationToken cancellationToken)
     {
@@ -56,6 +61,7 @@ public sealed class AuthController(IAuthService service) : ControllerBase
     }
 
     [Authorize]
+    [EnableRateLimiting("otp-verify")]
     [HttpPost("google/unlink/confirm")]
     public async Task<IActionResult> ConfirmGoogleUnlink(ConfirmGoogleUnlinkDto request, CancellationToken cancellationToken)
     {
@@ -66,6 +72,7 @@ public sealed class AuthController(IAuthService service) : ControllerBase
     }
 
     [Authorize]
+    [EnableRateLimiting("otp-send")]
     [HttpPost("change-email/request")]
     public async Task<IActionResult> RequestEmailChange(RequestEmailChangeDto request, CancellationToken cancellationToken)
     {
@@ -76,6 +83,7 @@ public sealed class AuthController(IAuthService service) : ControllerBase
     }
 
     [Authorize]
+    [EnableRateLimiting("otp-verify")]
     [HttpPost("change-email/verify-current")]
     public async Task<IActionResult> VerifyCurrentEmailChangeOtp(ConfirmEmailChangeOtpDto request, CancellationToken cancellationToken)
     {
@@ -86,6 +94,7 @@ public sealed class AuthController(IAuthService service) : ControllerBase
     }
 
     [Authorize]
+    [EnableRateLimiting("otp-verify")]
     [HttpPost("change-email/confirm")]
     public async Task<IActionResult> ConfirmNewEmail(ConfirmEmailChangeOtpDto request, CancellationToken cancellationToken)
     {

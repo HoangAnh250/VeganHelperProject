@@ -60,8 +60,29 @@ public sealed class AuthRepository(AppDbContext db) : IAuthRepository
                 setters => setters.SetProperty(x => x.ConsumedAt, revokedAt),
                 cancellationToken);
 
-    public Task<EmailVerificationToken?> FindEmailVerificationTokenAsync(string tokenHash, CancellationToken cancellationToken) =>
-        db.EmailVerificationTokens.SingleOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
+    public async Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> LockOtpUserAsync(User user, CancellationToken ct)
+    {
+        var transaction = await db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM users WHERE id = {user.Id} FOR UPDATE", ct);
+            await db.Entry(user).ReloadAsync(ct);
+            return transaction;
+        }
+        catch
+        {
+            await transaction.DisposeAsync();
+            throw;
+        }
+    }
+
+    public Task<List<EmailVerificationToken>> GetRecentOtpIssuancesAsync(long userId, DateTime since, int limit, CancellationToken ct) =>
+        db.EmailVerificationTokens.AsNoTracking().Where(x => x.UserId == userId && x.CreatedAt > since)
+            .OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).Take(limit).ToListAsync(ct);
+
+    public Task<EmailVerificationToken?> FindLatestOtpAsync(long userId, string purpose, CancellationToken ct) =>
+        db.EmailVerificationTokens.Where(x => x.UserId == userId && x.Purpose == purpose)
+            .OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).FirstOrDefaultAsync(ct);
 
     public Task AddPasswordResetTokenAsync(PasswordResetToken token, CancellationToken cancellationToken) =>
         db.PasswordResetTokens.AddAsync(token, cancellationToken).AsTask();

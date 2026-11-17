@@ -523,6 +523,12 @@ namespace VeganHelper.DAL.PostgresMigrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
 
+                    b.Property<int>("FailedAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("failed_attempts");
+
                     b.Property<string>("Purpose")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -547,9 +553,8 @@ namespace VeganHelper.DAL.PostgresMigrations
                     b.HasKey("Id")
                         .HasName("PK_email_verification_tokens");
 
-                    b.HasIndex("TokenHash")
-                        .IsUnique()
-                        .HasDatabaseName("UQ_email_verification_tokens_hash");
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("IX_email_verification_tokens_user_created");
 
                     b.HasIndex("UserId", "Purpose", "ExpiresAt")
                         .HasDatabaseName("IX_email_verification_tokens_user_purpose_expiry");
