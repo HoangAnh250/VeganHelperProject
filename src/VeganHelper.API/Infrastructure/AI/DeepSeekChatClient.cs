@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using VeganHelper.API.Configuration;
 using VeganHelper.BLL.Contracts;
 using VeganHelper.BLL.DTOs.AI;
+using VeganHelper.BLL.Services;
 
 namespace VeganHelper.API.Infrastructure.AI;
 
@@ -146,7 +147,8 @@ public sealed class DeepSeekChatClient(
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            using var first = await CompleteRequestAsync(messages, searchPosts is not null, settings, stopwatch, timeout.Token);
+            using var first = await CompleteRequestAsync(messages, searchPosts is not null, settings, stopwatch, timeout.Token,
+                forcePostSearch: searchPosts is not null && PostSearchIntent.IsExplicitPostRequest(turns.Last().MessageText));
             var firstMessage = ReadMessage(first.RootElement);
             var firstUsage = ReadUsage(first.RootElement);
             if (!firstMessage.TryGetProperty("tool_calls", out var toolCalls) ||
@@ -184,7 +186,11 @@ public sealed class DeepSeekChatClient(
                 content = JsonSerializer.Serialize(new
                 {
                     posts = found.Posts.Select(post => new { postId = post.PostId, title = post.Title }),
-                    hasMore = found.HasMore
+                    resultCount = found.Posts.Count,
+                    hasMore = found.HasMore,
+                    instruction = found.Posts.Count == 0
+                        ? "No eligible posts matched these filters. Say so without claiming the database has no such posts. You may suggest plant-based dishes from general knowledge; label them as not system posts. Never invent cards."
+                        : "Return only these system posts, with this exact count. If fewer than three, say only that many matched. Do not add general-knowledge recipes to fill the count."
                 }, JsonOptions)
             });
 
@@ -215,7 +221,7 @@ public sealed class DeepSeekChatClient(
 
     private async Task<JsonDocument> CompleteRequestAsync(List<object> messages, bool enableSearch,
         DeepSeekChatOptions settings, Stopwatch stopwatch, CancellationToken cancellationToken,
-        int? maxOutputTokens = null)
+        int? maxOutputTokens = null, bool forcePostSearch = false)
     {
         var requestBody = new Dictionary<string, object?>
         {
@@ -229,7 +235,9 @@ public sealed class DeepSeekChatClient(
         if (enableSearch)
         {
             requestBody["tools"] = new[] { PostSearchDeclaration() };
-            requestBody["tool_choice"] = "auto";
+            requestBody["tool_choice"] = forcePostSearch
+                ? (object)new { type = "function", function = new { name = SearchToolName } }
+                : "auto";
         }
         var body = JsonSerializer.SerializeToUtf8Bytes(requestBody, JsonOptions);
         if (body.Length > settings.MaxInputCharacters * 4)
@@ -261,12 +269,14 @@ public sealed class DeepSeekChatClient(
         function = new
         {
             name = SearchToolName,
-            description = "Search public VeganHelper recipe posts by ingredients, meal type or cooking time. Search again when asked for more. Never use for internal system or database questions.",
+            description = "Search public VeganHelper posts broadly, or by dish/topic, ingredients, meal type or cooking time. Search again when asked for more. Never use for internal system or database questions.",
             parameters = new
             {
                 type = "object",
                 properties = new
                 {
+                    searchTerms = new { type = "array", items = new { type = "string" }, description = "Optional dish/topic title terms, e.g. bánh ngọt or cake. Empty for general vegetarian post requests. Never treat a dish name as an ingredient." },
+                    searchMode = new { type = "string", @enum = new[] { "new", "more", "repeat" }, description = "new for a fresh request/topic; more only for additional unseen posts; repeat when the user asks to resend earlier posts. Carry topic and explicit constraints from context for follow-up requests." },
                     requiredIngredients = new { type = "array", items = new { type = "string" }, description = "Ingredients every result must contain." },
                     availableIngredients = new { type = "array", items = new { type = "string" }, description = "Ingredients the user already has." },
                     excludedAllergens = new { type = "array", items = new { type = "string" }, description = "Allergies mentioned in this chat; stored allergies are enforced by Backend." },

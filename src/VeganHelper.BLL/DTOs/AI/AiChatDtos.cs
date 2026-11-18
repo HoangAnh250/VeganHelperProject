@@ -24,7 +24,11 @@ public sealed record AiPostSearchCriteria(
     string? MealType,
     string? DietType,
     int? MaxMinutes,
-    bool StrictOnlyIngredients);
+    bool StrictOnlyIngredients)
+{
+    public IReadOnlyList<string>? SearchTerms { get; init; }
+    public string? SearchMode { get; init; }
+}
 public sealed record AiPostSearchResult(IReadOnlyList<AiPostCardDto> Posts, bool HasMore);
 
 public sealed record AiChatErrorDto(

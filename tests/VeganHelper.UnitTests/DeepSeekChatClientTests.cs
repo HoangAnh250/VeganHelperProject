@@ -110,6 +110,45 @@ public sealed class DeepSeekChatClientTests
         Assert.Equal("ai_disabled", exception.Code);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public async Task ExplicitPostRequestForcesLookupAndSuppliesTruthfulResultCount(int count)
+    {
+        var requests = 0;
+        using var http = new HttpClient(new FakeHandler(async (request, ct) =>
+        {
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
+            var root = body.RootElement;
+            if (++requests == 1)
+            {
+                Assert.Equal("search_vegan_posts", root.GetProperty("tool_choice").GetProperty("function").GetProperty("name").GetString());
+                var properties = root.GetProperty("tools")[0].GetProperty("function").GetProperty("parameters").GetProperty("properties");
+                Assert.True(properties.TryGetProperty("searchTerms", out _));
+                Assert.True(properties.TryGetProperty("searchMode", out _));
+                return JsonResponse("""
+                    {"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[{"id":"lookup","type":"function",
+                    "function":{"name":"search_vegan_posts","arguments":"{\"searchTerms\":[\"bánh ngọt\"],\"searchMode\":\"new\"}"}}]},"finish_reason":"tool_calls"}]}
+                    """);
+            }
+            var messages = root.GetProperty("messages");
+            using var tool = JsonDocument.Parse(messages[messages.GetArrayLength()-1].GetProperty("content").GetString()!);
+            Assert.Equal(count, tool.RootElement.GetProperty("resultCount").GetInt32());
+            var instruction = tool.RootElement.GetProperty("instruction").GetString()!;
+            Assert.Contains(count == 0 ? "No eligible posts" : "Do not add general-knowledge", instruction);
+            return JsonResponse("""{"choices":[{"message":{"content":"Search completed."},"finish_reason":"stop"}]}""");
+        }));
+        var result = await CreateClient(http).CompleteWithPostSearchAsync(null,
+            [new("user", "gợi ý 3 post bánh ngọt")], (criteria, _) =>
+            {
+                Assert.Equal("bánh ngọt", Assert.Single(criteria.SearchTerms!));
+                return Task.FromResult(new AiPostSearchResult(Enumerable.Range(0,count)
+                    .Select(i => new AiPostCardDto(42+i,"Real post",null)).ToArray(), false));
+            });
+        Assert.Equal(2, requests);
+        Assert.Equal(count, result.RecommendedPosts.Count);
+    }
+
     private static DeepSeekChatClient CreateClient(HttpClient http) => new(http,
         Options.Create(new DeepSeekChatOptions { ApiKey = "test-key", Model = "deepseek-flash" }),
         new AiChatPromptDefinition { Version = "test", SystemInstruction = "System instruction" },

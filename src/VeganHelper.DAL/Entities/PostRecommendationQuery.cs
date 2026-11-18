@@ -9,6 +9,10 @@ public sealed record PostRecommendationQuery(
     string? DietType,
     int? MaxMinutes,
     bool StrictOnlyIngredients,
-    IReadOnlyList<long>? AllergyIngredientIds = null);
+    IReadOnlyList<long>? AllergyIngredientIds = null)
+{
+    public IReadOnlyList<string> SearchTerms { get; init; } = [];
+    public IReadOnlyList<long>? CandidatePostIds { get; init; }
+}
 
 public sealed record PostRecommendationProjection(long PostId, string Title, string? ThumbnailUrl);

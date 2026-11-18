@@ -9,6 +9,7 @@ using VeganHelper.DAL.Entities;
 
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using System.Linq.Expressions;
 
 public sealed class PostRepository : IPostRepository
 {
@@ -33,6 +34,26 @@ public sealed class PostRepository : IPostRepository
     {
         var query = PublicRecommendationQuery()
             .Where(post => !request.ExcludedPostIds.Contains(post.Id));
+
+        if (request.CandidatePostIds is not null)
+            query = query.Where(post => request.CandidatePostIds.Contains(post.Id));
+        var terms = PostSearchTerms.Expand(request.SearchTerms).Select(ContainsPattern).ToArray();
+        if (terms.Length > 0)
+        {
+            // Separate scalar patterns avoid conflicting varchar/title and text/content
+            // element mappings when Npgsql translates an array.Any expression.
+            var parameter = Expression.Parameter(typeof(Post), "post");
+            Expression predicate = Expression.Constant(false);
+            foreach (var pattern in terms)
+            {
+                Expression<Func<Post, bool>> match = post =>
+                    EF.Functions.ILike(post.Title, pattern, "\\") ||
+                    post.Content != null && EF.Functions.ILike(post.Content, pattern, "\\");
+                var body = new ReplacePostParameter(match.Parameters[0], parameter).Visit(match.Body)!;
+                predicate = Expression.OrElse(predicate, body);
+            }
+            query = query.Where(Expression.Lambda<Func<Post, bool>>(predicate, parameter));
+        }
 
         if (request.MealType is not null)
             query = query.Where(post => post.MealType == request.MealType);
@@ -104,6 +125,11 @@ public sealed class PostRepository : IPostRepository
                     .FirstOrDefault()))
             .ToListAsync(cancellationToken);
         return (items.Take(3).ToArray(), items.Count > 3);
+    }
+
+    private sealed class ReplacePostParameter(ParameterExpression source, ParameterExpression target) : ExpressionVisitor
+    {
+        protected override Expression VisitParameter(ParameterExpression node) => node == source ? target : node;
     }
 
     public async Task<IReadOnlyList<PostRecommendationProjection>> GetPublicRecommendationsAsync(

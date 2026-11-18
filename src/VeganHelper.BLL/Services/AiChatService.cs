@@ -148,9 +148,12 @@ public sealed class AiChatService(
                 turns,
                 async (criteria, ct) =>
                 {
-                    var excluded = session.Id == 0
-                        ? []
+                    var more = criteria.SearchMode == "more" || PostSearchIntent.IsMore(messageText);
+                    var repeat = criteria.SearchMode == "repeat" || PostSearchIntent.IsRepeat(messageText);
+                    var previousIds = session.Id == 0 || !more && !repeat
+                        ? Array.Empty<long>()
                         : await repository.GetRecommendedPostIdsAsync(session.Id, ct);
+                    var excluded = repeat ? Array.Empty<long>() : previousIds;
                     var allergies = userProfile?.Allergies.Select(item => item.Name).ToArray() ?? [];
                     var allergyIngredientIds = userProfile?.Allergies
                         .Select(item => item.IngredientId)
@@ -168,7 +171,11 @@ public sealed class AiChatService(
                             : userProfile?.Profile?.DietType,
                         criteria.MaxMinutes is > 0 and <= 240 ? criteria.MaxMinutes : null,
                         criteria.StrictOnlyIngredients,
-                        allergyIngredientIds);
+                        allergyIngredientIds)
+                    {
+                        SearchTerms = CleanIngredients(criteria.SearchTerms, 5),
+                        CandidatePostIds = repeat ? previousIds : null
+                    };
                     var (posts, hasMore) = await postRepository.SearchRecommendationsAsync(query, ct);
                     return new AiPostSearchResult(
                         posts.Select(post => new AiPostCardDto(post.PostId, post.Title, post.ThumbnailUrl)).ToArray(),
@@ -416,8 +423,8 @@ public sealed class AiChatService(
                 : "The previously suggested posts are no longer publicly available. Ask me to search again for current results.";
 
         return isVietnamese
-            ? $"Mình tìm được {count} bài viết phù hợp trên VeganHelper. Các thẻ bên dưới là những kết quả đó. Hãy kiểm tra nguyên liệu trong từng bài, đặc biệt nếu bạn có dị ứng."
-            : $"I found {count} matching post{(count == 1 ? string.Empty : "s")} on VeganHelper. The cards below show those results. Please check each post's ingredients, especially if you have allergies.";
+            ? $"{(count < 3 ? "Hiện mình chỉ tìm được" : "Mình tìm được")} {count} bài viết phù hợp trên VeganHelper. Các thẻ bên dưới là những kết quả đó. Hãy kiểm tra nguyên liệu trong từng bài, đặc biệt nếu bạn có dị ứng."
+            : $"{(count < 3 ? "I only found" : "I found")} {count} matching post{(count == 1 ? string.Empty : "s")} on VeganHelper. The cards below show those results. Please check each post's ingredients, especially if you have allergies.";
     }
 
     private static bool HasVietnameseLanguageSignal(string value)
