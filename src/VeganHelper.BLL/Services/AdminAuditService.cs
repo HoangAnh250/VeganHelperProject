@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using AutoMapper;
 using System.Net;
 using VeganHelper.BLL.Contracts;
@@ -9,7 +11,7 @@ using VeganHelper.DAL.Repositories;
 
 namespace VeganHelper.BLL.Services;
 
-public sealed class AdminAuditService(IAdminAuditRepository repository, IMapper mapper, TimeProvider clock) : IAdminAuditService
+public sealed class AdminAuditService(IAdminAuditRepository repository, IMapper mapper, TimeProvider clock, ILogger<AdminAuditService>? logger = null) : IAdminAuditService
 {
     public Task<bool> IsActiveAdminAsync(long userId, CancellationToken ct) =>
         repository.IsActiveAdminAsync(userId, clock.GetUtcNow().UtcDateTime, ct);
@@ -50,20 +52,37 @@ public sealed class AdminAuditService(IAdminAuditRepository repository, IMapper 
         Required(actor.TraceId, 100);
         if (actor.IpAddress is not null && !IPAddress.TryParse(actor.IpAddress, out _)) throw new ArgumentException("Invalid peer IP address.");
         if (actor.IpAddress?.Length > 45) throw new ArgumentException("Peer IP address is too long.");
-        await using var transaction = await repository.BeginTransactionAsync(ct);
-        // Disposal rolls back on any failure, including cancellation and audit persistence failure.
-        var result = await operation(ct);
-        var resolvedTargetId = targetIdFromResult is null ? targetId : targetIdFromResult(result);
-        if (resolvedTargetId?.Length > 100) throw new ArgumentException("Audit target ID is too long.");
-        await repository.AppendAsync(new AdminAuditLog
+        var elapsed = Stopwatch.StartNew();
+        try
         {
-            AdminId = actor.UserId, Action = action, TargetType = targetType, TargetId = resolvedTargetId,
-            IpAddress = actor.IpAddress, TraceId = actor.TraceId, CreatedAt = clock.GetUtcNow().UtcDateTime
-        }, ct);
-        await transaction.CommitAsync(ct);
-        return result;
+            await using var transaction = await repository.BeginTransactionAsync(ct);
+            // Disposal rolls back on failure; never commit mutations without their audit record.
+            var result = await operation(ct);
+            var resolvedTargetId = targetIdFromResult is null ? targetId : targetIdFromResult(result);
+            if (resolvedTargetId?.Length > 100) throw new ArgumentException("Audit target ID is too long.");
+            await repository.AppendAsync(new AdminAuditLog
+            {
+                AdminId = actor.UserId, Action = action, TargetType = targetType, TargetId = resolvedTargetId,
+                IpAddress = actor.IpAddress, TraceId = actor.TraceId, CreatedAt = clock.GetUtcNow().UtcDateTime
+            }, ct);
+            await transaction.CommitAsync(ct);
+            return result;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // An aborted HTTP request is expected; preserve cancellation for the middleware.
+            logger?.LogDebug("Admin operation {Action} cancelled after {ElapsedMs} ms; trace {TraceId}.",
+                action, elapsed.ElapsedMilliseconds, actor.TraceId);
+            throw;
+        }
+        catch (Exception error)
+        {
+            logger?.LogError(error,
+                "Admin operation {Action} failed after {ElapsedMs} ms; target {TargetType}/{TargetId}; trace {TraceId}.",
+                action, elapsed.ElapsedMilliseconds, targetType, targetId, actor.TraceId);
+            throw;
+        }
     }
-
     private async Task EnrichAsync(IEnumerable<AdminAuditLogDto> items, IReadOnlyList<AdminAuditLog> entries, CancellationToken ct)
     {
         var contexts = await repository.GetDisplayContextsAsync(entries, ct);

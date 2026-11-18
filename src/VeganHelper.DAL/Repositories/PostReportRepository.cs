@@ -19,6 +19,9 @@ public sealed class PostReportRepository(AppDbContext db) : IPostReportRepositor
     {
         var q = db.Flags.AsNoTracking().Where(f => f.SourceType == "user" && f.PostId != null);
         if (status is not null) q = q.Where(f => f.Status == status);
+        // Deleted posts retain report evidence but no longer need a moderation decision.
+        if (status == "pending")
+            q = q.Where(f => db.Posts.Any(p => p.Id == f.PostId && !p.IsDeleted));
         if (postId.HasValue) q = q.Where(f => f.PostId == postId);
 
         return

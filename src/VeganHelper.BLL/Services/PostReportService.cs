@@ -78,7 +78,8 @@ public sealed class PostReportService(IPostReportRepository reports, IModeration
             if (post.IsDeleted && action != "dismiss") throw new ConflictException("Deleted posts cannot be restored or hidden. Dismiss the report to close it.");
             var report = await reports.FindAsync(id, true, token);
             if (report?.Status != "pending") throw new ConflictException("Report already reviewed.");
-            if (post.ContentRevision != request.ExpectedRevision) throw new ConflictException("Post changed. Reload before reviewing.");
+            // Deletion increments the revision; closing its report does not modify post content.
+            if (!post.IsDeleted && post.ContentRevision != request.ExpectedRevision) throw new ConflictException("Post changed. Reload before reviewing.");
             var now = clock.GetUtcNow().UtcDateTime; var reason = request.Reason.Trim();
             if (action == "dismiss")
             {

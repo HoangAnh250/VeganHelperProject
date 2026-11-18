@@ -112,9 +112,14 @@ public sealed class PostReportTests(Member2ApiFixture fixture)
             await db.Posts.Where(p => p.Id == post.Id).ExecuteUpdateAsync(s => s.SetProperty(p => p.IsDeleted, true)
                 .SetProperty(p => p.DeletedAt, DateTime.UtcNow).SetProperty(p => p.ContentRevision, 2));
         using var admin = AdminClient(await UserAsync(2));
+        var queue = await admin.GetFromJsonAsync<JsonElement>($"/api/admin/moderation/reports?status=pending&postId={post.Id}");
+        Assert.Empty(queue.GetProperty("items").EnumerateArray());
+        var unfilteredQueue = await admin.GetFromJsonAsync<JsonElement>("/api/admin/moderation/reports?status=pending&pageSize=100");
+        Assert.DoesNotContain(unfilteredQueue.GetProperty("items").EnumerateArray(), r => r.GetProperty("id").GetInt64() == id);
+        // Historical evidence remains accessible even though it is no longer actionable in the pending queue.
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/admin/moderation/reports/{id}")).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync($"/api/admin/moderation/reports/{id}/decision", new { action = "keep", reason = "Restore", expectedRevision = 2 })).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync($"/api/admin/moderation/reports/{id}/decision", new { action = "dismiss", reason = "Author deleted post", expectedRevision = 2 })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync($"/api/admin/moderation/reports/{id}/decision", new { action = "dismiss", reason = "Author deleted post", expectedRevision = 1 })).StatusCode);
     }
 
     [Fact]
