@@ -94,7 +94,7 @@ public sealed class AuthService(
         {
             var user = await repository.FindUserByEmailAsync(email, ct);
             if (user is not null && (user.IsActive || user.EmailVerifiedAt is not null || user.DeletedAt is not null))
-                return response;
+                return ServiceResult<MessageResponseDto>.Fail("Email is already registered.", 409);
 
             var now = DateTime.UtcNow;
             var recent = await repository.GetRegistrationChallengesAsync(email, now.AddHours(-1), OtpSendLimitPerHour, ct);
